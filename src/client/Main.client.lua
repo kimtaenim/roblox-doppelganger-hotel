@@ -192,14 +192,21 @@ maxSize(desk, 900, 520)
 
 local deskHeader = label(desk, {
 	Position = UDim2.fromScale(0.03, 0.02),
-	Size = UDim2.fromScale(0.94, 0.1),
+	Size = UDim2.fromScale(0.94, 0.08),
 	TextXAlignment = Enum.TextXAlignment.Left,
-}, 24)
+}, 22)
+local deskSpeech = label(desk, {
+	Position = UDim2.fromScale(0.03, 0.1),
+	Size = UDim2.fromScale(0.94, 0.07),
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Font = Enum.Font.Gotham,
+	TextColor3 = rgb(255, 230, 180),
+}, 20)
 
 -- 예약 사진 (폴라로이드)
 local photoCard = make("Frame", {
-	Position = UDim2.fromScale(0.03, 0.14),
-	Size = UDim2.fromScale(0.45, 0.63),
+	Position = UDim2.fromScale(0.03, 0.19),
+	Size = UDim2.fromScale(0.45, 0.59),
 	BackgroundColor3 = rgb(245, 240, 225),
 }, desk)
 round(photoCard, 6)
@@ -218,8 +225,8 @@ local photoCaption = label(photoCard, {
 
 -- CCTV 화면
 local cctvCard = make("Frame", {
-	Position = UDim2.fromScale(0.52, 0.14),
-	Size = UDim2.fromScale(0.45, 0.63),
+	Position = UDim2.fromScale(0.52, 0.19),
+	Size = UDim2.fromScale(0.45, 0.59),
 	BackgroundColor3 = rgb(10, 12, 10),
 }, desk)
 round(cctvCard, 6)
@@ -238,6 +245,18 @@ for i = 1, 12 do
 		BackgroundTransparency = 0.7,
 		BorderSizePixel = 0,
 		ZIndex = 3,
+	}, cctvCard)
+end
+-- CCTV 잡음 (모든 손님에게 가끔 생겨요)
+local staticBars = {}
+for i = 1, 4 do
+	staticBars[i] = make("Frame", {
+		Size = UDim2.new(0.94, 0, 0.04, 0),
+		BackgroundColor3 = rgb(220, 255, 220),
+		BackgroundTransparency = 0.4,
+		BorderSizePixel = 0,
+		Visible = false,
+		ZIndex = 5,
 	}, cctvCard)
 end
 label(cctvCard, {
@@ -319,6 +338,7 @@ local function showGuest(data)
 	currentGuestId = data.id
 	currentDay = data.day
 	deskHeader.Text = ("📋 체크인 · %s (%s) · 손님 %d/%d"):format(data.name, data.animalName, data.index, data.total)
+	deskSpeech.Text = ("💬 “%s”"):format(data.line or "...")
 	photoCaption.Text = ("예약 사진 · %s"):format(data.name)
 
 	-- 예약 사진: 얼굴이 잘 보이게 정면에서 찍어요.
@@ -335,11 +355,24 @@ local function showGuest(data)
 		photoMoveConnection = nil
 	end
 	if data.photoAnomaly == "moving" then
-		-- 사진인데 움직여요...!
+		-- 사진 속 머리가 천천히 돌아가다가 가끔 뚝! 하고 꺾여요.
+		local headGroup = photoModel:FindFirstChild("HeadGroup")
+		local base = headGroup and headGroup:GetPivot()
 		local t = 0
 		photoMoveConnection = RunService.RenderStepped:Connect(function(dt)
+			if not headGroup then
+				return
+			end
 			t += dt
-			photoModel:PivotTo(CFrame.Angles(0, math.sin(t * 1.7) * 0.35, math.sin(t * 2.3) * 0.06))
+			local yaw = math.sin(t * 0.8) * 0.25
+			local roll = 0
+			local cycle = t % 2.6
+			if cycle < 0.25 then
+				roll = math.rad(70) -- 뚝!
+			elseif cycle < 0.35 then
+				roll = math.rad(-25)
+			end
+			headGroup:PivotTo(base * CFrame.Angles(0, yaw, roll))
 		end)
 	end
 
@@ -379,6 +412,27 @@ task.spawn(function()
 		blink = not blink
 		recLabel.Visible = blink
 		timeLabel.Text = ("DAY %d  %s"):format(currentDay, os.date("%H:%M:%S"))
+	end
+end)
+
+-- CCTV 잡음: 가끔 화면이 지지직거려요.
+task.spawn(function()
+	while true do
+		task.wait(1.5 + math.random() * 3)
+		if desk.Visible then
+			for _ = 1, 6 do
+				for _, bar in ipairs(staticBars) do
+					bar.Visible = math.random() < 0.7
+					bar.Position = UDim2.new(0.03, 0, math.random() * 0.9, 0)
+				end
+				cctvView.ImageTransparency = math.random() * 0.4
+				task.wait(0.05)
+			end
+			for _, bar in ipairs(staticBars) do
+				bar.Visible = false
+			end
+			cctvView.ImageTransparency = 0
+		end
 	end
 end)
 
@@ -422,6 +476,8 @@ nightButton.Activated:Connect(function()
 	night.Visible = false
 	if nightMode == "next" then
 		Remotes.NextDay:FireServer()
+	elseif nightMode == "morning" then
+		Remotes.MorningOk:FireServer()
 	else
 		Remotes.BackToLobby:FireServer()
 	end
@@ -448,16 +504,17 @@ local function showNight(report)
 	else
 		table.insert(lines, "✨ 로비가 깨끗해요. 오늘은 무사히 지나갔어요!")
 	end
-	if report.caught > 0 then
-		table.insert(lines, ("🛑 막아낸 도플갱어: %d"):format(report.caught))
-	end
-	if report.missed > 0 then
-		table.insert(lines, ("😢 돌려보낸 평범한 손님: %d"):format(report.missed))
-	end
 	table.insert(lines, ("\n총 돈: %d · 희생자 %d/%d"):format(report.money, report.deaths, report.maxDeaths))
 
 	if report.gameOver then
 		table.insert(lines, "\n❌ 희생자가 너무 많아서 해고됐어요...")
+		for _, guest in ipairs(report.refused or {}) do
+			table.insert(lines, ("• 오늘 돌려보낸 %s(%s): %s"):format(
+				guest.name,
+				guest.animalName,
+				guest.isDoppel and "도플갱어였어요" or "평범한 손님이었어요"
+			))
+		end
 		nightMode = "lobby"
 		nightButton.Text = "로비로 돌아가기"
 		nightLobbyButton.Visible = false
@@ -468,6 +525,29 @@ local function showNight(report)
 	end
 	nightBody.Text = table.concat(lines, "\n")
 	nightButton.Visible = true
+end
+
+-- 아침 소식: 어제 셔터로 돌려보낸 손님이 누구였는지 알려줘요.
+local function showMorning(report)
+	nightTitle.Text = ("☀️ %d일차 아침 소식"):format(report.day)
+	local lines = { "어제 셔터로 돌려보낸 손님들의 정체가 밝혀졌어요.\n" }
+	local doppels, normals = 0, 0
+	for _, guest in ipairs(report.refused) do
+		if guest.isDoppel then
+			doppels += 1
+			table.insert(lines, ("👹 %s(%s) — 도플갱어였어요! 잘 막았어요."):format(guest.name, guest.animalName))
+		else
+			normals += 1
+			table.insert(lines, ("😢 %s(%s) — 평범한 손님이었어요."):format(guest.name, guest.animalName))
+		end
+	end
+	table.insert(lines, ("\n막아낸 도플갱어 %d명 · 잘못 돌려보낸 손님 %d명"):format(doppels, normals))
+	nightBody.Text = table.concat(lines, "\n")
+	nightMode = "morning"
+	nightButton.Text = "확인하고 문 열기"
+	nightButton.Visible = true
+	nightLobbyButton.Visible = false
+	night.Visible = true
 end
 
 ---------------------------------------------------------------- 서버에서 온 신호 처리
@@ -495,7 +575,7 @@ Remotes.State.OnClientEvent:Connect(function(state)
 	lobbyFrame.Visible = false
 	hud.Visible = true
 	currentDay = state.day
-	if state.phase == "Day" then
+	if state.phase == "Day" and nightMode ~= "morning" then
 		night.Visible = false
 	end
 
@@ -523,3 +603,4 @@ Remotes.Toast.OnClientEvent:Connect(function(message)
 end)
 
 Remotes.NightReport.OnClientEvent:Connect(showNight)
+Remotes.MorningReport.OnClientEvent:Connect(showMorning)

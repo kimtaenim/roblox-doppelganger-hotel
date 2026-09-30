@@ -26,10 +26,12 @@ local StateEvent = remote("State") -- 서버 → 화면: 몇 일차, 낮/밤, �
 local GuestArrived = remote("GuestArrived") -- 서버 → 화면: 손님이 프론트에 도착
 local Toast = remote("Toast") -- 서버 → 화면: 안내 메시지
 local NightReport = remote("NightReport") -- 서버 → 화면: 밤 결과
+local MorningReport = remote("MorningReport") -- 서버 → 화면: 어제 돌려보낸 손님의 정체
 local StartSolo = remote("StartSolo") -- 화면 → 서버: 혼자 시작
 local Decide = remote("Decide") -- 화면 → 서버: 예약 받기 / 셔터 닫기
 local NextDay = remote("NextDay") -- 화면 → 서버: 다음 날로
 local BackToLobby = remote("BackToLobby") -- 화면 → 서버: 로비로 돌아가기
+local MorningOk = remote("MorningOk") -- 화면 → 서버: 아침 소식 확인
 remotes.Parent = ReplicatedStorage
 
 ---------------------------------------------------------------- 월드 준비
@@ -123,6 +125,32 @@ local NAMES = {
 	"시우", "하린", "주원", "채원", "건우", "유나", "우진", "다은",
 }
 
+-- 손님 대사 (도플갱어도 똑같이 말해서 대사로는 구별할 수 없어요)
+local GREETINGS = {
+	"안녕하세요! 예약자 %s입니다. 체크인 부탁해요.",
+	"오늘 하룻밤 묵으려고요. 예약한 %s입니다.",
+	"먼 길 오느라 힘들었어요... 예약자 %s입니다.",
+	"방 준비됐나요? %s 이름으로 예약했어요.",
+	"안녕하세요~ 창가 쪽 방이면 좋겠어요. 예약자는 %s입니다.",
+}
+local THANKS = {
+	"감사합니다! 좋은 하루 되세요.",
+	"와, 로비 예쁘다! 올라가 볼게요.",
+	"고마워요. 엘리베이터는 저쪽이죠?",
+	"푹 쉬다 갈게요~",
+}
+local PROTESTS = {
+	"어? 왜 닫아요?!",
+	"저기요! 예약했다니까요!",
+	"잠깐만요... 문 좀 열어 주세요.",
+	"......",
+	"이런 호텔은 처음이네요!",
+}
+
+local function pick(list)
+	return list[math.random(#list)]
+end
+
 local function fire(s, event, payload)
 	for _, player in ipairs(s.players) do
 		if player.Parent then
@@ -212,7 +240,10 @@ local function runGuest(s, data)
 	s.currentGuest = data
 	s.decision = nil
 	local anomaly = data.anomaly
+	local greeting = pick(GREETINGS):format(data.name)
+	Npc.say(model, greeting, 6)
 	fire(s, GuestArrived, {
+		line = greeting,
 		id = data.id,
 		name = data.name,
 		animal = data.animal,
@@ -241,21 +272,16 @@ local function runGuest(s, data)
 		else
 			s.earned += Config.RoomPrice
 		end
+		Npc.say(model, pick(THANKS), 3)
 		fire(s, Toast, { text = "✅ 체크인 완료! " .. data.name .. " 님이 방으로 올라갔어요.", kind = "accept" })
 		Npc.walkTo(model, markers.Elevator.Position, Config.WalkSpeed)
 	else
+		-- 셔터로 돌려보낸 손님이 도플갱어였는지는 다음 날 아침에 알려줘요.
+		table.insert(s.refused, { name = data.name, animalName = data.animalName, isDoppel = data.isDoppel })
+		Npc.say(model, pick(PROTESTS), 3)
+		task.wait(0.8)
 		moveShutter(true)
-		if data.isDoppel then
-			s.caught += 1
-			fire(s, Toast, {
-				text = "🛑 쾅! 쾅! 쾅! 셔터 너머에서 무언가가 긁어대요... 도플갱어를 막았어요!",
-				kind = "caught",
-				shake = true,
-			})
-		else
-			s.missed += 1
-			fire(s, Toast, { text = "🛑 평범한 손님이었어요... 손님이 화가 나서 돌아갔어요.", kind = "missed" })
-		end
+		fire(s, Toast, { text = "🛑 셔터를 내렸어요. 누구였는지는 내일 아침에 알 수 있어요.", kind = "info" })
 		task.wait(2.5)
 		if s.active then
 			moveShutter(false)
@@ -270,8 +296,6 @@ local function runDay(s)
 	s.phase = "Day"
 	s.earned = 0
 	s.victims = {}
-	s.caught = 0
-	s.missed = 0
 	s.guestsTotal = Config.GuestsPerDay
 	s.guestIndex = 0
 
@@ -279,6 +303,18 @@ local function runDay(s)
 	setDaylight(true)
 	moveShutter(false)
 	sendState(s)
+
+	-- 아침 소식: 어제 셔터로 돌려보낸 손님의 정체
+	if #s.refused > 0 then
+		s.request = nil
+		fire(s, MorningReport, { day = s.day, refused = s.refused })
+		if not waitUntil(s, function()
+			return s.request == "morning"
+		end) then
+			return
+		end
+	end
+	s.refused = {}
 
 	if s.day <= Config.PracticeDays then
 		fire(s, Toast, { text = ("☀️ %d일차 아침! 첫날은 연습이에요. 도플갱어는 오지 않아요."):format(s.day), kind = "info" })
@@ -321,9 +357,8 @@ local function runNight(s)
 	fire(s, NightReport, {
 		day = s.day,
 		earned = s.earned,
-		caught = s.caught,
-		missed = s.missed,
 		victims = victimNames,
+		refused = gameOver and s.refused or nil, -- 게임이 끝나면 바로 정체를 알려줘요
 		money = s.money,
 		deaths = s.deaths,
 		maxDeaths = Config.MaxDeaths,
@@ -399,6 +434,7 @@ StartSolo.OnServerEvent:Connect(function(player)
 		guestIndex = 0,
 		guestsTotal = 0,
 		victims = {},
+		refused = {},
 	}
 	session = s
 	teleport(player, deskCFrame())
@@ -419,6 +455,13 @@ NextDay.OnServerEvent:Connect(function(player)
 	local s = sessionOf(player)
 	if s and s.phase == "Night" and not s.request then
 		s.request = "next"
+	end
+end)
+
+MorningOk.OnServerEvent:Connect(function(player)
+	local s = sessionOf(player)
+	if s and s.phase == "Day" and not s.request then
+		s.request = "morning"
 	end
 end)
 

@@ -39,6 +39,55 @@ function Npc.face(model, point)
 	model:PivotTo(CFrame.lookAt(position, Vector3.new(point.X, position.Y, point.Z)))
 end
 
+-- 머리 위에 말풍선을 띄워요. 새 대사를 하면 이전 말풍선은 사라져요.
+function Npc.say(model, text, duration)
+	local headGroup = model:FindFirstChild("HeadGroup")
+	local head = headGroup and headGroup.PrimaryPart
+	if not head then
+		return
+	end
+	local old = head:FindFirstChild("Speech")
+	if old then
+		old:Destroy()
+	end
+
+	local bubble = Instance.new("BillboardGui")
+	bubble.Name = "Speech"
+	bubble.Size = UDim2.fromOffset(280, 70)
+	bubble.StudsOffset = Vector3.new(0, 3.2, 0)
+	bubble.AlwaysOnTop = true
+	bubble.MaxDistance = 80
+	bubble.Parent = head
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextColor3 = Color3.fromRGB(20, 20, 20)
+	label.Font = Enum.Font.GothamBold
+	label.TextScaled = true
+	label.TextWrapped = true
+	label.Text = text
+	label.Parent = bubble
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 14)
+	corner.Parent = label
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, 10)
+	padding.PaddingRight = UDim.new(0, 10)
+	padding.PaddingTop = UDim.new(0, 6)
+	padding.PaddingBottom = UDim.new(0, 6)
+	padding.Parent = label
+	local size = Instance.new("UITextSizeConstraint")
+	size.MaxTextSize = 22
+	size.Parent = label
+
+	task.delay(duration or 4, function()
+		if bubble.Parent then
+			bubble:Destroy()
+		end
+	end)
+end
+
 -- 도플갱어에게 당한 손님의 사체를 바닥에 눕혀 놓아요.
 function Npc.spawnCorpse(data, position, parent)
 	local body = Animals.build(data, nil)
