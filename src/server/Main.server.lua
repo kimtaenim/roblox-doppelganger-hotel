@@ -1,2 +1,460 @@
--- 서버에서 실행되는 스크립트예요.
-print("[도플갱어 호텔] 서버가 시작됐어요!")
+-- 게임 전체 흐름을 담당하는 서버 스크립트예요.
+-- 로비 → (혼자 시작) → 낮: 손님 체크인 → 밤: 결과 확인 → 다음 날 ...
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Animals = require(Shared:WaitForChild("Animals"))
+local HotelBuilder = require(script.Parent:WaitForChild("HotelBuilder"))
+local Npc = require(script.Parent:WaitForChild("Npc"))
+
+local rgb = Color3.fromRGB
+
+---------------------------------------------------------------- 원격 이벤트 (서버 ↔ 화면)
+local remotes = Instance.new("Folder")
+remotes.Name = "Remotes"
+local function remote(name)
+	local event = Instance.new("RemoteEvent")
+	event.Name = name
+	event.Parent = remotes
+	return event
+end
+local StateEvent = remote("State") -- 서버 → 화면: 몇 일차, 낮/밤, 돈, 희생자
+local GuestArrived = remote("GuestArrived") -- 서버 → 화면: 손님이 프론트에 도착
+local Toast = remote("Toast") -- 서버 → 화면: 안내 메시지
+local NightReport = remote("NightReport") -- 서버 → 화면: 밤 결과
+local StartSolo = remote("StartSolo") -- 화면 → 서버: 혼자 시작
+local Decide = remote("Decide") -- 화면 → 서버: 예약 받기 / 셔터 닫기
+local NextDay = remote("NextDay") -- 화면 → 서버: 다음 날로
+local BackToLobby = remote("BackToLobby") -- 화면 → 서버: 로비로 돌아가기
+remotes.Parent = ReplicatedStorage
+
+---------------------------------------------------------------- 월드 준비
+local hotel = HotelBuilder.ensure()
+local markers = hotel:WaitForChild("Markers")
+local shutter = hotel:WaitForChild("Shutter")
+local lobbySpawn = workspace:FindFirstChild("LobbySpawn", true)
+
+local guestFolder = Instance.new("Folder")
+guestFolder.Name = "Guests"
+guestFolder.Parent = workspace
+local corpseFolder = Instance.new("Folder")
+corpseFolder.Name = "Corpses"
+corpseFolder.Parent = workspace
+
+local function setDaylight(isDay)
+	if isDay then
+		Lighting.ClockTime = 13
+		Lighting.Brightness = 2
+		Lighting.Ambient = rgb(110, 110, 110)
+		Lighting.OutdoorAmbient = rgb(128, 128, 128)
+		Lighting.FogEnd = 100000
+	else
+		Lighting.ClockTime = 0
+		Lighting.Brightness = 0.3
+		Lighting.Ambient = rgb(25, 25, 35)
+		Lighting.OutdoorAmbient = rgb(30, 30, 45)
+		Lighting.FogColor = rgb(10, 10, 20)
+		Lighting.FogEnd = 180
+	end
+
+	-- 밤에는 손님 구역 불이 꺼지고, 직원 구역만 어둑한 빨간 불이 남아요.
+	local lights = hotel:FindFirstChild("Lights")
+	if not lights then
+		return
+	end
+	for _, lamp in ipairs(lights:GetChildren()) do
+		local light = lamp:FindFirstChildOfClass("PointLight")
+		local zone = lamp:GetAttribute("Zone")
+		local on = isDay or zone == "Staff"
+		lamp.Material = on and Enum.Material.Neon or Enum.Material.SmoothPlastic
+		if light then
+			light.Enabled = on
+			light.Color = isDay and rgb(255, 235, 200) or rgb(255, 90, 70)
+			light.Brightness = isDay and 1.4 or 0.8
+		end
+	end
+end
+
+local function moveShutter(closed)
+	local target = markers:FindFirstChild(closed and "ShutterClosed" or "ShutterOpen")
+	local tween = TweenService:Create(
+		shutter,
+		TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{ CFrame = target.CFrame, Size = target.Size }
+	)
+	tween:Play()
+	tween.Completed:Wait()
+end
+
+local function deskCFrame()
+	local p = markers.DeskSpawn.Position
+	return CFrame.lookAt(p, p + Vector3.new(0, 0, -1))
+end
+
+local function lobbyCFrame()
+	return lobbySpawn.CFrame + Vector3.new(0, 4, 0)
+end
+
+local function teleport(player, cf)
+	local character = player.Character
+	if character then
+		character:PivotTo(cf)
+	end
+end
+
+local function randomPointIn(area)
+	local half = area.Size / 2
+	return area.Position + Vector3.new(math.random() * 2 - 1, 0, math.random() * 2 - 1) * Vector3.new(half.X, 0, half.Z)
+end
+
+setDaylight(true)
+
+---------------------------------------------------------------- 게임 진행 (세션)
+-- 지금은 서버에 게임 하나만 진행돼요. (players 목록은 나중에 4명 함께하기용)
+local session = nil
+local nextGuestId = 0
+
+local NAMES = {
+	"민준", "서연", "도윤", "하은", "지호", "수아", "예준", "지우",
+	"시우", "하린", "주원", "채원", "건우", "유나", "우진", "다은",
+}
+
+local function fire(s, event, payload)
+	for _, player in ipairs(s.players) do
+		if player.Parent then
+			event:FireClient(player, payload)
+		end
+	end
+end
+
+local function sendState(s)
+	fire(s, StateEvent, {
+		phase = s.phase,
+		day = s.day,
+		money = s.money,
+		deaths = s.deaths,
+		maxDeaths = Config.MaxDeaths,
+		guestIndex = s.guestIndex,
+		guestsTotal = s.guestsTotal,
+	})
+end
+
+-- 조건이 참이 될 때까지 기다려요. 도중에 게임이 끝나면 false 를 돌려줘요.
+local function waitUntil(s, check)
+	while s.active and not check() do
+		task.wait(0.1)
+	end
+	return s.active
+end
+
+local function makeGuestData(isDoppel)
+	nextGuestId += 1
+	local animal = Animals.List[math.random(#Animals.List)]
+	local def = Animals.Types[animal]
+	local data = {
+		id = nextGuestId,
+		name = NAMES[math.random(#NAMES)],
+		animal = animal,
+		animalName = def.name,
+		fur = def.furs[math.random(#def.furs)],
+		cloth = Animals.Clothes[math.random(#Animals.Clothes)],
+		isDoppel = isDoppel,
+	}
+	if isDoppel then
+		local kind = Animals.AnomalyKinds[math.random(#Animals.AnomalyKinds)]
+		local where = (kind == "moving" or math.random() < 0.5) and "photo" or "cctv"
+		data.anomaly = { kind = kind, where = where }
+	end
+	return data
+end
+
+-- 오늘 몇 번째 손님이 도플갱어인지 정해요.
+local function planDoppels(day, count)
+	local plan = {}
+	for i = 1, count do
+		plan[i] = false
+	end
+	if day <= Config.PracticeDays then
+		return plan
+	end
+	local chance = math.min(
+		Config.DoppelChanceMax,
+		Config.DoppelChanceStart + (day - Config.PracticeDays - 1) * Config.DoppelChancePerDay
+	)
+	local any = false
+	for i = 1, count do
+		plan[i] = math.random() < chance
+		any = any or plan[i]
+	end
+	if not any then
+		plan[math.random(count)] = true -- 하루에 최소 한 명은 와요
+	end
+	return plan
+end
+
+local function runGuest(s, data)
+	local model = Animals.build(data, nil) -- 직접 보면 멀쩡해 보여요!
+	model.Parent = guestFolder
+	s.guestModel = model
+	model:PivotTo(CFrame.new(markers.GuestSpawn.Position))
+
+	Npc.walkTo(model, markers.Door.Position, Config.WalkSpeed)
+	Npc.walkTo(model, markers.Counter.Position, Config.WalkSpeed)
+	if not s.active then
+		return
+	end
+	Npc.face(model, markers.DeskSpawn.Position)
+
+	s.currentGuest = data
+	s.decision = nil
+	local anomaly = data.anomaly
+	fire(s, GuestArrived, {
+		id = data.id,
+		name = data.name,
+		animal = data.animal,
+		animalName = data.animalName,
+		fur = data.fur,
+		cloth = data.cloth,
+		photoAnomaly = anomaly and anomaly.where == "photo" and anomaly.kind or nil,
+		cctvAnomaly = anomaly and anomaly.where == "cctv" and anomaly.kind or nil,
+		index = s.guestIndex,
+		total = s.guestsTotal,
+		day = s.day,
+	})
+
+	if not waitUntil(s, function()
+		return s.decision ~= nil
+	end) then
+		return
+	end
+	local choice = s.decision
+	s.currentGuest = nil
+
+	if choice == "accept" then
+		-- 도플갱어를 받아도 지금은 티가 안 나요. 밤이 되면 알게 돼요...
+		if data.isDoppel then
+			table.insert(s.victims, data)
+		else
+			s.earned += Config.RoomPrice
+		end
+		fire(s, Toast, { text = "✅ 체크인 완료! " .. data.name .. " 님이 방으로 올라갔어요.", kind = "accept" })
+		Npc.walkTo(model, markers.Elevator.Position, Config.WalkSpeed)
+	else
+		moveShutter(true)
+		if data.isDoppel then
+			s.caught += 1
+			fire(s, Toast, {
+				text = "🛑 쾅! 쾅! 쾅! 셔터 너머에서 무언가가 긁어대요... 도플갱어를 막았어요!",
+				kind = "caught",
+				shake = true,
+			})
+		else
+			s.missed += 1
+			fire(s, Toast, { text = "🛑 평범한 손님이었어요... 손님이 화가 나서 돌아갔어요.", kind = "missed" })
+		end
+		task.wait(2.5)
+		if s.active then
+			moveShutter(false)
+		end
+	end
+
+	model:Destroy()
+	s.guestModel = nil
+end
+
+local function runDay(s)
+	s.phase = "Day"
+	s.earned = 0
+	s.victims = {}
+	s.caught = 0
+	s.missed = 0
+	s.guestsTotal = Config.GuestsPerDay
+	s.guestIndex = 0
+
+	corpseFolder:ClearAllChildren() -- 밤사이 청소 완료
+	setDaylight(true)
+	moveShutter(false)
+	sendState(s)
+
+	if s.day <= Config.PracticeDays then
+		fire(s, Toast, { text = ("☀️ %d일차 아침! 첫날은 연습이에요. 도플갱어는 오지 않아요."):format(s.day), kind = "info" })
+	else
+		fire(s, Toast, {
+			text = ("☀️ %d일차 아침... 오늘은 도플갱어가 찾아올 거예요. 사진과 CCTV를 꼼꼼히 보세요!"):format(s.day),
+			kind = "warn",
+		})
+	end
+	task.wait(3)
+
+	local plan = planDoppels(s.day, s.guestsTotal)
+	for i = 1, s.guestsTotal do
+		if not s.active then
+			return
+		end
+		s.guestIndex = i
+		sendState(s)
+		runGuest(s, makeGuestData(plan[i]))
+		task.wait(1)
+	end
+end
+
+-- 밤: 직원이 퇴근하고, 도플갱어가 있었다면 사체가 남아요. 게임 오버면 true.
+local function runNight(s)
+	s.phase = "Night"
+	s.money += s.earned
+	s.deaths += #s.victims
+	setDaylight(false)
+
+	local area = markers.CorpseArea
+	local victimNames = {}
+	for _, victim in ipairs(s.victims) do
+		Npc.spawnCorpse(victim, randomPointIn(area), corpseFolder)
+		table.insert(victimNames, ("%s(%s)"):format(victim.name, victim.animalName))
+	end
+
+	sendState(s)
+	local gameOver = s.deaths >= Config.MaxDeaths
+	fire(s, NightReport, {
+		day = s.day,
+		earned = s.earned,
+		caught = s.caught,
+		missed = s.missed,
+		victims = victimNames,
+		money = s.money,
+		deaths = s.deaths,
+		maxDeaths = Config.MaxDeaths,
+		gameOver = gameOver,
+	})
+	return gameOver
+end
+
+local function endSession(s)
+	if not s.active then
+		return
+	end
+	s.active = false
+	guestFolder:ClearAllChildren()
+	corpseFolder:ClearAllChildren()
+	setDaylight(true)
+	task.spawn(moveShutter, false)
+	for _, player in ipairs(s.players) do
+		if player.Parent then
+			teleport(player, lobbyCFrame())
+			StateEvent:FireClient(player, { phase = "Lobby" })
+		end
+	end
+	if session == s then
+		session = nil
+	end
+end
+
+local function runGame(s)
+	while s.active do
+		runDay(s)
+		if not s.active then
+			break
+		end
+		local gameOver = runNight(s)
+		s.request = nil
+		if not waitUntil(s, function()
+			return s.request ~= nil
+		end) then
+			break
+		end
+		if gameOver or s.request == "lobby" then
+			endSession(s)
+			break
+		end
+		s.day += 1
+	end
+end
+
+---------------------------------------------------------------- 화면에서 온 요청 처리
+local function sessionOf(player)
+	if session and table.find(session.players, player) then
+		return session
+	end
+	return nil
+end
+
+StartSolo.OnServerEvent:Connect(function(player)
+	if session then
+		Toast:FireClient(player, {
+			text = "지금은 다른 사람이 호텔에서 일하고 있어요. 잠시 후 다시 눌러 주세요.",
+			kind = "info",
+		})
+		return
+	end
+	local s = {
+		active = true,
+		players = { player },
+		phase = "Day",
+		day = 1,
+		money = 0,
+		deaths = 0,
+		guestIndex = 0,
+		guestsTotal = 0,
+		victims = {},
+	}
+	session = s
+	teleport(player, deskCFrame())
+	task.spawn(runGame, s)
+end)
+
+Decide.OnServerEvent:Connect(function(player, guestId, choice)
+	local s = sessionOf(player)
+	if not s or not s.currentGuest or s.currentGuest.id ~= guestId or s.decision then
+		return
+	end
+	if choice == "accept" or choice == "shutter" then
+		s.decision = choice
+	end
+end)
+
+NextDay.OnServerEvent:Connect(function(player)
+	local s = sessionOf(player)
+	if s and s.phase == "Night" and not s.request then
+		s.request = "next"
+	end
+end)
+
+BackToLobby.OnServerEvent:Connect(function(player)
+	local s = sessionOf(player)
+	if s and s.phase == "Night" and not s.request then
+		s.request = "lobby"
+	end
+end)
+
+---------------------------------------------------------------- 플레이어 입장/퇴장
+local function onPlayerAdded(player)
+	player.CharacterAdded:Connect(function(character)
+		-- 게임 중에 캐릭터가 다시 생기면 프론트로 돌려보내요.
+		if sessionOf(player) then
+			character:WaitForChild("HumanoidRootPart")
+			task.wait(0.1)
+			character:PivotTo(deskCFrame())
+		end
+	end)
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
+for _, player in ipairs(Players:GetPlayers()) do
+	onPlayerAdded(player)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	local s = sessionOf(player)
+	if not s then
+		return
+	end
+	table.remove(s.players, table.find(s.players, player))
+	if #s.players == 0 then
+		endSession(s)
+	end
+end)
+
+print("[도플갱어 호텔] 서버 준비 완료!")
