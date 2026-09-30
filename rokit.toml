@@ -1,0 +1,3 @@
+# 이 게임에서 쓰는 도구 목록 (rokit install 로 설치돼요)
+[tools]
+rojo = "rojo-rbx/rojo@7.4.4"
