@@ -1,0 +1,5 @@
+# Studio에서 저장한 로컬 place 파일
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
