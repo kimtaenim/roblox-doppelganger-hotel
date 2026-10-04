@@ -257,13 +257,13 @@ local photoInfo = label(photoBody, {
 	TextYAlignment = Enum.TextYAlignment.Top,
 }, 15)
 
--- 창 2: CCTV (오른쪽 아래)
+-- 창 2: CCTV (왼쪽 위, Roblox 메뉴 버튼 아래)
 local _, cctvBody = window("CCTV · CAM 01 · 프론트", rgb(140, 255, 140), rgb(15, 15, 15), rgb(45, 45, 45), {
-	AnchorPoint = Vector2.new(1, 1),
-	Position = UDim2.new(1, -16, 1, -16),
-	Size = UDim2.fromScale(0.32, 0.5),
+	AnchorPoint = Vector2.new(0, 0),
+	Position = UDim2.new(0, 16, 0, 70),
+	Size = UDim2.fromScale(0.3, 0.36),
 })
-maxSize(cctvBody.Parent, 400, 330)
+maxSize(cctvBody.Parent, 380, 290)
 local cctvCard = make("Frame", {
 	Size = UDim2.fromScale(1, 1),
 	BackgroundColor3 = rgb(10, 12, 10),
