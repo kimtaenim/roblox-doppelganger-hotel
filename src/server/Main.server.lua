@@ -47,6 +47,27 @@ local corpseFolder = Instance.new("Folder")
 corpseFolder.Name = "Corpses"
 corpseFolder.Parent = workspace
 
+-- 후처리 효과: 불빛 번짐(Bloom), 먼 곳 흐림(DepthOfField), 공기 속 안개(Atmosphere)
+local function effect(className, name, props)
+	local inst = Lighting:FindFirstChild(name) or Instance.new(className)
+	inst.Name = name
+	for key, value in pairs(props) do
+		inst[key] = value
+	end
+	inst.Parent = Lighting
+	return inst
+end
+effect("BloomEffect", "HotelBloom", { Intensity = 0.7, Size = 28, Threshold = 1.1 })
+effect("DepthOfFieldEffect", "HotelFocus", { FarIntensity = 0.3, FocusDistance = 25, InFocusRadius = 35, NearIntensity = 0 })
+effect("Atmosphere", "HotelAir", {
+	Density = 0.38,
+	Offset = 0.1,
+	Color = rgb(70, 60, 70),
+	Decay = rgb(40, 30, 40),
+	Glare = 0,
+	Haze = 2,
+})
+
 -- 은은한 색감 보정 (살짝 바랜 색, 따뜻한 톤)
 local grade = Lighting:FindFirstChild("HotelGrade") or Instance.new("ColorCorrectionEffect")
 grade.Name = "HotelGrade"
@@ -60,7 +81,7 @@ grade.Parent = Lighting
 local function setDaylight(isDay)
 	Lighting.ClockTime = isDay and 19.6 or 2
 	Lighting.Brightness = isDay and 0.8 or 0.2
-	Lighting.Ambient = isDay and rgb(48, 42, 38) or rgb(14, 13, 20)
+	Lighting.Ambient = isDay and rgb(34, 29, 26) or rgb(12, 11, 18)
 	Lighting.OutdoorAmbient = isDay and rgb(60, 58, 75) or rgb(25, 25, 40)
 	Lighting.FogColor = isDay and rgb(30, 28, 35) or rgb(8, 8, 15)
 	Lighting.FogEnd = isDay and 400 or 160
@@ -82,7 +103,7 @@ local function setDaylight(isDay)
 			if lamp:GetAttribute("Glow") then
 				lamp.Material = on and Enum.Material.Neon or Enum.Material.SmoothPlastic
 			end
-			local light = lamp:FindFirstChildOfClass("PointLight")
+			local light = lamp:FindFirstChildWhichIsA("Light") -- PointLight, SpotLight 모두
 			if light then
 				if light:GetAttribute("BaseBrightness") == nil then
 					light:SetAttribute("BaseBrightness", light.Brightness)

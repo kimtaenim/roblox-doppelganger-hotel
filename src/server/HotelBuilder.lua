@@ -69,11 +69,20 @@ local function lamp(parent, pos, zone)
 end
 
 -- cf 의 -Z 방향이 바깥쪽이에요.
+local windowRandom = Random.new(42)
 local function window(parent, cf)
-	part(parent, "WindowFrame", V(6.6, 6.6, 0.3), cf * CFrame.new(0, 0, -0.15), rgb(70, 70, 75))
-	part(parent, "WindowGlass", V(6, 6, 0.2), cf * CFrame.new(0, 0, -0.3), rgb(150, 200, 230), Enum.Material.Glass, {
-		Transparency = 0.2,
-		Reflectance = 0.2,
+	part(parent, "WindowFrame", V(6.6, 6.6, 0.3), cf * CFrame.new(0, 0, -0.15), rgb(40, 32, 28))
+	-- 불 켜진 방(따뜻한 빛), 아주 가끔 빨간 방, 나머지는 캄캄한 방
+	local roll = windowRandom:NextNumber()
+	local color, material, transparency = rgb(35, 40, 55), Enum.Material.Glass, 0.1
+	if roll < 0.06 then
+		color, material, transparency = rgb(150, 20, 20), Enum.Material.Neon, 0.5
+	elseif roll < 0.45 then
+		color, material, transparency = rgb(255, 185, 110), Enum.Material.Neon, 0.55
+	end
+	part(parent, "WindowGlass", V(6, 6, 0.2), cf * CFrame.new(0, 0, -0.3), color, material, {
+		Transparency = transparency,
+		Reflectance = material == Enum.Material.Glass and 0.3 or 0,
 	})
 end
 
@@ -91,7 +100,44 @@ local function buildGround()
 	part(ground, "Grass", V(800, 1, 800), V(0, -0.5, 0), rgb(90, 150, 70), Enum.Material.Grass)
 	part(ground, "Road", V(800, 0.1, 24), V(0, 0.05, -62), rgb(45, 45, 50), Enum.Material.Asphalt)
 	part(ground, "Sidewalk", V(800, 0.2, 10), V(0, 0.1, -45), rgb(185, 185, 180), Enum.Material.Concrete)
-	part(ground, "Path", V(12, 0.2, 20), V(0, 0.1, -30), rgb(200, 195, 185), Enum.Material.Slate)
+	part(ground, "Path", V(12, 0.2, 20), V(0, 0.1, -30), rgb(60, 55, 52), Enum.Material.Slate)
+
+	-- 입구까지 이어지는 빨간 카펫과 놋쇠 기둥, 벨벳 줄
+	part(ground, "EntranceCarpet", V(5, 0.06, 20), V(0, 0.23, -30), rgb(110, 20, 25), Enum.Material.Fabric)
+	for _, x in ipairs({ -3.4, 3.4 }) do
+		local previous
+		for z = -38, -22, 4 do
+			local post = part(ground, "Stanchion", V(3, 0.25, 0.25), CFrame.new(x, 1.7, z) * CFrame.Angles(0, 0, math.rad(90)), rgb(196, 156, 84), Enum.Material.Metal, {
+				Shape = Enum.PartType.Cylinder,
+				CanCollide = false,
+			})
+			part(ground, "StanchionTop", V(0.5, 0.5, 0.5), V(x, 3.3, z), rgb(196, 156, 84), Enum.Material.Metal, {
+				Shape = Enum.PartType.Ball,
+				CanCollide = false,
+			})
+			if previous then
+				part(ground, "VelvetRope", V(0.18, 0.18, 4), V(x, 2.6, z - 2), rgb(120, 15, 25), Enum.Material.Fabric, {
+					CanCollide = false,
+				})
+			end
+			previous = post
+		end
+	end
+
+	-- 가로등
+	for _, x in ipairs({ -45, -22, 22, 45 }) do
+		part(ground, "LampPost", V(0.4, 10, 0.4), V(x, 5, -40.6), rgb(20, 20, 22), Enum.Material.Metal)
+		part(ground, "LampArm", V(0.2, 0.2, 1.6), V(x, 10, -40), rgb(20, 20, 22), Enum.Material.Metal)
+		local bulb = part(ground, "LampGlow", V(0.7, 1, 0.7), V(x, 9.4, -39.4), rgb(255, 200, 130), Enum.Material.Neon, {
+			CanCollide = false,
+		})
+		local glow = Instance.new("PointLight")
+		glow.Range = 26
+		glow.Brightness = 1.1
+		glow.Color = rgb(255, 190, 120)
+		glow.Shadows = true
+		glow.Parent = bulb
+	end
 	ground.Parent = workspace
 end
 

@@ -12,6 +12,14 @@ local player = Players.LocalPlayer
 local rgb = Color3.fromRGB
 local WHITE = rgb(255, 255, 255)
 
+-- 고급 호텔 톤: 에스프레소 갈색 바탕, 놋쇠 테두리, 크림색 글자
+local ESPRESSO = rgb(24, 17, 13)
+local BRASS = rgb(196, 156, 84)
+local CREAM = rgb(236, 222, 192)
+local OXBLOOD = rgb(112, 24, 24)
+local BOTTLE = rgb(38, 72, 52)
+local SERIF = Enum.Font.Garamond
+
 ---------------------------------------------------------------- UI 도우미
 local function make(className, props, parent)
 	local inst = Instance.new(className)
@@ -71,25 +79,68 @@ local gui = make("ScreenGui", {
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, player:WaitForChild("PlayerGui"))
 
+-- 비네트: 화면 가장자리를 어둡게 해서 음산한 느낌을 줘요.
+do
+	local vignette = make("Frame", {
+		Name = "Vignette",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 0,
+	}, gui)
+	local edges = {
+		{ UDim2.fromScale(0.22, 1), UDim2.fromScale(0, 0), 0 },
+		{ UDim2.fromScale(0.22, 1), UDim2.fromScale(0.78, 0), 180 },
+		{ UDim2.fromScale(1, 0.25), UDim2.fromScale(0, 0), 90 },
+		{ UDim2.fromScale(1, 0.25), UDim2.fromScale(0, 0.75), 270 },
+	}
+	for _, edge in ipairs(edges) do
+		local frame = make("Frame", {
+			Size = edge[1],
+			Position = edge[2],
+			BackgroundColor3 = rgb(0, 0, 0),
+			BorderSizePixel = 0,
+			ZIndex = 0,
+		}, vignette)
+		make("UIGradient", {
+			Rotation = edge[3],
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.35),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+		}, frame)
+	end
+end
+
+local function brassFrame(inst, thickness)
+	make("UIStroke", { Color = BRASS, Thickness = thickness or 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, inst)
+end
+
 ---------------------------------------------------------------- 로비 화면
 local lobbyFrame = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.5),
 	Size = UDim2.fromScale(0.9, 0.7),
-	BackgroundColor3 = rgb(25, 20, 35),
-	BackgroundTransparency = 0.05,
+	BackgroundColor3 = ESPRESSO,
+	BackgroundTransparency = 0.04,
 }, gui)
-round(lobbyFrame, 16)
+round(lobbyFrame, 6)
 maxSize(lobbyFrame, 560, 470)
-make("UIStroke", { Color = rgb(200, 60, 60), Thickness = 2 }, lobbyFrame)
+brassFrame(lobbyFrame, 2)
 
 label(lobbyFrame, {
-	Text = "🏨 도플갱어 호텔",
-	Font = Enum.Font.GothamBlack,
-	TextColor3 = rgb(255, 90, 90),
+	Text = "DOPPELGANGER HOTEL",
+	Font = SERIF,
+	TextColor3 = BRASS,
 	Position = UDim2.fromScale(0.05, 0.04),
-	Size = UDim2.fromScale(0.9, 0.14),
-}, 44)
+	Size = UDim2.fromScale(0.9, 0.1),
+}, 36)
+label(lobbyFrame, {
+	Text = "— 도플갱어 호텔 · 야간 프론트 —",
+	Font = SERIF,
+	TextColor3 = rgb(170, 60, 55),
+	Position = UDim2.fromScale(0.05, 0.135),
+	Size = UDim2.fromScale(0.9, 0.06),
+}, 18)
 
 label(lobbyFrame, {
 	Text = "당신은 호텔 프론트 직원이에요.\n\n"
@@ -99,55 +150,60 @@ label(lobbyFrame, {
 		.. "• 첫날은 연습이에요. 둘째 날부터 도플갱어가 와요\n"
 		.. "• 희생자가 3명이 되면 해고돼요",
 	Font = Enum.Font.Gotham,
+	TextColor3 = CREAM,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	TextYAlignment = Enum.TextYAlignment.Top,
 	Position = UDim2.fromScale(0.07, 0.21),
 	Size = UDim2.fromScale(0.86, 0.43),
 }, 18)
 
-local soloButton = button(lobbyFrame, "혼자 시작", rgb(60, 170, 90), {
+local soloButton = button(lobbyFrame, "혼자 시작", BRASS, {
 	Position = UDim2.fromScale(0.1, 0.67),
 	Size = UDim2.fromScale(0.8, 0.14),
-}, 30)
+	TextColor3 = ESPRESSO,
+}, 28)
 
-button(lobbyFrame, "친구와 함께 (최대 4명) · 준비 중", rgb(90, 90, 100), {
+local partyButton = button(lobbyFrame, "친구와 함께 (최대 4명) · 준비 중", rgb(45, 36, 30), {
 	Position = UDim2.fromScale(0.1, 0.84),
 	Size = UDim2.fromScale(0.8, 0.1),
 	AutoButtonColor = false,
-	TextColor3 = rgb(190, 190, 190),
-}, 18)
+	TextColor3 = rgb(140, 125, 105),
+}, 16)
+brassFrame(partyButton, 1)
 
 ---------------------------------------------------------------- 위쪽 상태 표시
 local hud = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.new(0.5, 0, 0, 64),
 	Size = UDim2.new(0.9, 0, 0, 40),
-	BackgroundColor3 = rgb(20, 20, 30),
-	BackgroundTransparency = 0.2,
+	BackgroundColor3 = ESPRESSO,
+	BackgroundTransparency = 0.15,
 	Visible = false,
 }, gui)
-round(hud, 20)
+round(hud, 4)
 maxSize(hud, 620, 40)
-local hudText = label(hud, { Size = UDim2.fromScale(1, 1) }, 20)
+brassFrame(hud, 1)
+local hudText = label(hud, { Size = UDim2.fromScale(1, 1), TextColor3 = CREAM, Font = SERIF }, 20)
 
 ---------------------------------------------------------------- 안내 메시지 (토스트)
 local toast = label(gui, {
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.new(0.5, 0, 0, 112),
 	Size = UDim2.new(0.9, 0, 0, 56),
-	BackgroundTransparency = 0.15,
-	BackgroundColor3 = rgb(15, 15, 25),
+	BackgroundTransparency = 0.12,
+	BackgroundColor3 = ESPRESSO,
 	Visible = false,
-}, 22)
-round(toast, 12)
+}, 20)
+round(toast, 4)
 maxSize(toast, 760, 56)
+brassFrame(toast, 1)
 
 local TOAST_COLORS = {
-	accept = rgb(140, 255, 160),
-	caught = rgb(255, 170, 80),
-	missed = rgb(200, 200, 200),
-	warn = rgb(255, 120, 120),
-	info = WHITE,
+	accept = rgb(170, 220, 170),
+	caught = rgb(230, 170, 90),
+	missed = rgb(190, 180, 165),
+	warn = rgb(220, 110, 100),
+	info = CREAM,
 }
 local toastToken = 0
 local function showToast(text, kind)
@@ -199,7 +255,7 @@ local function window(title, titleColor, barColor, bodyColor, props)
 		frame[key] = value
 	end
 	round(frame, 8)
-	make("UIStroke", { Color = rgb(20, 15, 10), Thickness = 2 }, frame)
+	brassFrame(frame, 1.5)
 	local bar = make("Frame", {
 		Size = UDim2.new(1, 0, 0, 28),
 		BackgroundColor3 = barColor,
@@ -331,18 +387,19 @@ local actionBar = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, -16),
 	Size = UDim2.new(0.33, 0, 0, 104),
-	BackgroundColor3 = rgb(28, 22, 18),
+	BackgroundColor3 = ESPRESSO,
 	BackgroundTransparency = 0.05,
 }, desk)
-round(actionBar, 10)
+round(actionBar, 4)
 maxSize(actionBar, 440, 104)
 make("UIStroke", { Color = rgb(176, 136, 66), Thickness = 1 }, actionBar)
 local deskHeader = label(actionBar, {
 	Position = UDim2.new(0, 10, 0, 6),
 	Size = UDim2.new(1, -20, 0, 18),
-	TextColor3 = rgb(200, 170, 120),
+	TextColor3 = BRASS,
+	Font = SERIF,
 	TextXAlignment = Enum.TextXAlignment.Left,
-}, 14)
+}, 15)
 local deskSpeech = label(actionBar, {
 	Position = UDim2.new(0, 10, 0, 24),
 	Size = UDim2.new(1, -20, 0, 30),
@@ -350,11 +407,13 @@ local deskSpeech = label(actionBar, {
 	TextColor3 = rgb(255, 235, 200),
 	TextXAlignment = Enum.TextXAlignment.Left,
 }, 15)
-local acceptButton = button(actionBar, "예약 받기", rgb(60, 130, 80), {
+local acceptButton = button(actionBar, "예약 받기", BOTTLE, {
+	TextColor3 = CREAM,
 	Position = UDim2.new(0, 10, 1, -44),
 	Size = UDim2.new(0.5, -15, 0, 36),
 }, 18)
-local shutterButton = button(actionBar, "셔터 닫기", rgb(160, 40, 40), {
+local shutterButton = button(actionBar, "셔터 닫기", OXBLOOD, {
+	TextColor3 = CREAM,
 	Position = UDim2.new(0.5, 5, 1, -44),
 	Size = UDim2.new(0.5, -15, 0, 36),
 }, 18)
@@ -504,31 +563,35 @@ local night = make("Frame", {
 	AnchorPoint = Vector2.new(1, 0.5),
 	Position = UDim2.new(1, -16, 0.5, 0),
 	Size = UDim2.fromScale(0.45, 0.62),
-	BackgroundColor3 = rgb(15, 12, 25),
-	BackgroundTransparency = 0.08,
+	BackgroundColor3 = rgb(14, 10, 10),
+	BackgroundTransparency = 0.06,
 	Visible = false,
 }, gui)
-round(night, 16)
+round(night, 6)
 make("UISizeConstraint", { MaxSize = Vector2.new(420, 460), MinSize = Vector2.new(260, 300) }, night)
-make("UIStroke", { Color = rgb(120, 60, 160), Thickness = 2 }, night)
+make("UIStroke", { Color = rgb(120, 30, 30), Thickness = 2 }, night)
 
 local nightTitle = label(night, {
-	Font = Enum.Font.GothamBlack,
+	Font = SERIF,
+	TextColor3 = rgb(200, 80, 70),
 	Position = UDim2.fromScale(0.06, 0.04),
 	Size = UDim2.fromScale(0.88, 0.12),
 }, 32)
 local nightBody = label(night, {
 	Font = Enum.Font.Gotham,
+	TextColor3 = CREAM,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	TextYAlignment = Enum.TextYAlignment.Top,
 	Position = UDim2.fromScale(0.06, 0.19),
 	Size = UDim2.fromScale(0.88, 0.52),
 }, 18)
-local nightButton = button(night, "", rgb(70, 110, 200), {
+local nightButton = button(night, "", BRASS, {
+	TextColor3 = ESPRESSO,
 	Position = UDim2.fromScale(0.08, 0.73),
 	Size = UDim2.fromScale(0.84, 0.12),
 })
-local nightLobbyButton = button(night, "그만하고 로비로", rgb(80, 80, 90), {
+local nightLobbyButton = button(night, "그만하고 로비로", rgb(45, 36, 30), {
+	TextColor3 = rgb(170, 150, 125),
 	Position = UDim2.fromScale(0.2, 0.87),
 	Size = UDim2.fromScale(0.6, 0.08),
 }, 16)

@@ -205,7 +205,15 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 	for _, x in ipairs({ -17, 17 }) do
 		D(interior, "WindowSill", V(11, 0.4, 0.9), V(x, 5.0, -18.6), rgb(220, 215, 205), Mat.Marble)
 		D(interior, "WindowFrame", V(10.6, 7.6, 0.2), V(x, 8.7, -18.75), rgb(35, 40, 40), Mat.Metal)
-		D(interior, "WindowPane", V(10, 7, 0.1), V(x, 8.7, -18.6), rgb(200, 212, 218), Mat.Glass, { Transparency = 0.1 })
+		-- 달빛이 들어오는 창: 푸르스름하게 빛나고, 방 안으로 차가운 빛을 비춰요.
+		local pane = D(interior, "WindowPane", V(10, 7, 0.1), V(x, 8.7, -18.6), rgb(70, 90, 130), Mat.Neon, { Transparency = 0.35 })
+		local moon = Instance.new("SurfaceLight")
+		moon.Face = Enum.NormalId.Back
+		moon.Range = 18
+		moon.Angle = 70
+		moon.Brightness = 1.2
+		moon.Color = rgb(120, 140, 200)
+		moon.Parent = pane
 		for dx = -4, 4, 2 do
 			D(interior, "Mullion", V(0.15, 7, 0.15), V(x + dx, 8.7, -18.5), rgb(35, 40, 40), Mat.Metal)
 		end
@@ -575,6 +583,110 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 	local camPos = V(22, 12.4, -18)
 	local cam = D(interior, "CCTVCamera", V(1, 1, 2), CFrame.lookAt(camPos, V(0, 4, 0)), rgb(40, 40, 45))
 	D(interior, "CCTVLight", V(0.2, 0.2, 0.2), cam.CFrame * CFrame.new(0.3, 0.4, -1), rgb(255, 0, 0), Mat.Neon)
+
+	------------------------------------------------ 분위기 디테일 (고급스럽고 음산하게)
+	-- 격자 천장 (세로 들보를 더해서 우물 모양 천장)
+	for x = -24, 24, 8 do
+		D(interior, "BeamZ", V(0.6, 0.5, 39), V(x, 13.0, 0), WOOD_DARK, Mat.Wood)
+	end
+
+	-- 창문 양옆 와인색 벨벳 커튼과 놋쇠 커튼봉
+	for _, x in ipairs({ -17, 17 }) do
+		D(interior, "CurtainRod", V(13, 0.15, 0.15), V(x, 12.45, -18.2), BRASS, Mat.Metal)
+		for _, side in ipairs({ -1, 1 }) do
+			for fold = 0, 2 do
+				D(
+					interior,
+					"Curtain",
+					V(0.7, 8.4, 0.35),
+					CFrame.new(x + side * (5.7 + fold * 0.45), 8.2, -18.3 + (fold % 2) * 0.12) * CFrame.Angles(0, 0, side * 0.03 * fold),
+					rgb(85, 14, 20),
+					Mat.Fabric
+				)
+			end
+			D(interior, "CurtainTie", V(1.6, 0.2, 0.5), V(x + side * 6.1, 6.0, -18.2), BRASS, Mat.Metal)
+		end
+	end
+
+	-- 안락의자 옆 갓 씌운 스탠드 (어둠 속 따뜻한 빛 웅덩이)
+	vcyl(interior, "FloorLampBase", 0.2, 1.4, V(-12, 0.5, -15.2), BRASS, Mat.Metal)
+	vcyl(interior, "FloorLampPole", 6, 0.15, V(-12, 3.5, -15.2), BRASS, Mat.Metal)
+	local shade = vcyl(lights, "LampShade", 1.4, 1.9, V(-12, 6.9, -15.2), rgb(225, 205, 170), Mat.Fabric)
+	shade.Transparency = 0.1
+	light(shade, 14, 1.2, rgb(255, 200, 140), "Guest")
+
+	-- 카운터 끝 초록 갓 은행원 스탠드
+	D(interior, "BankerBase", V(0.8, 0.15, 0.5), V(11.5, 4.88, 5.6), BRASS, Mat.Metal)
+	D(interior, "BankerStem", V(0.1, 0.9, 0.1), V(11.5, 5.4, 5.7), BRASS, Mat.Metal)
+	local banker = cyl(lights, "BankerShade", 1.4, 0.6, CFrame.new(11.5, 5.95, 5.6), rgb(30, 100, 60), Mat.Glass)
+	banker.Transparency = 0.15
+	banker:SetAttribute("Zone", "Guest")
+	local bankerLight = Instance.new("SpotLight")
+	bankerLight.Face = Enum.NormalId.Bottom
+	bankerLight.Range = 8
+	bankerLight.Angle = 100
+	bankerLight.Brightness = 2
+	bankerLight.Color = rgb(255, 225, 170)
+	bankerLight.Parent = banker
+
+	-- 초상화를 비추는 놋쇠 액자등
+	for _, x in ipairs({ -21, 21 }) do
+		local bar = D(lights, "PictureLight", V(2.4, 0.25, 0.3), CFrame.new(x, 11.6, 4.7) * CFrame.Angles(math.rad(-25), 0, 0), BRASS, Mat.Metal)
+		bar:SetAttribute("Zone", "Guest")
+		local spot = Instance.new("SpotLight")
+		spot.Face = Enum.NormalId.Bottom
+		spot.Range = 9
+		spot.Angle = 70
+		spot.Brightness = 2.5
+		spot.Color = WARM
+		spot.Parent = bar
+	end
+
+	-- 입구 바닥의 흑백 대리석 체크무늬
+	for row = 0, 2 do
+		for col = -4, 4 do
+			if (row + col) % 2 == 0 then
+				D(interior, "CheckerTile", V(2, 0.03, 2), V(col * 2, 0.415, -17.6 + row * 2), rgb(30, 28, 27), Mat.Marble)
+			end
+		end
+	end
+
+	-- 천장 구석의 거미줄
+	for _, corner in ipairs({ { 1, -1, -18.85 }, { -1, -1, -18.85 }, { 1, 1, 5.35 }, { -1, 1, 5.35 } }) do
+		local sx, sz, wallZ = corner[1], corner[2], corner[3]
+		local center = V(sx * 27.9, 11.9, wallZ - sz * 0.9)
+		local d = V(-sx, 0, sz).Unit
+		D(interior, "Cobweb", V(0.03, 2.4, 2.8), CFrame.lookAt(center, center - d) * CFrame.Angles(0, 0, math.pi), rgb(230, 230, 225), Mat.SmoothPlastic, {
+			Transparency = 0.55,
+		})
+	end
+
+	-- 공기 중에 떠다니는 먼지 (불빛에 반짝여요)
+	local dustBox = P(decor, "Dust", V(54, 10, 22), V(0, 6.5, -7), rgb(255, 255, 255), nil, {
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+	})
+	local dust = Instance.new("ParticleEmitter")
+	dust.Shape = Enum.ParticleEmitterShape.Box
+	dust.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	dust.Rate = 10
+	dust.Lifetime = NumberRange.new(8, 14)
+	dust.Speed = NumberRange.new(0.1, 0.4)
+	dust.SpreadAngle = Vector2.new(180, 180)
+	dust.Size = NumberSequence.new(0.07)
+	dust.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.3, 0.45),
+		NumberSequenceKeypoint.new(0.7, 0.45),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	dust.LightEmission = 0.4
+	dust.LightInfluence = 1
+	dust.Color = ColorSequence.new(rgb(255, 230, 190))
+	dust.RotSpeed = NumberRange.new(-20, 20)
+	dust.Parent = dustBox
 
 	hotel:SetAttribute("HasDecor", true)
 	LobbyDecor.watchers = watchers
