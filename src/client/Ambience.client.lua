@@ -1,4 +1,5 @@
 -- 호텔 배경 소리예요. (각 플레이어의 컴퓨터에서만 재생돼요)
+-- 로비(대기실)와 호텔 어디서나 들려요.
 -- 괘종시계 째깍 소리는 계속, 부엉이·박쥐·엘리베이터 소리는 가끔, 경찰차 소리는 아주 멀리서 가끔 들려요.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ContentProvider = game:GetService("ContentProvider")
@@ -8,27 +9,14 @@ local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("So
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 
 local hotel = workspace:WaitForChild("Hotel")
+local lobby = workspace:WaitForChild("Lobby")
+local lobbySpot = lobby:FindFirstChild("Sign") or lobby:FindFirstChildWhichIsA("BasePart")
 
----------------------------------------------------------------- 지금 호텔 안인지, 밤인지 (소리를 불러오는 동안에도 기억해요)
-local inHotel = false
+---------------------------------------------------------------- 지금 밤인지 (밤에는 소리가 더 자주 나요)
 local isNight = false
-local clockTick = nil
-
-local function updateClock()
-	if not clockTick then
-		return
-	end
-	if inHotel and not clockTick.IsPlaying then
-		clockTick:Play()
-	elseif not inHotel then
-		clockTick:Stop()
-	end
-end
 
 Remotes.State.OnClientEvent:Connect(function(state)
-	inHotel = state.phase ~= "Lobby"
 	isNight = state.phase == "Night"
-	updateClock()
 end)
 
 -- 후보 번호를 하나씩 불러 보고, 성공한 첫 번째 소리를 돌려줘요.
@@ -64,18 +52,30 @@ end
 -- 소리가 나는 위치 (가까이 가면 크게, 멀어지면 작게 들려요)
 local clockPart = findPart("ClockBody") or hotel
 local elevatorPart = findPart("ElevatorDoor") or hotel
-local windowPart = findPart("WindowPane") or hotel
 
-clockTick = loadSound("ClockTick", clockPart, {
+-- 위치가 있는 소리는 로비에도 똑같은 소리를 하나 더 둬요. (둘 다 재생해요)
+local function withLobbyCopy(sound)
+	if not sound or not lobbySpot then
+		return { sound }
+	end
+	local copy = sound:Clone()
+	copy.Parent = lobbySpot
+	return { sound, copy }
+end
+
+local clockTicks = withLobbyCopy(loadSound("ClockTick", clockPart, {
 	Looped = true,
 	Volume = 0.35,
 	RollOffMinDistance = 8,
 	RollOffMaxDistance = 70,
-})
-updateClock()
-local owl = loadSound("Owl", windowPart, { Volume = 0.5, RollOffMinDistance = 15, RollOffMaxDistance = 150 })
-local bat = loadSound("Bat", windowPart, { Volume = 0.35, RollOffMinDistance = 10, RollOffMaxDistance = 120 })
-local ding = loadSound("ElevatorDing", elevatorPart, { Volume = 0.5, RollOffMinDistance = 10, RollOffMaxDistance = 90 })
+}))
+for _, sound in ipairs(clockTicks) do
+	sound:Play()
+end
+-- 부엉이와 박쥐는 바깥 소리라서 어디서나 똑같이 들려요.
+local owl = { loadSound("Owl", SoundService, { Volume = 0.3 }) }
+local bat = { loadSound("Bat", SoundService, { Volume = 0.22 }) }
+local ding = withLobbyCopy(loadSound("ElevatorDing", elevatorPart, { Volume = 0.5, RollOffMinDistance = 10, RollOffMaxDistance = 90 }))
 
 -- 경찰차: 위치 없이 아주 작게, 높은 소리를 깎고 울림을 더해서 먼 곳처럼 들리게 해요.
 local siren = loadSound("PoliceSiren", SoundService, { Volume = 0.12 })
@@ -94,16 +94,18 @@ end
 
 ---------------------------------------------------------------- 가끔 나는 소리
 -- 소리 하나를 min~max 초마다 가끔 재생해요. (밤에는 더 자주)
-local function sometimes(sound, minSeconds, maxSeconds, onPlay)
-	if not sound then
+-- sounds 는 같은 소리 묶음이에요. (호텔용 + 로비용)
+local function sometimes(sounds, minSeconds, maxSeconds, onPlay)
+	if #sounds == 0 then
 		return
 	end
 	task.spawn(function()
 		while true do
 			local wait = minSeconds + math.random() * (maxSeconds - minSeconds)
 			task.wait(isNight and wait * 0.6 or wait)
-			if inHotel then
-				sound.PlaybackSpeed = 0.9 + math.random() * 0.2
+			local speed = 0.9 + math.random() * 0.2
+			for _, sound in ipairs(sounds) do
+				sound.PlaybackSpeed = speed
 				if onPlay then
 					onPlay(sound)
 				end
@@ -116,7 +118,7 @@ end
 sometimes(owl, 35, 80)
 sometimes(bat, 50, 110)
 sometimes(ding, 45, 100)
-sometimes(siren, 120, 240, function(sound)
+sometimes({ siren }, 120, 240, function(sound)
 	-- 다가왔다 멀어지는 느낌으로 아주 작게 커졌다 작아져요.
 	sound.Volume = 0.03
 	task.spawn(function()
