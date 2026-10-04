@@ -68,4 +68,6 @@ Studio에서 Rojo가 연결된 상태로 **플레이(▶ Play)** 를 누르세�
 | `src/server/Npc.lua` | 손님 걷기, 밤에 사체 놓기 |
 | `src/shared/Animals.lua` | 동물 손님 모양과 도플갱어의 이상한 점 |
 | `src/shared/Config.lua` | 난이도 설정 |
+| `src/shared/Sounds.lua` | 배경 소리 번호 목록 (바꾸고 싶으면 여기) |
+| `src/client/Ambience.client.lua` | 시계·부엉이·박쥐·엘리베이터·먼 경찰차 소리 |
 | `src/client/Main.client.lua` | 화면(로비, 체크인, CCTV, 밤 결과) |
