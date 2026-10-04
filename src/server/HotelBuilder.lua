@@ -2,7 +2,10 @@
 -- Workspace에 이미 "Hotel" / "Lobby" / "Ground" 가 있으면 새로 만들지 않아요.
 -- (나중에 Studio에서 직접 호텔을 꾸미고 싶으면, 같은 이름으로 넣어 두면 돼요.
 --  단, Hotel 안의 Markers 폴더, Shutter 파트, Lights 폴더는 이름을 그대로 유지해 주세요.)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Animals = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Animals"))
 local LobbyDecor = require(script.Parent:WaitForChild("LobbyDecor"))
+local StaffRoom = require(script.Parent:WaitForChild("StaffRoom"))
 
 local HotelBuilder = {}
 
@@ -141,43 +144,176 @@ local function buildGround()
 	ground.Parent = workspace
 end
 
+-- 로비: 호텔 길 건너편 바깥 광장이에요. 여기서 시작하고, 노란 네모 안으로 들어가면 출근할 수 있어요.
 local function buildLobby()
 	local lobby = Instance.new("Model")
 	lobby.Name = "Lobby"
-	local c = V(-140, 0, 0)
-	local wallColor = rgb(60, 50, 75)
+	local c = V(0, 0, -95) -- 광장 가운데 (호텔 정문은 z -20 쪽)
+	local stone = rgb(88, 84, 80)
+	local iron = rgb(25, 25, 28)
 
-	part(lobby, "Floor", V(44, 0.4, 44), c + V(0, 0.2, 0), rgb(110, 80, 60), Enum.Material.WoodPlanks)
-	part(lobby, "Roof", V(44, 1, 44), c + V(0, 12.5, 0), rgb(40, 35, 50))
-	part(lobby, "WallN", V(44, 12, 1), c + V(0, 6, -21.5), wallColor)
-	part(lobby, "WallS", V(44, 12, 1), c + V(0, 6, 21.5), wallColor)
-	part(lobby, "WallW", V(1, 12, 44), c + V(-21.5, 6, 0), wallColor)
-	part(lobby, "WallE", V(1, 12, 44), c + V(21.5, 6, 0), wallColor)
+	-- 돌바닥 광장과 테두리
+	part(lobby, "PlazaFloor", V(70, 0.3, 40), c + V(0, 0.15, 0), stone, Enum.Material.Cobblestone)
+	part(lobby, "PlazaCurb", V(70, 0.4, 1), c + V(0, 0.2, 20), rgb(120, 115, 110), Enum.Material.Concrete)
 
-	local board = part(lobby, "Sign", V(26, 7, 0.5), c + V(0, 7, -20.7), rgb(25, 20, 30))
-	sign(board, Enum.NormalId.Back, "🏨 도플갱어 호텔 로비\n화면의 [혼자 시작] 버튼을 누르세요", rgb(255, 90, 90))
+	-- 낮은 철제 울타리 (뒤쪽과 양옆)
+	local function fence(from, to)
+		local length = (to - from).Magnitude
+		local dir = (to - from).Unit
+		local count = math.floor(length / 2.5)
+		for i = 0, count do
+			local p = from + dir * (i * length / count)
+			part(lobby, "FencePost", V(0.25, 3, 0.25), p + V(0, 1.5, 0), iron, Enum.Material.Metal)
+			part(lobby, "FenceTip", V(0.35, 0.35, 0.35), p + V(0, 3.15, 0), iron, Enum.Material.Metal, { Shape = Enum.PartType.Ball })
+		end
+		local mid = (from + to) / 2
+		part(lobby, "FenceRail", V(0.15, 0.15, length), CFrame.lookAt(mid + V(0, 2.6, 0), to + V(0, 2.6, 0)), iron, Enum.Material.Metal)
+		part(lobby, "FenceRail", V(0.15, 0.15, length), CFrame.lookAt(mid + V(0, 0.8, 0), to + V(0, 0.8, 0)), iron, Enum.Material.Metal)
+	end
+	fence(c + V(-35, 0, -20), c + V(35, 0, -20))
+	fence(c + V(-35, 0, -20), c + V(-35, 0, 19))
+	fence(c + V(35, 0, -20), c + V(35, 0, 19))
 
-	-- 친구 4명이 설 대기 자리 (나중에 함께하기에서 쓸 거예요)
-	local padColors = { rgb(255, 90, 90), rgb(90, 170, 255), rgb(120, 220, 120), rgb(255, 210, 80) }
-	for i, x in ipairs({ -12, -4, 4, 12 }) do
-		part(lobby, "WaitingPad" .. i, V(5, 0.2, 5), c + V(x, 0.45, 10), padColors[i], Enum.Material.Neon, {
-			CanCollide = false,
-		})
+	-- 나무: 앙상하게 마른 나무와 짙은 잎 나무
+	local function deadTree(pos)
+		part(lobby, "TreeTrunk", V(1, 8, 1), pos + V(0, 4, 0), rgb(45, 35, 30), Enum.Material.Wood)
+		for i = 1, 6 do
+			local branch = CFrame.new(pos + V(0, 4 + i * 0.6, 0)) * CFrame.Angles(0, i * 1.1, math.rad(40 + (i % 3) * 10))
+			part(lobby, "Branch", V(0.3, 3.5 - i * 0.2, 0.3), branch * CFrame.new(0, 1.6, 0), rgb(45, 35, 30), Enum.Material.Wood)
+		end
+	end
+	local function leafyTree(pos)
+		part(lobby, "TreeTrunk", V(1, 6, 1), pos + V(0, 3, 0), rgb(55, 40, 30), Enum.Material.Wood)
+		for i, offset in ipairs({ V(0, 7, 0), V(1.4, 6, 0.6), V(-1.2, 6.3, -0.8), V(0.3, 8.2, 0.4) }) do
+			part(lobby, "Foliage", V(4.5 - i * 0.4, 4.5 - i * 0.4, 4.5 - i * 0.4), pos + offset, rgb(30, 50, 35), Enum.Material.Grass, {
+				Shape = Enum.PartType.Ball,
+			})
+		end
+	end
+	deadTree(c + V(-30, 0, -15))
+	deadTree(c + V(29, 0, 8))
+	deadTree(c + V(-17, 0, -17))
+	leafyTree(c + V(30, 0, -15))
+	leafyTree(c + V(-30, 0, 9))
+	leafyTree(c + V(17, 0, -17))
+
+	-- 벤치
+	local function bench(pos, yaw)
+		local base = CFrame.new(pos) * CFrame.Angles(0, yaw, 0)
+		for i = 0, 2 do
+			part(lobby, "BenchSlat", V(5, 0.2, 0.4), base * CFrame.new(0, 1.6, -0.5 + i * 0.5), rgb(90, 60, 40), Enum.Material.Wood)
+		end
+		for i = 0, 1 do
+			part(lobby, "BenchBack", V(5, 0.3, 0.15), base * CFrame.new(0, 2.3 + i * 0.5, 0.75), rgb(90, 60, 40), Enum.Material.Wood)
+		end
+		for _, x in ipairs({ -2.2, 2.2 }) do
+			part(lobby, "BenchLeg", V(0.2, 1.5, 1.6), base * CFrame.new(x, 0.9, 0.1), iron, Enum.Material.Metal)
+		end
+	end
+	bench(c + V(-14, 0.3, -5), math.pi)
+	bench(c + V(14, 0.3, -5), math.pi)
+	bench(c + V(-24, 0.3, 4), math.rad(-90))
+	bench(c + V(24, 0.3, 4), math.rad(90))
+
+	-- 마른 분수와 이끼 낀 토끼 석상 (눈이 검게 뚫려 있어요)
+	local fountain = c + V(0, 0.3, -11)
+	part(lobby, "FountainBasin", V(1.2, 9, 9), CFrame.new(fountain + V(0, 0.6, 0)) * CFrame.Angles(0, 0, math.rad(90)), rgb(110, 108, 100), Enum.Material.Slate, {
+		Shape = Enum.PartType.Cylinder,
+	})
+	part(lobby, "FountainWater", V(0.1, 8, 8), CFrame.new(fountain + V(0, 1.1, 0)) * CFrame.Angles(0, 0, math.rad(90)), rgb(30, 45, 40), Enum.Material.Glass, {
+		Shape = Enum.PartType.Cylinder,
+		Transparency = 0.2,
+		Reflectance = 0.3,
+		CanCollide = false,
+	})
+	part(lobby, "FountainPillar", V(1.5, 3, 1.5), fountain + V(0, 2, 0), rgb(110, 108, 100), Enum.Material.Slate)
+	local statue = Animals.build({ id = 13, name = "Statue", animal = "rabbit", fur = rgb(150, 150, 145), cloth = rgb(120, 120, 115) }, "eyes")
+	for _, p in ipairs(statue:GetDescendants()) do
+		if p:IsA("BasePart") then
+			if p.Name ~= "Void" and p.Name ~= "BlackTear" and p.Name ~= "RedGlint" then
+				p.Color = rgb(125, 128, 118)
+				p.Material = Enum.Material.Slate
+			end
+			p.CanCollide = false
+		end
+	end
+	pcall(function()
+		statue:ScaleTo(0.8)
+	end)
+	statue:PivotTo(CFrame.new(fountain + V(0, 3.5, 0)))
+	statue.Parent = lobby
+
+	-- 가로등
+	for _, offset in ipairs({ V(-12, 0, 15), V(12, 0, 15), V(-12, 0, -15), V(12, 0, -15) }) do
+		local base = c + offset
+		part(lobby, "LampPost", V(0.4, 9, 0.4), base + V(0, 4.8, 0), iron, Enum.Material.Metal)
+		part(lobby, "LampTop", V(1.2, 0.3, 1.2), base + V(0, 9.4, 0), iron, Enum.Material.Metal)
+		local glow = part(lobby, "LampGlow", V(0.8, 1.1, 0.8), base + V(0, 8.7, 0), rgb(255, 200, 130), Enum.Material.Neon, { CanCollide = false })
+		local light = Instance.new("PointLight")
+		light.Range = 24
+		light.Brightness = 1.1
+		light.Color = rgb(255, 190, 120)
+		light.Shadows = true
+		light.Parent = glow
 	end
 
+	-- 노란 선 네모: 출근 대기 구역
+	local zoneCenter = c + V(0, 0, 10)
+	local zoneSize = 12
+	for _, strip in ipairs({
+		{ V(zoneSize + 0.4, 0.08, 0.4), V(0, 0, -zoneSize / 2) },
+		{ V(zoneSize + 0.4, 0.08, 0.4), V(0, 0, zoneSize / 2) },
+		{ V(0.4, 0.08, zoneSize + 0.4), V(-zoneSize / 2, 0, 0) },
+		{ V(0.4, 0.08, zoneSize + 0.4), V(zoneSize / 2, 0, 0) },
+	}) do
+		part(lobby, "ZoneLine", strip[1], zoneCenter + strip[2] + V(0, 0.34, 0), rgb(255, 210, 40), Enum.Material.Neon, { CanCollide = false })
+	end
+	local zoneText = part(lobby, "ZoneText", V(8, 0.05, 2.5), zoneCenter + V(0, 0.33, 0), rgb(255, 210, 40), nil, {
+		Transparency = 1,
+		CanCollide = false,
+	})
+	local zoneGui = Instance.new("SurfaceGui")
+	zoneGui.Face = Enum.NormalId.Top
+	zoneGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	zoneGui.PixelsPerStud = 40
+	zoneGui.Parent = zoneText
+	local zoneLabel = Instance.new("TextLabel")
+	zoneLabel.Size = UDim2.fromScale(1, 1)
+	zoneLabel.BackgroundTransparency = 1
+	zoneLabel.TextScaled = true
+	zoneLabel.Font = Enum.Font.GothamBlack
+	zoneLabel.Text = "출근 대기"
+	zoneLabel.TextColor3 = rgb(255, 210, 40)
+	zoneLabel.TextTransparency = 0.2
+	zoneLabel.Rotation = 180
+	zoneLabel.Parent = zoneGui
+	part(lobby, "StartZone", V(zoneSize, 8, zoneSize), zoneCenter + V(0, 4, 0), rgb(255, 210, 40), nil, {
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+	})
+
+	-- 안내판
+	for _, x in ipairs({ 7.6, 11.4 }) do
+		part(lobby, "SignLeg", V(0.3, 3, 0.3), c + V(x, 1.8, 4), iron, Enum.Material.Metal)
+	end
+	local board = part(lobby, "Sign", V(5, 2.6, 0.3), c + V(9.5, 4.2, 4), rgb(25, 20, 18))
+	sign(board, Enum.NormalId.Front, "도플갱어 호텔 직원 출입\n노란 네모 안으로 들어가세요", rgb(255, 210, 120))
+
+	-- 처음 나타나는 곳 (호텔을 바라봐요)
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "LobbySpawn"
 	spawn.Size = V(8, 0.4, 8)
-	spawn.CFrame = CFrame.new(c + V(0, 0.5, 2))
+	spawn.CFrame = CFrame.new(c + V(0, 0.35, -4)) * CFrame.Angles(0, math.pi, 0)
 	spawn.Anchored = true
 	spawn.Neutral = true
 	spawn.Duration = 0
-	spawn.Color = rgb(200, 60, 60)
-	spawn.Material = Enum.Material.SmoothPlastic
+	spawn.Color = rgb(70, 20, 25)
+	spawn.Material = Enum.Material.Slate
 	spawn.TopSurface = Enum.SurfaceType.Smooth
 	spawn.Parent = lobby
 
-	lamp(lobby, c + V(0, 11.8, 0), "Lobby")
 	lobby.Parent = workspace
 end
 
@@ -273,6 +409,7 @@ local function buildHotel()
 	part(interior, "PartitionR2", V(2, FH, 1), V(29, FH / 2, 6), rgb(52, 32, 22))
 	part(interior, "StaffDoorTop", V(4, FH - 9.4, 1), V(26, 9.4 + (FH - 9.4) / 2, 6), rgb(52, 32, 22))
 	LobbyDecor.build(hotel, interior, lights, markers)
+	StaffRoom.build(hotel)
 
 	---------------------------------------------------------------- 위치 표시 (보이지 않아요)
 	marker(markers, "DeskSpawn", V(0, 3.5, 13))

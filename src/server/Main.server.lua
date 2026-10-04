@@ -1,5 +1,5 @@
 -- 게임 전체 흐름을 담당하는 서버 스크립트예요.
--- 로비 → (혼자 시작) → 밤 근무: 손님 체크인 → 근무 끝: 결과 확인 → 아침 보고서 → 다음 날 밤 ...
+-- 광장(로비) → 노란 네모에서 인원 정하기 → 밤 근무: 손님 체크인 → 근무 끝: 결과 확인 → 아침 보고서 → 다음 날 밤 ...
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
@@ -10,6 +10,8 @@ local Config = require(Shared:WaitForChild("Config"))
 local Animals = require(Shared:WaitForChild("Animals"))
 local HotelBuilder = require(script.Parent:WaitForChild("HotelBuilder"))
 local Npc = require(script.Parent:WaitForChild("Npc"))
+local StaffRoom = require(script.Parent:WaitForChild("StaffRoom"))
+local Props = require(script.Parent:WaitForChild("Props"))
 
 local rgb = Color3.fromRGB
 
@@ -27,7 +29,15 @@ local GuestArrived = remote("GuestArrived") -- 서버 → 화면: 손님이 프�
 local Toast = remote("Toast") -- 서버 → 화면: 안내 메시지
 local NightReport = remote("NightReport") -- 서버 → 화면: 밤 결과
 local MorningReport = remote("MorningReport") -- 서버 → 화면: 어제 돌려보낸 손님의 정체
-local StartSolo = remote("StartSolo") -- 화면 → 서버: 혼자 시작
+local SanityEvent = remote("Sanity") -- 서버 → 화면: 내 정신력
+local Scared = remote("Scared") -- 화면 → 서버: 도플갱어에게 놀랐어요
+local KidEvent = remote("KidEvent") -- 서버 → 화면: 꼬마 손님의 부탁 (고르기)
+local KidChoice = remote("KidChoice") -- 화면 → 서버: 꼬마 손님 부탁에 대한 대답
+local PartyPrompt = remote("PartyPrompt") -- 서버 → 화면: 몇 명이서 할지 고르기
+local PartySize = remote("PartySize") -- 화면 → 서버: 인원 선택
+local PartyStatus = remote("PartyStatus") -- 서버 → 화면: 대기 인원
+local PartyClosed = remote("PartyClosed") -- 서버 → 화면: 대기 창 닫기
+local PartyStartNow = remote("PartyStartNow") -- 화면 → 서버: 지금 인원으로 바로 시작
 local Decide = remote("Decide") -- 화면 → 서버: 예약 받기 / 셔터 닫기
 local NextDay = remote("NextDay") -- 화면 → 서버: 다음 날로
 local BackToLobby = remote("BackToLobby") -- 화면 → 서버: 로비로 돌아가기
@@ -134,8 +144,10 @@ local function moveShutter(closed)
 	tween.Completed:Wait()
 end
 
-local function deskCFrame()
-	local p = markers.DeskSpawn.Position
+-- 여러 명이면 나란히 서요.
+local DESK_OFFSETS = { 0, -4, 4, -8 }
+local function deskCFrame(index)
+	local p = markers.DeskSpawn.Position + Vector3.new(DESK_OFFSETS[index or 1] or 0, 0, 0)
 	return CFrame.lookAt(p, p + Vector3.new(0, 0, -1))
 end
 
@@ -161,6 +173,40 @@ setDaylight(true)
 -- 지금은 서버에 게임 하나만 진행돼요. (players 목록은 나중에 4명 함께하기용)
 local session = nil
 local nextGuestId = 0
+
+---------------------------------------------------------------- 정신력
+local function sendSanity(s, player)
+	SanityEvent:FireClient(player, { value = s.sanity[player] or 0, max = Config.SanityMax })
+end
+
+local faint -- 아래에서 정의해요 (정신력이 0이 되면 쓰러짐)
+
+local function changeSanity(s, player, amount)
+	if not s.sanity[player] then
+		return
+	end
+	s.sanity[player] = math.clamp(s.sanity[player] + amount, 0, Config.SanityMax)
+	sendSanity(s, player)
+	if s.sanity[player] <= 0 then
+		faint(s, player)
+	end
+end
+
+---------------------------------------------------------------- 음료 기계
+local staff = StaffRoom.setup(hotel, function(player, _machine, stock)
+	local s = session
+	if not s or not table.find(s.players, player) then
+		Toast:FireClient(player, { text = "근무 중인 직원만 마실 수 있어요.", kind = "info" })
+		return false
+	end
+	if stock <= 0 then
+		Toast:FireClient(player, { text = "🥤 음료가 다 떨어졌어요. 다음 밤 근무에 다시 채워져요.", kind = "info" })
+		return false
+	end
+	changeSanity(s, player, Config.DrinkRestore)
+	Toast:FireClient(player, { text = ("🥤 시원한 음료를 마셨어요. 정신력 +%d"):format(Config.DrinkRestore), kind = "accept" })
+	return true
+end)
 
 local NAMES = {
 	"민준", "서연", "도윤", "하은", "지호", "수아", "예준", "지우",
@@ -336,6 +382,137 @@ local function runGuest(s, data)
 	s.guestModel = nil
 end
 
+---------------------------------------------------------------- 꼬마 손님 "도토리"
+-- 3일차: 음료를 달라고 해요 / 6일차: 책가방을 맡아 달라고 해요 /
+-- 9일차: 그 책가방을 숨겨 달라고 해요 (숨겨 주면 보답으로 음료 기계가 하나 더 생겨요) / 그 뒤로는 다시 음료
+local KID = { id = 777, name = "도토리", animal = "rabbit", fur = rgb(205, 165, 125), cloth = rgb(240, 200, 60) }
+
+local function askKid(s, line, choices)
+	s.kidChoice = nil
+	s.kidAskId = (s.kidAskId or 0) + 1
+	fire(s, KidEvent, { id = s.kidAskId, speaker = "꼬마 손님 도토리", line = line, choices = choices })
+	if not waitUntil(s, function()
+		return s.kidChoice ~= nil
+	end) then
+		return nil
+	end
+	return s.kidChoice
+end
+
+local function runKid(s)
+	local kid = Animals.build(KID, nil)
+	pcall(function()
+		kid:ScaleTo(0.7)
+	end)
+	local stage = "drink"
+	if s.day == Config.KidFirstDay + Config.KidEveryDays then
+		stage = "bag"
+	elseif s.day == Config.KidFirstDay + Config.KidEveryDays * 2 then
+		stage = s.keptBag and "hide" or "sad"
+	end
+	if stage == "bag" then
+		-- 등에 노란 책가방을 메고 와요.
+		local back = kid:GetPivot() * CFrame.new(0, 2.4, 0.85)
+		local bag = Props.backpack(kid, back)
+		bag.Parent = kid
+	end
+	kid.Parent = guestFolder
+	s.guestModel = kid
+	kid:PivotTo(CFrame.new(markers.GuestSpawn.Position))
+	Npc.walkTo(kid, markers.Door.Position, Config.WalkSpeed * 0.8)
+	Npc.walkTo(kid, markers.Counter.Position, Config.WalkSpeed * 0.8)
+	if not s.active then
+		return
+	end
+	-- 키가 작아서 받침대 위에 올라서요.
+	local stool = Props.solid(guestFolder, "Stool", Vector3.new(2, 1.6, 2), CFrame.new(markers.Counter.Position + Vector3.new(0, 0.7, 0)), rgb(110, 70, 45), Enum.Material.Wood)
+	kid:PivotTo(CFrame.new(markers.Counter.Position + Vector3.new(0, 1.6, 0)))
+	Npc.face(kid, markers.DeskSpawn.Position)
+
+	local function say(line)
+		Npc.say(kid, line, 5)
+	end
+
+	if stage == "drink" then
+		local line = "저기요... 목이 너무 말라요. 음료 하나만 주실 수 있어요?"
+		say(line)
+		local choice = askKid(s, line, { "음료 주기", "거절하기" })
+		if choice == 1 then
+			if staff.takeDrink() then
+				s.kidFriend = (s.kidFriend or 0) + 1
+				say("와아, 고마워요! 이 은혜 꼭 갚을게요!")
+				fire(s, Toast, { text = "🥤 도토리에게 음료를 한 잔 줬어요.", kind = "accept" })
+			else
+				say("...음료가 없구나. 괜찮아요.")
+				fire(s, Toast, { text = "음료 기계가 비어 있어요.", kind = "info" })
+			end
+		elseif choice == 2 then
+			say("...네. 알겠어요.")
+		end
+	elseif stage == "bag" then
+		local line = "이 책가방 좀 맡아 주실래요? 꼭... 꼭 다시 찾으러 올게요."
+		say(line)
+		local choice = askKid(s, line, { "맡아 주기", "거절하기" })
+		if choice == 1 then
+			s.keptBag = true
+			local bag = kid:FindFirstChild("Backpack")
+			if bag then
+				bag:Destroy()
+			end
+			staff.setBag(true)
+			say("고마워요! 아무한테도 주면 안 돼요!")
+			fire(s, Toast, { text = "🎒 도토리의 책가방을 맡았어요. 직원 책상 위에 있어요.", kind = "accept" })
+		elseif choice == 2 then
+			say("...그렇구나.")
+		end
+	elseif stage == "hide" then
+		local line = "누가 저를 쫓아와요...! 그 책가방, 아무도 못 찾게 숨겨 주세요!"
+		say(line)
+		local choice = askKid(s, line, { "숨기러 가기", "거절하기" })
+		if choice == 1 then
+			say("고마워요...! 빨리요!")
+			fire(s, Toast, { text = "🎒 오른쪽 벽의 반짝이는 직원 사물함에 책가방을 숨기세요!", kind = "warn" })
+			s.bagHidden = false
+			staff.enableHide(true)
+			local deadline = os.clock() + 45
+			waitUntil(s, function()
+				return s.bagHidden or os.clock() > deadline
+			end)
+			staff.enableHide(false)
+			if s.bagHidden then
+				staff.setBag(false)
+				s.keptBag = false
+				task.wait(1)
+				staff.addMachine(Config.DrinksPerMachine)
+				fire(s, Toast, {
+					text = "🎁 사물함 안에 쪽지가 있어요: \"고마워요. 선물이에요.\" 음료 기계가 하나 더 생겼어요!",
+					kind = "accept",
+				})
+			elseif s.active then
+				fire(s, Toast, { text = "...시간이 지나 버렸어요. 도토리는 어디로 갔을까요.", kind = "info" })
+			end
+		elseif choice == 2 then
+			say("......")
+		end
+	else -- sad
+		local line = "...제 책가방, 아무도 안 맡아 줬어요. 이제 어떡하죠."
+		say(line)
+		askKid(s, line, { "미안해", "모른 척하기" })
+	end
+
+	if s.active and kid.Parent then
+		task.wait(1.5)
+		kid:PivotTo(CFrame.new(markers.Counter.Position))
+		stool:Destroy()
+		Npc.walkTo(kid, markers.Door.Position, Config.WalkSpeed)
+		Npc.walkTo(kid, markers.GuestSpawn.Position, Config.WalkSpeed)
+	end
+	stool:Destroy()
+	kid:Destroy()
+	s.guestModel = nil
+	task.wait(1)
+end
+
 local function runDay(s)
 	s.phase = "Day"
 	s.earned = 0
@@ -344,6 +521,7 @@ local function runDay(s)
 	s.guestIndex = 0
 
 	corpseFolder:ClearAllChildren() -- 밤사이 청소 완료
+	staff.refill(Config.DrinksPerMachine) -- 음료 기계 채우기
 	setDaylight(true)
 	moveShutter(false)
 	sendState(s)
@@ -378,6 +556,14 @@ local function runDay(s)
 	end
 	task.wait(3)
 
+	-- 꼬마 손님 (3일차부터 3일마다)
+	if s.day >= Config.KidFirstDay and (s.day - Config.KidFirstDay) % Config.KidEveryDays == 0 then
+		runKid(s)
+		if not s.active then
+			return
+		end
+	end
+
 	local plan = planDoppels(s.day, s.guestsTotal)
 	for i = 1, s.guestsTotal do
 		if not s.active then
@@ -406,6 +592,11 @@ local function runNight(s)
 
 	s.yesterdayVictims = victimNames
 	s.yesterdayEarned = s.earned
+	if #s.victims > 0 then
+		for _, player in ipairs(s.players) do
+			changeSanity(s, player, -Config.SanityCorpseLoss * #s.victims)
+		end
+	end
 	sendState(s)
 	local gameOver = s.deaths >= Config.MaxDeaths
 	fire(s, NightReport, {
@@ -428,6 +619,7 @@ local function endSession(s)
 	s.active = false
 	guestFolder:ClearAllChildren()
 	corpseFolder:ClearAllChildren()
+	staff.reset()
 	setDaylight(true)
 	task.spawn(moveShutter, false)
 	for _, player in ipairs(s.players) do
@@ -438,6 +630,26 @@ local function endSession(s)
 	end
 	if session == s then
 		session = nil
+	end
+end
+
+-- 정신력이 0이 되면 쓰러져서 호텔 밖 광장으로 나가요.
+faint = function(s, player)
+	local index = table.find(s.players, player)
+	if not index then
+		return
+	end
+	table.remove(s.players, index)
+	s.sanity[player] = nil
+	if player.Parent then
+		teleport(player, lobbyCFrame())
+		StateEvent:FireClient(player, { phase = "Lobby" })
+		Toast:FireClient(player, { text = "😵 정신을 잃고 쓰러졌어요... 눈을 떠 보니 호텔 밖이에요.", kind = "warn" })
+	end
+	if #s.players == 0 then
+		endSession(s)
+	else
+		fire(s, Toast, { text = ("😵 %s 님이 정신을 잃고 쓰러졌어요..."):format(player.DisplayName), kind = "warn" })
 	end
 end
 
@@ -470,17 +682,12 @@ local function sessionOf(player)
 	return nil
 end
 
-StartSolo.OnServerEvent:Connect(function(player)
-	if session then
-		Toast:FireClient(player, {
-			text = "지금은 다른 사람이 호텔에서 일하고 있어요. 잠시 후 다시 눌러 주세요.",
-			kind = "info",
-		})
-		return
-	end
+-- 근무 시작: 고른 인원으로 세션을 만들고 모두 프런트로 보내요.
+local function startSession(players)
 	local s = {
 		active = true,
-		players = { player },
+		players = {},
+		sanity = {},
 		phase = "Day",
 		day = 1,
 		money = 0,
@@ -490,9 +697,165 @@ StartSolo.OnServerEvent:Connect(function(player)
 		victims = {},
 		refused = {},
 	}
+	for i, player in ipairs(players) do
+		table.insert(s.players, player)
+		s.sanity[player] = Config.SanityMax
+		teleport(player, deskCFrame(i))
+		PartyClosed:FireClient(player)
+		sendSanity(s, player)
+	end
 	session = s
-	teleport(player, deskCFrame())
 	task.spawn(runGame, s)
+
+	-- 정신력이 1초마다 조금씩 줄어요. (날이 갈수록 빨라져요)
+	task.spawn(function()
+		while s.active do
+			task.wait(1)
+			if not s.active then
+				break
+			end
+			local drain = s.phase == "Day"
+					and Config.SanityDrainShift * (1 + (s.day - 1) * Config.SanityDrainPerDay)
+				or Config.SanityDrainNight
+			for _, player in ipairs(table.clone(s.players)) do
+				changeSanity(s, player, -drain)
+			end
+		end
+	end)
+end
+
+---------------------------------------------------------------- 노란 네모: 인원 정하고 출근하기
+local startZone = workspace:FindFirstChild("StartZone", true)
+local party = nil -- { host, size, members = { ... } }
+local inZone = {} -- [player] = true
+local busyNotified = {} -- [player] = true (근무 중이라는 안내를 한 번만)
+
+local function isInside(player)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root or not startZone then
+		return false
+	end
+	local localPos = startZone.CFrame:PointToObjectSpace(root.Position)
+	local half = startZone.Size / 2
+	return math.abs(localPos.X) <= half.X and math.abs(localPos.Z) <= half.Z and math.abs(localPos.Y) <= half.Y + 2
+end
+
+local function partyMembers()
+	local members = {}
+	if not party then
+		return members
+	end
+	table.insert(members, party.host)
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= party.host and inZone[player] and #members < party.size then
+			table.insert(members, player)
+		end
+	end
+	return members
+end
+
+local function closeParty()
+	if not party then
+		return
+	end
+	for player in pairs(inZone) do
+		PartyClosed:FireClient(player)
+	end
+	party = nil
+end
+
+local function updateParty()
+	if not party then
+		return
+	end
+	local members = partyMembers()
+	for player in pairs(inZone) do
+		PartyStatus:FireClient(player, {
+			size = party.size,
+			count = #members,
+			hostName = party.host.DisplayName,
+			isHost = player == party.host,
+			joined = table.find(members, player) ~= nil,
+		})
+	end
+	if #members >= party.size then
+		closeParty()
+		startSession(members)
+	end
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.25)
+		local changed = false
+		for _, player in ipairs(Players:GetPlayers()) do
+			local inside = not sessionOf(player) and isInside(player)
+			if inside and not inZone[player] then
+				inZone[player] = true
+				changed = true
+				if session then
+					if not busyNotified[player] then
+						busyNotified[player] = true
+						Toast:FireClient(player, { text = "지금은 다른 팀이 근무 중이에요. 잠시 후 다시 와 주세요.", kind = "info" })
+					end
+				elseif not party then
+					PartyPrompt:FireClient(player, { max = Config.MaxPlayers })
+				end
+			elseif not inside and inZone[player] then
+				inZone[player] = nil
+				busyNotified[player] = nil
+				changed = true
+				PartyClosed:FireClient(player)
+				if party and party.host == player then
+					closeParty()
+				end
+			end
+		end
+		if changed then
+			updateParty()
+		end
+	end
+end)
+
+PartySize.OnServerEvent:Connect(function(player, size)
+	if session or party or not inZone[player] or typeof(size) ~= "number" then
+		return
+	end
+	size = math.clamp(math.floor(size), 1, Config.MaxPlayers)
+	party = { host = player, size = size }
+	-- 다른 사람에게 떠 있던 인원 고르기 창은 대기 화면으로 바뀌어요.
+	updateParty()
+end)
+
+PartyStartNow.OnServerEvent:Connect(function(player)
+	if party and party.host == player and not session then
+		local members = partyMembers()
+		closeParty()
+		startSession(members)
+	end
+end)
+
+Scared.OnServerEvent:Connect(function(player)
+	local s = sessionOf(player)
+	if s and s.currentGuest and s.lastScare ~= s.currentGuest.id .. player.UserId then
+		s.lastScare = s.currentGuest.id .. player.UserId
+		changeSanity(s, player, -Config.SanityScareLoss)
+	end
+end)
+
+KidChoice.OnServerEvent:Connect(function(player, askId, index)
+	local s = sessionOf(player)
+	if s and s.kidAskId == askId and not s.kidChoice and (index == 1 or index == 2) then
+		s.kidChoice = index
+	end
+end)
+
+staff.hidePrompt.Triggered:Connect(function(player)
+	local s = sessionOf(player)
+	if s and s.keptBag and not s.bagHidden then
+		s.bagHidden = true
+		fire(s, Toast, { text = "🎒 책가방을 사물함 깊숙이 숨겼어요.", kind = "accept" })
+	end
 end)
 
 Decide.OnServerEvent:Connect(function(player, guestId, choice)
@@ -533,7 +896,8 @@ local function onPlayerAdded(player)
 		if sessionOf(player) then
 			character:WaitForChild("HumanoidRootPart")
 			task.wait(0.1)
-			character:PivotTo(deskCFrame())
+			local s = sessionOf(player)
+			character:PivotTo(deskCFrame(s and table.find(s.players, player) or 1))
 		end
 	end)
 end
@@ -544,11 +908,17 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 
 Players.PlayerRemoving:Connect(function(player)
+	inZone[player] = nil
+	busyNotified[player] = nil
+	if party and party.host == player then
+		closeParty()
+	end
 	local s = sessionOf(player)
 	if not s then
 		return
 	end
 	table.remove(s.players, table.find(s.players, player))
+	s.sanity[player] = nil
 	if #s.players == 0 then
 		endSession(s)
 	end

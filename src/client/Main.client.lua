@@ -82,7 +82,8 @@ local gui = make("ScreenGui", {
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 }, player:WaitForChild("PlayerGui"))
 
--- 비네트: 화면 가장자리를 어둡게 해서 음산한 느낌을 줘요.
+-- 비네트: 화면 가장자리를 어둡게 해서 음산한 느낌을 줘요. (정신력이 낮으면 더 어두워져요)
+local vignetteGradients = {}
 do
 	local vignette = make("Frame", {
 		Name = "Vignette",
@@ -104,13 +105,14 @@ do
 			BorderSizePixel = 0,
 			ZIndex = 0,
 		}, vignette)
-		make("UIGradient", {
+		local gradient = make("UIGradient", {
 			Rotation = edge[3],
 			Transparency = NumberSequence.new({
 				NumberSequenceKeypoint.new(0, 0.35),
 				NumberSequenceKeypoint.new(1, 1),
 			}),
 		}, frame)
+		table.insert(vignetteGradients, gradient)
 	end
 end
 
@@ -125,6 +127,7 @@ local lobbyFrame = make("Frame", {
 	Size = UDim2.fromScale(0.9, 0.7),
 	BackgroundColor3 = ESPRESSO,
 	BackgroundTransparency = 0.04,
+	Visible = false, -- 노란 네모 안에 들어가면 떠요
 }, gui)
 round(lobbyFrame, 6)
 maxSize(lobbyFrame, 560, 470)
@@ -151,6 +154,7 @@ label(lobbyFrame, {
 		.. "• 이빨이 보이거나, 입이 찢어졌거나, 눈이 검게 가려졌거나, "
 		.. "몸이 이상하거나, 사진이 움직이면... 셔터를 닫아요!\n"
 		.. "• 첫날은 연습이에요. 둘째 날부터 도플갱어가 와요\n"
+		.. "• 정신력이 다 떨어지면 쓰러져요. 직원 공간의 음료 기계로 채우세요\n"
 		.. "• 희생자가 3명이 되면 해고돼요",
 	Font = Enum.Font.Gotham,
 	TextColor3 = CREAM,
@@ -158,21 +162,83 @@ label(lobbyFrame, {
 	TextYAlignment = Enum.TextYAlignment.Top,
 	Position = UDim2.fromScale(0.07, 0.21),
 	Size = UDim2.fromScale(0.86, 0.43),
-}, 18)
-
-local soloButton = button(lobbyFrame, "혼자 시작", BRASS, {
-	Position = UDim2.fromScale(0.1, 0.67),
-	Size = UDim2.fromScale(0.8, 0.14),
-	TextColor3 = ESPRESSO,
-}, 28)
-
-local partyButton = button(lobbyFrame, "친구와 함께 (최대 4명) · 준비 중", rgb(45, 36, 30), {
-	Position = UDim2.fromScale(0.1, 0.84),
-	Size = UDim2.fromScale(0.8, 0.1),
-	AutoButtonColor = false,
-	TextColor3 = rgb(140, 125, 105),
 }, 16)
-brassFrame(partyButton, 1)
+
+-- 몇 명이서 근무할지 고르기
+local partyQuestion = label(lobbyFrame, {
+	Text = "몇 명이서 근무할까요?",
+	Font = SERIF,
+	TextColor3 = BRASS,
+	Position = UDim2.fromScale(0.1, 0.66),
+	Size = UDim2.fromScale(0.8, 0.07),
+}, 22)
+local sizeButtons = {}
+for n = 1, 4 do
+	local sizeButton = button(lobbyFrame, n == 1 and "혼자" or (n .. "명"), n == 1 and BRASS or rgb(60, 46, 36), {
+		Position = UDim2.fromScale(0.1 + (n - 1) * 0.205, 0.76),
+		Size = UDim2.fromScale(0.185, 0.12),
+		TextColor3 = n == 1 and ESPRESSO or CREAM,
+	}, 22)
+	brassFrame(sizeButton, 1)
+	sizeButton.Activated:Connect(function()
+		Remotes.PartySize:FireServer(n)
+	end)
+	sizeButtons[n] = sizeButton
+end
+local partyStatus = label(lobbyFrame, {
+	Font = Enum.Font.Gotham,
+	TextColor3 = CREAM,
+	Position = UDim2.fromScale(0.08, 0.67),
+	Size = UDim2.fromScale(0.84, 0.15),
+	Visible = false,
+}, 18)
+local startNowButton = button(lobbyFrame, "지금 인원으로 시작", BRASS, {
+	Position = UDim2.fromScale(0.2, 0.85),
+	Size = UDim2.fromScale(0.6, 0.1),
+	TextColor3 = ESPRESSO,
+	Visible = false,
+}, 20)
+startNowButton.Activated:Connect(function()
+	Remotes.PartyStartNow:FireServer()
+end)
+
+local function showPartyChooser()
+	lobbyFrame.Visible = true
+	partyQuestion.Visible = true
+	partyStatus.Visible = false
+	startNowButton.Visible = false
+	for _, b in ipairs(sizeButtons) do
+		b.Visible = true
+	end
+end
+
+local function showPartyStatus(info)
+	lobbyFrame.Visible = true
+	partyQuestion.Visible = false
+	for _, b in ipairs(sizeButtons) do
+		b.Visible = false
+	end
+	partyStatus.Visible = true
+	partyStatus.Text = ("%s 님의 근무 팀 · 대기 %d / %d명\n친구가 노란 네모 안으로 들어오면 함께 출근해요."):format(info.hostName, info.count, info.size)
+	if not info.joined then
+		partyStatus.Text = ("%s 님의 팀이 가득 찼어요 (%d / %d명)."):format(info.hostName, info.count, info.size)
+	end
+	startNowButton.Visible = info.isHost
+end
+
+-- 광장 아래쪽 안내 문구
+local lobbyHint = label(gui, {
+	Text = "노란 네모 안으로 들어가면 출근할 수 있어요",
+	Font = SERIF,
+	TextColor3 = rgb(255, 215, 120),
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -24),
+	Size = UDim2.new(0.6, 0, 0, 30),
+	BackgroundTransparency = 0.3,
+	BackgroundColor3 = ESPRESSO,
+}, 18)
+round(lobbyHint, 4)
+maxSize(lobbyHint, 520, 30)
 
 ---------------------------------------------------------------- 위쪽 상태 표시
 local hud = make("Frame", {
@@ -195,10 +261,61 @@ local hudText = label(hud, {
 	TextWrapped = false,
 }, 16)
 
+---------------------------------------------------------------- 정신력 바 (상태바 바로 아래, 가로로 길게)
+local sanityBar = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 44),
+	Size = UDim2.new(0.62, 0, 0, 14),
+	BackgroundColor3 = rgb(20, 14, 12),
+	BackgroundTransparency = 0.15,
+	Visible = false,
+}, gui)
+round(sanityBar, 3)
+maxSize(sanityBar, 860, 14)
+brassFrame(sanityBar, 1)
+local sanityFill = make("Frame", {
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = rgb(150, 110, 200),
+	BorderSizePixel = 0,
+}, sanityBar)
+round(sanityFill, 3)
+make("UIGradient", {
+	Color = ColorSequence.new(rgb(120, 70, 180), rgb(190, 160, 230)),
+}, sanityFill)
+local sanityText = label(sanityBar, {
+	Text = "정신력 100",
+	Font = SERIF,
+	TextColor3 = CREAM,
+	Size = UDim2.fromScale(1, 1),
+	ZIndex = 3,
+}, 12)
+
+-- 정신력이 낮을수록 화면이 바래고 붉어지고 가장자리가 어두워져요. (내 화면에만)
+local Lighting = game:GetService("Lighting")
+local sanityGrade = Instance.new("ColorCorrectionEffect")
+sanityGrade.Name = "SanityGrade"
+sanityGrade.Parent = Lighting
+
+local function applySanity(value, max)
+	local ratio = math.clamp(value / max, 0, 1)
+	sanityFill.Size = UDim2.fromScale(ratio, 1)
+	sanityText.Text = ("정신력 %d"):format(math.floor(value + 0.5))
+	sanityFill.BackgroundColor3 = ratio < 0.3 and rgb(200, 60, 60) or rgb(150, 110, 200)
+	local fear = 1 - ratio
+	sanityGrade.Saturation = -0.5 * fear
+	sanityGrade.TintColor = Color3.new(1, 1 - 0.25 * fear, 1 - 0.25 * fear)
+	for _, gradient in ipairs(vignetteGradients) do
+		gradient.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.35 - 0.3 * fear),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+	end
+end
+
 ---------------------------------------------------------------- 안내 메시지 (토스트)
 local toast = label(gui, {
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 48),
+	Position = UDim2.new(0.5, 0, 0, 66),
 	Size = UDim2.new(0.62, 0, 0, 34),
 	BackgroundTransparency = 0.12,
 	BackgroundColor3 = ESPRESSO,
@@ -528,6 +645,7 @@ local function jumpScare(data, kind)
 	local target = headGroup and headGroup.PrimaryPart.Position or Vector3.new(0, 5.5, 0)
 
 	scareFrame.Visible = true
+	Remotes.Scared:FireServer()
 	if screamSound then
 		screamSound:Play()
 	end
@@ -918,29 +1036,95 @@ local function showMorning(report)
 end
 
 ---------------------------------------------------------------- 서버에서 온 신호 처리
-local soloBusy = false
-soloButton.Activated:Connect(function()
-	if soloBusy then
-		return
-	end
-	soloBusy = true
-	Remotes.StartSolo:FireServer()
-	task.delay(2, function()
-		soloBusy = false
+---------------------------------------------------------------- 꼬마 손님 대화창
+local kidFrame = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -16),
+	Size = UDim2.new(0.5, 0, 0, 150),
+	BackgroundColor3 = ESPRESSO,
+	BackgroundTransparency = 0.05,
+	Visible = false,
+	ZIndex = 5,
+}, gui)
+round(kidFrame, 6)
+maxSize(kidFrame, 560, 150)
+brassFrame(kidFrame, 1.5)
+local kidSpeaker = label(kidFrame, {
+	Font = SERIF,
+	TextColor3 = rgb(255, 210, 120),
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Position = UDim2.new(0, 14, 0, 8),
+	Size = UDim2.new(1, -28, 0, 22),
+	ZIndex = 6,
+}, 18)
+local kidLine = label(kidFrame, {
+	Font = Enum.Font.Gotham,
+	TextColor3 = CREAM,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top,
+	Position = UDim2.new(0, 14, 0, 34),
+	Size = UDim2.new(1, -28, 0, 56),
+	ZIndex = 6,
+}, 17)
+local kidButtons = {}
+local kidAskId = nil
+for i = 1, 2 do
+	local kidButton = button(kidFrame, "", i == 1 and BOTTLE or rgb(70, 50, 40), {
+		TextColor3 = CREAM,
+		Position = UDim2.new((i - 1) * 0.5, i == 1 and 14 or 5, 1, -50),
+		Size = UDim2.new(0.5, -19, 0, 38),
+		ZIndex = 6,
+	}, 18)
+	brassFrame(kidButton, 1)
+	kidButton.Activated:Connect(function()
+		if kidAskId then
+			Remotes.KidChoice:FireServer(kidAskId, i)
+			kidAskId = nil
+			kidFrame.Visible = false
+		end
 	end)
+	kidButtons[i] = kidButton
+end
+
+Remotes.KidEvent.OnClientEvent:Connect(function(ask)
+	hideDesk()
+	kidAskId = ask.id
+	kidSpeaker.Text = ask.speaker
+	kidLine.Text = ("“%s”"):format(ask.line)
+	for i, kidButton in ipairs(kidButtons) do
+		kidButton.Text = ask.choices[i] or ""
+	end
+	kidFrame.Visible = true
+end)
+
+---------------------------------------------------------------- 광장 출근 대기
+Remotes.PartyPrompt.OnClientEvent:Connect(showPartyChooser)
+Remotes.PartyStatus.OnClientEvent:Connect(showPartyStatus)
+Remotes.PartyClosed.OnClientEvent:Connect(function()
+	lobbyFrame.Visible = false
+end)
+
+Remotes.Sanity.OnClientEvent:Connect(function(info)
+	applySanity(info.value, info.max)
 end)
 
 Remotes.State.OnClientEvent:Connect(function(state)
 	if state.phase == "Lobby" then
-		lobbyFrame.Visible = true
+		lobbyHint.Visible = true
 		hud.Visible = false
+		sanityBar.Visible = false
 		night.Visible = false
+		kidFrame.Visible = false
+		reportFrame.Visible = false
+		applySanity(100, 100) -- 화면 효과 되돌리기
 		hideDesk()
 		return
 	end
 
 	lobbyFrame.Visible = false
+	lobbyHint.Visible = false
 	hud.Visible = true
+	sanityBar.Visible = true
 	currentDay = state.day
 	if state.phase == "Day" then
 		night.Visible = false

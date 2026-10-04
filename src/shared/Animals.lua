@@ -146,6 +146,13 @@ function Animals.build(data, anomaly)
 	for i = 0, 1 do
 		ball(model, "Button", 0.12, torsoCF * CFrame.new(0.2, -0.3 - i * 0.35, front - 0.01), rgb(190, 150, 70))
 	end
+	-- 셔츠 깃, 가슴 주머니와 행커치프
+	for _, side in ipairs({ -1, 1 }) do
+		newPart(model, "Collar", "Part", V(0.26, 0.16, 0.06), torsoCF * CFrame.new(side * 0.17, 1.02, front - 0.04) * CFrame.Angles(0, 0, side * 0.6), WHITE)
+	end
+	local pocketZ = -math.sqrt(math.max(0.01, (torsoWidth / 2) ^ 2 - 0.3)) - 0.02
+	newPart(model, "PocketFlap", "Part", V(0.45, 0.08, 0.06), torsoCF * CFrame.new(-0.55, 0.4, pocketZ), lapel)
+	newPart(model, "PocketSquare", "Part", V(0.22, 0.16, 0.05), torsoCF * CFrame.new(-0.55, 0.5, pocketZ - 0.01), tieColor:Lerp(WHITE, 0.4))
 
 	-- 팔 (소매 + 흰 소맷부리 + 손)
 	for _, side in ipairs({ -1, 1 }) do
@@ -162,6 +169,9 @@ function Animals.build(data, anomaly)
 			vcyl(model, "Sleeve", 1.6, 0.6, armCF, cloth)
 			vcyl(model, "Cuff", 0.14, 0.62, armCF * CFrame.new(0, -0.82, 0), WHITE)
 			ball(model, "Hand", 0.62, armCF * CFrame.new(0, -1.1, 0), light)
+			if side == -1 then
+				vcyl(model, "Watch", 0.12, 0.66, armCF * CFrame.new(0, -0.68, 0), rgb(190, 150, 70))
+			end
 		end
 	end
 
@@ -192,6 +202,7 @@ function Animals.build(data, anomaly)
 			local earCF = at(side * 0.65, 1.15, 0.1) * CFrame.Angles(0, 0, -side * 0.25)
 			newPart(headGroup, "Ear", "WedgePart", V(0.25, 1.1 * s, 0.9 * s), earCF, fur)
 			newPart(headGroup, "EarInner", "WedgePart", V(0.1, 0.75 * s, 0.55 * s), earCF * CFrame.new(0, -0.1 * s, -0.05), PINK)
+			ball(headGroup, "EarFluff", 0.3 * s, earCF * CFrame.new(0, -0.35 * s, -0.15), light)
 		elseif def.ears == "floppy" then
 			newPart(headGroup, "Ear", "Part", V(0.35, 1.5, 0.8), at(side * 1.18, -0.05, 0) * CFrame.Angles(0, 0, side * 0.25), dark)
 			ball(headGroup, "EarTip", 0.8, at(side * 1.32, -0.75, 0), dark)
@@ -240,6 +251,12 @@ function Animals.build(data, anomaly)
 			end
 		end
 	end
+	-- 코끝 반짝임
+	local nose = headGroup:FindFirstChild("Nose")
+	if nose then
+		ball(headGroup, "NoseShine", 0.08, nose.CFrame * CFrame.new(-0.05, 0.07, -0.1), WHITE)
+	end
+
 	-- 통통한 볼살 (얼굴 아래쪽을 둥글고 넓게)
 	if data.animal ~= "pig" then
 		for _, side in ipairs({ -1, 1 }) do

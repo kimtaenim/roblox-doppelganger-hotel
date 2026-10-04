@@ -7,6 +7,7 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
 local Animals = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Animals"))
+local Props = require(script.Parent:WaitForChild("Props"))
 
 local LobbyDecor = {}
 
@@ -282,9 +283,14 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 		local angle = (i - 3) * 0.35
 		local branch = CFrame.new(-10.5, 6.2, 5.6) * CFrame.Angles(0, 0, angle) * CFrame.new(0, 1.4, 0)
 		D(interior, "Branch", V(0.08, 2.8, 0.08), branch, rgb(60, 40, 30), Mat.Wood)
-		for _ = 1, 4 do
+		for k = 1, 7 do
 			local p = (branch * CFrame.new(0, blossomRandom:NextNumber(-0.6, 1.4), 0)).Position
-			ball(interior, "Blossom", 0.3, p + V(blossomRandom:NextNumber(-0.3, 0.3), 0, blossomRandom:NextNumber(-0.3, 0.3)), rgb(240, 180, 200))
+			local offset = V(blossomRandom:NextNumber(-0.35, 0.35), 0, blossomRandom:NextNumber(-0.35, 0.35))
+			if k % 3 == 0 then
+				Props.flower(interior, p + offset, rgb(245, 190, 210), 0.42)
+			else
+				ball(interior, "Blossom", 0.3, p + offset, k % 2 == 0 and rgb(240, 180, 200) or rgb(250, 215, 225))
+			end
 		end
 	end
 	for _ = 1, 6 do
@@ -385,10 +391,10 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 	for _, offset in ipairs({ V(-2, 0, -1.8), V(2, 0, -1.8), V(-2, 0, 1.8), V(2, 0, 1.8) }) do
 		D(interior, "TableLeg", V(0.8, 1.6, 0.8), V(-20.5, 1.2, -9) + offset, WOOD_DARK, Mat.Wood)
 	end
-	-- 테이블 위: 시든 난초, 신문
-	vcyl(interior, "OrchidPot", 0.5, 0.6, V(-21.6, 2.45, -10), rgb(110, 130, 80), Mat.Glass)
-	for i = 1, 5 do
-		ball(interior, "Orchid", 0.3, V(-21.6 + math.sin(i) * 0.4, 2.9 + i * 0.12, -10 + math.cos(i) * 0.4), rgb(170, 120, 150))
+	-- 테이블 위: 검붉은 장미 꽃다발, 떨어진 꽃잎, 신문
+	Props.bouquet(interior, V(-21.6, 2.18, -10.1), "rose", rgb(120, 15, 25), 9, rgb(40, 60, 55))
+	for i = 1, 4 do
+		D(interior, "FallenPetal", V(0.18, 0.02, 0.14), CFrame.new(-21.0 + i * 0.3, 2.19, -9.2 - (i % 2) * 0.3) * CFrame.Angles(0, i, 0), rgb(110, 15, 25))
 	end
 	local paper = D(interior, "Newspaper", V(1.8, 0.05, 1.3), CFrame.new(-19.6, 2.51, -8.3) * CFrame.Angles(0, 0.3, 0), rgb(225, 220, 205))
 	text(paper, Enum.NormalId.Top, "호텔 투숙객\n연쇄 실종", rgb(30, 25, 25), Enum.Font.Garamond)
@@ -530,7 +536,7 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 	-- 9) 얼굴 없는 벨보이 마네킹 (고개가 플레이어를 따라 돌아가요)
 	local bellhop = Animals.build({ name = "Bellhop", animal = "fox", fur = rgb(225, 225, 220), cloth = rgb(130, 20, 30) }, nil)
 	for _, part in ipairs(bellhop:GetDescendants()) do
-		if part:IsA("BasePart") and (part.Name:find("Eye") or part.Name == "Pupil" or part.Name == "Iris" or part.Name == "Mouth" or part.Name == "Nose" or part.Name == "Brow" or part.Name == "Blush" or part.Name:find("Glasses") or part.Name:find("Hat") or part.Name:find("Beret")) then
+		if part:IsA("BasePart") and (part.Name:find("Eye") or part.Name == "Pupil" or part.Name == "Iris" or part.Name == "Mouth" or part.Name:find("Nose") or part.Name == "Brow" or part.Name == "Blush" or part.Name:find("Glasses") or part.Name:find("Hat") or part.Name:find("Beret")) then
 			part:Destroy()
 		end
 	end
@@ -557,6 +563,17 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 	end
 	portrait(-21, { name = "Founder", animal = "rabbit", fur = rgb(230, 230, 230), cloth = rgb(30, 30, 35) }, "eyes", "초대 지배인", false)
 	portrait(21, { name = "Madam", animal = "cat", fur = rgb(60, 60, 65), cloth = rgb(90, 20, 40) }, nil, "마담 X", true)
+
+	-- 꽃 장식: 하얀 백합 받침대 (초상화 옆), 프런트 앞 장미 받침대, 엘리베이터 옆 꽃병
+	local function pedestal(pos, kind, color, count)
+		vcyl(interior, "PedestalBase", 0.3, 1.6, pos + V(0, 0.15, 0), rgb(200, 195, 185), Mat.Marble)
+		vcyl(interior, "PedestalColumn", 3, 1.0, pos + V(0, 1.8, 0), rgb(215, 210, 200), Mat.Marble)
+		vcyl(interior, "PedestalTop", 0.3, 1.5, pos + V(0, 3.45, 0), rgb(200, 195, 185), Mat.Marble)
+		Props.bouquet(interior, pos + V(0, 3.6, 0), kind, color, count, rgb(30, 30, 35))
+	end
+	pedestal(V(-26.5, FLOOR, 3.2), "lily", nil, 8)
+	pedestal(V(-7, FLOOR, 1.8), "rose", rgb(150, 20, 30), 11)
+	pedestal(V(20.5, FLOOR, 3.4), "flower", rgb(235, 225, 240), 9)
 
 	-- 11) 촛대 (밤에도 꺼지지 않아요)
 	D(interior, "SideTable", V(2, 2.4, 2), V(-27.3, 1.6, -2.3), WOOD_DARK, Mat.Wood)
