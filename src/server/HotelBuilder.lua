@@ -2,6 +2,8 @@
 -- Workspace에 이미 "Hotel" / "Lobby" / "Ground" 가 있으면 새로 만들지 않아요.
 -- (나중에 Studio에서 직접 호텔을 꾸미고 싶으면, 같은 이름으로 넣어 두면 돼요.
 --  단, Hotel 안의 Markers 폴더, Shutter 파트, Lights 폴더는 이름을 그대로 유지해 주세요.)
+local LobbyDecor = require(script.Parent:WaitForChild("LobbyDecor"))
+
 local HotelBuilder = {}
 
 local rgb = Color3.fromRGB
@@ -154,7 +156,7 @@ local function buildHotel()
 	local wallColor = rgb(215, 200, 180)
 	local fz = -D / 2 + 0.5 -- 앞벽 위치
 
-	part(structure, "GroundFloor", V(W, 0.4, D), V(0, 0.2, 0), rgb(205, 195, 175), Enum.Material.Marble)
+	part(structure, "GroundFloor", V(W, 0.4, D), V(0, 0.2, 0), rgb(215, 210, 200), Enum.Material.Marble)
 	for f = 1, FLOORS do
 		part(structure, "Slab" .. f, V(W + 1, 1, D + 1), V(0, f * FH, 0), rgb(200, 200, 200), Enum.Material.Concrete)
 	end
@@ -218,88 +220,18 @@ local function buildHotel()
 	lamp(lights, V(0, 9.8, -D / 2 - 3), "Outside")
 
 	---------------------------------------------------------------- 1층 로비와 프론트
-	part(interior, "Carpet", V(12, 0.06, 22), V(0, 0.43, -9), rgb(150, 30, 40), Enum.Material.Fabric)
-
-	-- 직원 구역과 손님 구역을 나누는 벽
-	local partition = rgb(60, 90, 75)
-	part(interior, "PartitionL", V(18, FH, 1), V(-21, FH / 2, 6), partition)
-	part(interior, "PartitionR", V(18, FH, 1), V(21, FH / 2, 6), partition)
-	part(interior, "WallAboveDesk", V(24, FH - 9.2, 1), V(0, 9.2 + (FH - 9.2) / 2, 6), partition)
-
-	-- 프론트 데스크
-	part(interior, "Counter", V(24, 4, 2), V(0, 2.4, 6), rgb(110, 70, 45), Enum.Material.WoodPlanks)
-	part(interior, "CounterTop", V(24.6, 0.4, 2.8), V(0, 4.6, 5.9), rgb(240, 235, 225), Enum.Material.Marble)
-	part(interior, "CounterBarrier", V(24, 4.4, 0.3), V(0, 7, 6.6), rgb(255, 255, 255), nil, {
-		Transparency = 1,
-	})
-
-	-- 셔터 (평소엔 위에 말려 있다가 닫으면 내려와요)
-	part(interior, "ShutterBox", V(24.6, 1.4, 1.2), V(0, 9.9, 4.9), rgb(110, 110, 115), Enum.Material.Metal)
-	local shutterOpen = marker(markers, "ShutterOpen", V(0, 9.4, 4.9), V(23.6, 0.4, 0.25))
-	marker(markers, "ShutterClosed", V(0, 7, 4.9), V(23.6, 4.4, 0.25))
-	part(hotel, "Shutter", shutterOpen.Size, shutterOpen.CFrame, rgb(150, 150, 155), Enum.Material.DiamondPlate, {
-		CanCollide = false,
-	})
-
-	-- 모니터 두 대 (직원 쪽을 향해요)
-	for _, info in ipairs({ { -7, "CCTV", rgb(120, 255, 120) }, { 7, "예약 확인", rgb(150, 200, 255) } }) do
-		local x = info[1]
-		part(interior, "MonitorStand", V(0.4, 1, 0.4), V(x, 5.3, 6.6), rgb(40, 40, 40))
-		local screen = part(interior, "Monitor", V(3.2, 2, 0.25), V(x, 6.8, 6.6), rgb(15, 15, 20))
-		sign(screen, Enum.NormalId.Back, info[2], info[3], Enum.Font.Code)
-	end
-	local bell = part(interior, "Bell", V(0.6, 0.6, 0.6), V(2, 5.1, 5.4), rgb(230, 190, 60), Enum.Material.Metal, {
-		Shape = Enum.PartType.Ball,
-	})
-	bell.CanCollide = false
-	part(interior, "GuestBook", V(1.5, 0.1, 1), V(-2, 4.85, 5.6), rgb(245, 240, 230))
-
-	-- 직원 구역 뒤쪽 열쇠 보관함
-	part(interior, "KeyRack", V(12, 5, 0.3), V(0, 7, D / 2 - 1.2), rgb(120, 80, 50), Enum.Material.WoodPlanks)
-	for row = 0, 2 do
-		for col = 0, 5 do
-			part(interior, "Key", V(0.3, 0.7, 0.1), V(-4.5 + col * 1.8, 8.3 - row * 1.4, D / 2 - 1.4), rgb(230, 190, 60), Enum.Material.Metal)
-		end
-	end
-
-	-- 화분과 소파
-	for _, x in ipairs({ -26, 26 }) do
-		part(interior, "Pot", V(2, 2, 2), CFrame.new(x, 1.4, -16) * CFrame.Angles(0, 0, math.rad(90)), rgb(150, 90, 60), nil, {
-			Shape = Enum.PartType.Cylinder,
-		})
-		part(interior, "Leaves", V(3.5, 3.5, 3.5), V(x, 3.8, -16), rgb(60, 140, 60), Enum.Material.Grass, {
-			Shape = Enum.PartType.Ball,
-		})
-	end
-	part(interior, "SofaSeat", V(3, 1.4, 8), V(27, 1.1, -5), rgb(120, 40, 50), Enum.Material.Fabric)
-	part(interior, "SofaBack", V(0.8, 3, 8), V(28.6, 2, -5), rgb(110, 35, 45), Enum.Material.Fabric)
-
-	-- 엘리베이터 (예약한 손님이 방으로 올라가는 곳)
-	part(interior, "ElevatorFrame", V(0.4, 10, 8.4), V(-29.1, 5.4, -8), rgb(60, 60, 65), Enum.Material.Metal)
-	part(interior, "ElevatorDoor", V(0.3, 9, 7), V(-28.9, 4.9, -8), rgb(170, 170, 175), Enum.Material.Metal)
-	part(interior, "ElevatorGap", V(0.35, 9, 0.1), V(-28.9, 4.9, -8), rgb(40, 40, 40))
-	local panel = part(interior, "ElevatorPanel", V(0.2, 1, 2.4), V(-28.85, 10.9, -8), rgb(20, 20, 20))
-	sign(panel, Enum.NormalId.Right, "▲ 1F", rgb(255, 150, 50), Enum.Font.Code)
-
-	-- 입구를 비추는 CCTV 카메라
-	local camPos = V(22, 12.4, -17)
-	local cam = part(interior, "CCTVCamera", V(1, 1, 2), CFrame.lookAt(camPos, V(0, 4, 0)), rgb(40, 40, 45))
-	part(interior, "CCTVLight", V(0.2, 0.2, 0.2), cam.CFrame * CFrame.new(0.3, 0.4, -1), rgb(255, 0, 0), Enum.Material.Neon)
-
-	-- 조명
-	for _, pos in ipairs({ V(-15, 13.2, -12), V(0, 13.2, -12), V(15, 13.2, -12), V(-15, 13.2, -2), V(15, 13.2, -2) }) do
-		lamp(lights, pos, "Guest")
-	end
-	lamp(lights, V(-8, 13.2, 13), "Staff")
-	lamp(lights, V(8, 13.2, 13), "Staff")
+	-- 직원 구역과 손님 구역을 나누는 벽 (꾸밈은 LobbyDecor 에서 해요)
+	part(interior, "PartitionL", V(18, FH, 1), V(-21, FH / 2, 6), rgb(52, 32, 22))
+	part(interior, "PartitionR", V(18, FH, 1), V(21, FH / 2, 6), rgb(52, 32, 22))
+	LobbyDecor.build(hotel, interior, lights, markers)
 
 	---------------------------------------------------------------- 위치 표시 (보이지 않아요)
 	marker(markers, "DeskSpawn", V(0, 3.5, 13))
 	marker(markers, "GuestSpawn", V(0, 0.3, -34))
 	marker(markers, "Door", V(0, 0.5, -24))
 	marker(markers, "Counter", V(0, 0.5, 2))
-	marker(markers, "Elevator", V(-26, 0.5, -8))
-	marker(markers, "CorpseArea", V(0, 0.4, -8), V(36, 0.2, 16))
+	marker(markers, "Elevator", V(26, 0.5, -2))
+	marker(markers, "CorpseArea", V(6, 0.4, -7), V(16, 0.2, 12))
 
 	hotel.Parent = workspace
 	return hotel
@@ -312,7 +244,9 @@ function HotelBuilder.ensure()
 	if not workspace:FindFirstChild("Lobby") then
 		buildLobby()
 	end
-	return workspace:FindFirstChild("Hotel") or buildHotel()
+	local hotel = workspace:FindFirstChild("Hotel") or buildHotel()
+	LobbyDecor.animate(hotel)
+	return hotel
 end
 
 return HotelBuilder

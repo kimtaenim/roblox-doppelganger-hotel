@@ -1,5 +1,5 @@
 -- 각 플레이어의 화면(UI)을 담당하는 스크립트예요.
--- 로비 화면, 위쪽 상태 표시, 프론트 체크인 화면(예약 사진 + CCTV), 밤 결과 화면이 있어요.
+-- 로비 화면, 위쪽 상태 표시, 체크인 창(예약 확인서 / CCTV / 손님 응대), 밤 결과, 아침 보고서가 있어요.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -178,69 +178,109 @@ local function shakeCamera()
 	end)
 end
 
----------------------------------------------------------------- 프론트 체크인 화면
+---------------------------------------------------------------- 프론트 체크인 화면 (창 세 개)
+-- desk 는 창 세 개(예약 확인서, CCTV, 손님 응대)를 한꺼번에 보이고 숨기는 투명한 틀이에요.
 local desk = make("Frame", {
-	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -16),
-	Size = UDim2.fromScale(0.96, 0.64),
-	BackgroundColor3 = rgb(30, 26, 24),
-	BackgroundTransparency = 0.05,
+	Size = UDim2.fromScale(1, 1),
+	BackgroundTransparency = 1,
 	Visible = false,
 }, gui)
-round(desk, 16)
-maxSize(desk, 900, 520)
 
-local deskHeader = label(desk, {
-	Position = UDim2.fromScale(0.03, 0.02),
-	Size = UDim2.fromScale(0.94, 0.08),
-	TextXAlignment = Enum.TextXAlignment.Left,
-}, 22)
-local deskSpeech = label(desk, {
-	Position = UDim2.fromScale(0.03, 0.1),
-	Size = UDim2.fromScale(0.94, 0.07),
-	TextXAlignment = Enum.TextXAlignment.Left,
-	Font = Enum.Font.Gotham,
-	TextColor3 = rgb(255, 230, 180),
-}, 20)
+local function draggable(frame)
+	pcall(function()
+		make("UIDragDetector", {}, frame)
+	end)
+end
 
--- 예약 사진 (폴라로이드)
+-- 제목 표시줄이 있는 창
+local function window(title, titleColor, barColor, bodyColor, props)
+	local frame = make("Frame", { BackgroundColor3 = bodyColor, BorderSizePixel = 0 }, desk)
+	for key, value in pairs(props) do
+		frame[key] = value
+	end
+	round(frame, 8)
+	make("UIStroke", { Color = rgb(20, 15, 10), Thickness = 2 }, frame)
+	local bar = make("Frame", {
+		Size = UDim2.new(1, 0, 0, 28),
+		BackgroundColor3 = barColor,
+		BorderSizePixel = 0,
+	}, frame)
+	round(bar, 8)
+	label(bar, {
+		Text = title,
+		TextColor3 = titleColor,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Position = UDim2.new(0, 10, 0, 4),
+		Size = UDim2.new(1, -20, 1, -8),
+	}, 16)
+	local body = make("Frame", {
+		Position = UDim2.new(0, 8, 0, 34),
+		Size = UDim2.new(1, -16, 1, -42),
+		BackgroundTransparency = 1,
+	}, frame)
+	draggable(frame)
+	return frame, body
+end
+
+-- 창 1: 예약 확인서 (왼쪽 아래)
+local _, photoBody = window("예약 확인서 · RESERVATION", rgb(225, 190, 120), rgb(50, 32, 22), rgb(238, 230, 212), {
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 16, 1, -16),
+	Size = UDim2.fromScale(0.3, 0.6),
+})
+maxSize(photoBody.Parent, 320, 440)
 local photoCard = make("Frame", {
-	Position = UDim2.fromScale(0.03, 0.19),
-	Size = UDim2.fromScale(0.45, 0.59),
-	BackgroundColor3 = rgb(245, 240, 225),
-}, desk)
-round(photoCard, 6)
+	Position = UDim2.fromScale(0.08, 0.02),
+	Size = UDim2.fromScale(0.84, 0.66),
+	BackgroundColor3 = rgb(250, 248, 240),
+	Rotation = -2,
+}, photoBody)
+make("UIStroke", { Color = rgb(200, 190, 170), Thickness = 1 }, photoCard)
 local photoView = make("ViewportFrame", {
-	Position = UDim2.fromScale(0.05, 0.05),
-	Size = UDim2.fromScale(0.9, 0.76),
-	BackgroundColor3 = rgb(190, 215, 235),
-	Ambient = rgb(170, 170, 170),
+	Position = UDim2.fromScale(0.06, 0.05),
+	Size = UDim2.fromScale(0.88, 0.8),
+	BackgroundColor3 = rgb(170, 185, 195),
+	Ambient = rgb(170, 165, 160),
 }, photoCard)
 local photoCaption = label(photoCard, {
-	Position = UDim2.fromScale(0.05, 0.83),
-	Size = UDim2.fromScale(0.9, 0.14),
+	Position = UDim2.fromScale(0.06, 0.86),
+	Size = UDim2.fromScale(0.88, 0.12),
 	TextColor3 = rgb(50, 40, 40),
-	Font = Enum.Font.Gotham,
-}, 20)
+	Font = Enum.Font.Garamond,
+}, 18)
+local photoInfo = label(photoBody, {
+	Position = UDim2.fromScale(0.04, 0.71),
+	Size = UDim2.fromScale(0.92, 0.28),
+	TextColor3 = rgb(40, 32, 28),
+	Font = Enum.Font.Code,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top,
+}, 15)
 
--- CCTV 화면
+-- 창 2: CCTV (오른쪽 아래)
+local _, cctvBody = window("CCTV · CAM 01 · 프론트", rgb(140, 255, 140), rgb(15, 15, 15), rgb(45, 45, 45), {
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.new(1, -16, 1, -16),
+	Size = UDim2.fromScale(0.32, 0.5),
+})
+maxSize(cctvBody.Parent, 400, 330)
 local cctvCard = make("Frame", {
-	Position = UDim2.fromScale(0.52, 0.19),
-	Size = UDim2.fromScale(0.45, 0.59),
+	Size = UDim2.fromScale(1, 1),
 	BackgroundColor3 = rgb(10, 12, 10),
-}, desk)
-round(cctvCard, 6)
+	ClipsDescendants = true,
+}, cctvBody)
+round(cctvCard, 4)
 local cctvView = make("ViewportFrame", {
-	Position = UDim2.fromScale(0.03, 0.04),
-	Size = UDim2.fromScale(0.94, 0.92),
+	Position = UDim2.fromScale(0.02, 0.03),
+	Size = UDim2.fromScale(0.96, 0.94),
 	BackgroundColor3 = rgb(30, 40, 32),
 	ImageColor3 = rgb(170, 235, 170),
 	Ambient = rgb(120, 140, 120),
 }, cctvCard)
 for i = 1, 12 do
 	make("Frame", {
-		Position = UDim2.new(0.03, 0, i / 13, 0),
-		Size = UDim2.new(0.94, 0, 0, 2),
+		Position = UDim2.new(0.02, 0, i / 13, 0),
+		Size = UDim2.new(0.96, 0, 0, 2),
 		BackgroundColor3 = rgb(0, 0, 0),
 		BackgroundTransparency = 0.7,
 		BorderSizePixel = 0,
@@ -251,7 +291,7 @@ end
 local staticBars = {}
 for i = 1, 4 do
 	staticBars[i] = make("Frame", {
-		Size = UDim2.new(0.94, 0, 0.04, 0),
+		Size = UDim2.new(0.96, 0, 0.04, 0),
 		BackgroundColor3 = rgb(220, 255, 220),
 		BackgroundTransparency = 0.4,
 		BorderSizePixel = 0,
@@ -264,43 +304,60 @@ label(cctvCard, {
 	Font = Enum.Font.Code,
 	TextColor3 = rgb(140, 255, 140),
 	TextXAlignment = Enum.TextXAlignment.Left,
-	Position = UDim2.fromScale(0.06, 0.06),
+	Position = UDim2.fromScale(0.05, 0.05),
 	Size = UDim2.fromScale(0.6, 0.09),
 	ZIndex = 4,
-}, 18)
+}, 16)
 local recLabel = label(cctvCard, {
 	Text = "● REC",
 	Font = Enum.Font.Code,
 	TextColor3 = rgb(255, 60, 60),
 	TextXAlignment = Enum.TextXAlignment.Right,
-	Position = UDim2.fromScale(0.64, 0.06),
+	Position = UDim2.fromScale(0.65, 0.05),
 	Size = UDim2.fromScale(0.3, 0.09),
 	ZIndex = 4,
-}, 18)
+}, 16)
 local timeLabel = label(cctvCard, {
 	Font = Enum.Font.Code,
 	TextColor3 = rgb(140, 255, 140),
 	TextXAlignment = Enum.TextXAlignment.Left,
-	Position = UDim2.fromScale(0.06, 0.85),
+	Position = UDim2.fromScale(0.05, 0.86),
 	Size = UDim2.fromScale(0.7, 0.09),
 	ZIndex = 4,
-}, 16)
+}, 14)
 
-local acceptButton = button(desk, "✅ 예약 받기", rgb(60, 160, 90), {
-	Position = UDim2.fromScale(0.03, 0.8),
-	Size = UDim2.fromScale(0.45, 0.12),
-})
-local shutterButton = button(desk, "🛑 셔터 닫기", rgb(200, 60, 60), {
-	Position = UDim2.fromScale(0.52, 0.8),
-	Size = UDim2.fromScale(0.45, 0.12),
-})
-label(desk, {
-	Text = "이빨 · 찢어진 입 · 검은 눈 · 이상한 몸 · 움직이는 사진 → 셔터!",
+-- 창 3: 손님 응대 (가운데 아래)
+local actionBar = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -16),
+	Size = UDim2.new(0.33, 0, 0, 104),
+	BackgroundColor3 = rgb(28, 22, 18),
+	BackgroundTransparency = 0.05,
+}, desk)
+round(actionBar, 10)
+maxSize(actionBar, 440, 104)
+make("UIStroke", { Color = rgb(176, 136, 66), Thickness = 1 }, actionBar)
+local deskHeader = label(actionBar, {
+	Position = UDim2.new(0, 10, 0, 6),
+	Size = UDim2.new(1, -20, 0, 18),
+	TextColor3 = rgb(200, 170, 120),
+	TextXAlignment = Enum.TextXAlignment.Left,
+}, 14)
+local deskSpeech = label(actionBar, {
+	Position = UDim2.new(0, 10, 0, 24),
+	Size = UDim2.new(1, -20, 0, 30),
 	Font = Enum.Font.Gotham,
-	TextColor3 = rgb(190, 180, 170),
-	Position = UDim2.fromScale(0.03, 0.93),
-	Size = UDim2.fromScale(0.94, 0.06),
-}, 16)
+	TextColor3 = rgb(255, 235, 200),
+	TextXAlignment = Enum.TextXAlignment.Left,
+}, 15)
+local acceptButton = button(actionBar, "예약 받기", rgb(60, 130, 80), {
+	Position = UDim2.new(0, 10, 1, -44),
+	Size = UDim2.new(0.5, -15, 0, 36),
+}, 18)
+local shutterButton = button(actionBar, "셔터 닫기", rgb(160, 40, 40), {
+	Position = UDim2.new(0.5, 5, 1, -44),
+	Size = UDim2.new(0.5, -15, 0, 36),
+}, 18)
 
 local currentGuestId = nil
 local currentDay = 1
@@ -337,9 +394,15 @@ end
 local function showGuest(data)
 	currentGuestId = data.id
 	currentDay = data.day
-	deskHeader.Text = ("📋 체크인 · %s (%s) · 손님 %d/%d"):format(data.name, data.animalName, data.index, data.total)
-	deskSpeech.Text = ("💬 “%s”"):format(data.line or "...")
-	photoCaption.Text = ("예약 사진 · %s"):format(data.name)
+	deskHeader.Text = ("손님 %d/%d · %s (%s)"):format(data.index, data.total, data.name, data.animalName)
+	deskSpeech.Text = ("“%s”"):format(data.line or "...")
+	photoCaption.Text = data.name
+	photoInfo.Text = ("성명  %s\n구분  %s\n객실  %s호\n숙박  1박 · %d일차 체크인"):format(
+		data.name,
+		data.animalName,
+		tostring(data.room or "-"),
+		data.day or 1
+	)
 
 	-- 예약 사진: 얼굴이 잘 보이게 정면에서 찍어요.
 	local photoModel = fillViewport(
@@ -476,8 +539,6 @@ nightButton.Activated:Connect(function()
 	night.Visible = false
 	if nightMode == "next" then
 		Remotes.NextDay:FireServer()
-	elseif nightMode == "morning" then
-		Remotes.MorningOk:FireServer()
 	else
 		Remotes.BackToLobby:FireServer()
 	end
@@ -527,27 +588,119 @@ local function showNight(report)
 	nightButton.Visible = true
 end
 
--- 아침 소식: 어제 셔터로 돌려보낸 손님이 누구였는지 알려줘요.
+-- 아침 보고서: 건조한 서류 양식으로 어젯밤 일과 어제 돌려보낸 손님의 정체를 알려줘요.
+local INK = rgb(35, 30, 28)
+local reportFrame = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromScale(0.9, 0.86),
+	BackgroundColor3 = rgb(236, 231, 218),
+	Visible = false,
+	ZIndex = 10,
+}, gui)
+maxSize(reportFrame, 520, 600)
+make("UIStroke", { Color = rgb(150, 140, 120), Thickness = 1 }, reportFrame)
+
+local function reportLabel(props, maxText)
+	props.ZIndex = 11
+	props.TextColor3 = props.TextColor3 or INK
+	return label(reportFrame, props, maxText)
+end
+
+reportLabel({
+	Text = "야간 근무 결과 보고서",
+	Font = Enum.Font.GothamBold,
+	Position = UDim2.fromScale(0.08, 0.03),
+	Size = UDim2.fromScale(0.84, 0.07),
+}, 26)
+local reportMeta = reportLabel({
+	Font = Enum.Font.Code,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Position = UDim2.fromScale(0.08, 0.11),
+	Size = UDim2.fromScale(0.84, 0.08),
+}, 13)
+make("Frame", {
+	Position = UDim2.fromScale(0.08, 0.2),
+	Size = UDim2.new(0.84, 0, 0, 2),
+	BackgroundColor3 = INK,
+	BorderSizePixel = 0,
+	ZIndex = 11,
+}, reportFrame)
+local reportBody = reportLabel({
+	Font = Enum.Font.Code,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top,
+	Position = UDim2.fromScale(0.08, 0.23),
+	Size = UDim2.fromScale(0.84, 0.58),
+}, 15)
+local stamp = reportLabel({
+	Text = "확 인",
+	Font = Enum.Font.GothamBlack,
+	TextColor3 = rgb(170, 30, 30),
+	Rotation = -14,
+	Position = UDim2.fromScale(0.66, 0.74),
+	Size = UDim2.fromScale(0.24, 0.08),
+	TextTransparency = 0.15,
+}, 26)
+make("UIStroke", { Color = rgb(170, 30, 30), Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Transparency = 0.15 }, stamp)
+local reportButton = button(reportFrame, "결재", rgb(45, 40, 38), {
+	Position = UDim2.fromScale(0.3, 0.88),
+	Size = UDim2.fromScale(0.4, 0.07),
+	ZIndex = 11,
+}, 18)
+reportButton.Activated:Connect(function()
+	reportFrame.Visible = false
+	Remotes.MorningOk:FireServer()
+end)
+
 local function showMorning(report)
-	nightTitle.Text = ("☀️ %d일차 아침 소식"):format(report.day)
-	local lines = { "어제 셔터로 돌려보낸 손님들의 정체가 밝혀졌어요.\n" }
-	local doppels, normals = 0, 0
+	hideDesk()
+	night.Visible = false
+	reportMeta.Text = ("문서번호  DH-%03d-N\n작성일시  %d일차 06:00   작성  야간 경비팀"):format(report.day - 1, report.day)
+
+	local lines = { "1. 야간 사고" }
+	if #report.victims > 0 then
+		table.insert(lines, ("   - 투숙객 사망 %d건"):format(#report.victims))
+		for _, name in ipairs(report.victims) do
+			table.insert(lines, "     " .. name)
+		end
+		table.insert(lines, "   - 시신 수습 및 로비 청소 완료")
+	else
+		table.insert(lines, "   - 해당 없음")
+	end
+
+	table.insert(lines, "")
+	table.insert(lines, "2. 전일 체크인 거절 손님 신원 조회")
+	local doppels = 0
+	if #report.refused == 0 then
+		table.insert(lines, "   - 해당 없음")
+	end
 	for _, guest in ipairs(report.refused) do
 		if guest.isDoppel then
 			doppels += 1
-			table.insert(lines, ("👹 %s(%s) — 도플갱어였어요! 잘 막았어요."):format(guest.name, guest.animalName))
-		else
-			normals += 1
-			table.insert(lines, ("😢 %s(%s) — 평범한 손님이었어요."):format(guest.name, guest.animalName))
 		end
+		table.insert(lines, ("   - %s(%s) : %s"):format(
+			guest.name,
+			guest.animalName,
+			guest.isDoppel and "도플갱어 확인" or "일반 투숙객 (오판)"
+		))
 	end
-	table.insert(lines, ("\n막아낸 도플갱어 %d명 · 잘못 돌려보낸 손님 %d명"):format(doppels, normals))
-	nightBody.Text = table.concat(lines, "\n")
-	nightMode = "morning"
-	nightButton.Text = "확인하고 문 열기"
-	nightButton.Visible = true
-	nightLobbyButton.Visible = false
-	night.Visible = true
+
+	table.insert(lines, "")
+	table.insert(lines, ("3. 전일 수입 %d / 누적 %d"):format(report.earned, report.money))
+	table.insert(lines, ("4. 누적 사망 %d / %d"):format(report.deaths, report.maxDeaths))
+	table.insert(lines, "")
+	local note = "없음."
+	if doppels > 0 then
+		note = "셔터 하단에서 긁힌 자국 발견. 보수 요청."
+	elseif #report.victims > 0 then
+		note = "새벽 3시 33분, 엘리베이터 B4 정지 기록."
+	end
+	table.insert(lines, "특이사항: " .. note)
+	table.insert(lines, "")
+	table.insert(lines, "이상.")
+	reportBody.Text = table.concat(lines, "\n")
+	reportFrame.Visible = true
 end
 
 ---------------------------------------------------------------- 서버에서 온 신호 처리
@@ -575,7 +728,7 @@ Remotes.State.OnClientEvent:Connect(function(state)
 	lobbyFrame.Visible = false
 	hud.Visible = true
 	currentDay = state.day
-	if state.phase == "Day" and nightMode ~= "morning" then
+	if state.phase == "Day" then
 		night.Visible = false
 	end
 

@@ -59,6 +59,7 @@ Studio에서 Rojo가 연결된 상태로 **플레이(▶ Play)** 를 누르세�
 |---|---|
 | `src/server/Main.server.lua` | 게임 흐름 (낮/밤, 손님, 돈, 희생자) |
 | `src/server/HotelBuilder.lua` | 땅, 로비, 호텔 건물(아파트 모양) 짓기 |
+| `src/server/LobbyDecor.lua` | 호텔 1층 로비 꾸미기 (프론트, 가구, 오싹한 소품, 움직이는 소품) |
 | `src/server/Npc.lua` | 손님 걷기, 밤에 사체 놓기 |
 | `src/shared/Animals.lua` | 동물 손님 모양과 도플갱어의 이상한 점 |
 | `src/shared/Config.lua` | 난이도 설정 |

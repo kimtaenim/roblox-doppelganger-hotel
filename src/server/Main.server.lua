@@ -47,36 +47,57 @@ local corpseFolder = Instance.new("Folder")
 corpseFolder.Name = "Corpses"
 corpseFolder.Parent = workspace
 
-local function setDaylight(isDay)
-	if isDay then
-		Lighting.ClockTime = 13
-		Lighting.Brightness = 2
-		Lighting.Ambient = rgb(110, 110, 110)
-		Lighting.OutdoorAmbient = rgb(128, 128, 128)
-		Lighting.FogEnd = 100000
-	else
-		Lighting.ClockTime = 0
-		Lighting.Brightness = 0.3
-		Lighting.Ambient = rgb(25, 25, 35)
-		Lighting.OutdoorAmbient = rgb(30, 30, 45)
-		Lighting.FogColor = rgb(10, 10, 20)
-		Lighting.FogEnd = 180
-	end
+-- 은은한 색감 보정 (살짝 바랜 색, 따뜻한 톤)
+local grade = Lighting:FindFirstChild("HotelGrade") or Instance.new("ColorCorrectionEffect")
+grade.Name = "HotelGrade"
+grade.Saturation = -0.15
+grade.Contrast = 0.12
+grade.TintColor = rgb(255, 240, 225)
+grade.Parent = Lighting
 
-	-- 밤에는 손님 구역 불이 꺼지고, 직원 구역만 어둑한 빨간 불이 남아요.
+-- 근무 시간(isDay)도 해가 진 뒤라 로비는 어둑어둑해요.
+-- 퇴근 후(밤)에는 손님 구역 불이 꺼지고, 촛불·깜빡이는 벽등·직원 구역 빨간 불만 남아요.
+local function setDaylight(isDay)
+	Lighting.ClockTime = isDay and 19.6 or 2
+	Lighting.Brightness = isDay and 0.8 or 0.2
+	Lighting.Ambient = isDay and rgb(48, 42, 38) or rgb(14, 13, 20)
+	Lighting.OutdoorAmbient = isDay and rgb(60, 58, 75) or rgb(25, 25, 40)
+	Lighting.FogColor = isDay and rgb(30, 28, 35) or rgb(8, 8, 15)
+	Lighting.FogEnd = isDay and 400 or 160
+	Lighting.EnvironmentDiffuseScale = 0.3
+	Lighting.EnvironmentSpecularScale = 0.3
+	grade.Brightness = isDay and -0.02 or -0.06
+
 	local lights = hotel:FindFirstChild("Lights")
 	if not lights then
 		return
 	end
 	for _, lamp in ipairs(lights:GetChildren()) do
-		local light = lamp:FindFirstChildOfClass("PointLight")
-		local zone = lamp:GetAttribute("Zone")
-		local on = isDay or zone == "Staff"
-		lamp.Material = on and Enum.Material.Neon or Enum.Material.SmoothPlastic
-		if light then
-			light.Enabled = on
-			light.Color = isDay and rgb(255, 235, 200) or rgb(255, 90, 70)
-			light.Brightness = isDay and 1.4 or 0.8
+		if lamp:IsA("BasePart") then
+			if lamp:GetAttribute("Glow") == nil then
+				lamp:SetAttribute("Glow", lamp.Material == Enum.Material.Neon)
+			end
+			local zone = lamp:GetAttribute("Zone")
+			local on = isDay or zone == "Staff" or zone == "Flicker" or zone == "Candle" or zone == "Outside"
+			if lamp:GetAttribute("Glow") then
+				lamp.Material = on and Enum.Material.Neon or Enum.Material.SmoothPlastic
+			end
+			local light = lamp:FindFirstChildOfClass("PointLight")
+			if light then
+				if light:GetAttribute("BaseBrightness") == nil then
+					light:SetAttribute("BaseBrightness", light.Brightness)
+					light:SetAttribute("BaseColor", light.Color)
+				end
+				local base = light:GetAttribute("BaseBrightness")
+				light.Enabled = on
+				if not isDay and zone == "Staff" then
+					light.Color = rgb(255, 80, 60)
+					light.Brightness = base * 0.5
+				else
+					light.Color = light:GetAttribute("BaseColor")
+					light.Brightness = isDay and base * 0.8 or base
+				end
+			end
 		end
 	end
 end
@@ -188,6 +209,7 @@ local function makeGuestData(isDoppel)
 		name = NAMES[math.random(#NAMES)],
 		animal = animal,
 		animalName = def.name,
+		room = math.random(2, 4) * 100 + math.random(1, 12),
 		fur = def.furs[math.random(#def.furs)],
 		cloth = Animals.Clothes[math.random(#Animals.Clothes)],
 		isDoppel = isDoppel,
@@ -248,6 +270,7 @@ local function runGuest(s, data)
 		name = data.name,
 		animal = data.animal,
 		animalName = data.animalName,
+		room = data.room,
 		fur = data.fur,
 		cloth = data.cloth,
 		photoAnomaly = anomaly and anomaly.where == "photo" and anomaly.kind or nil,
@@ -304,10 +327,18 @@ local function runDay(s)
 	moveShutter(false)
 	sendState(s)
 
-	-- 아침 소식: 어제 셔터로 돌려보낸 손님의 정체
-	if #s.refused > 0 then
+	-- 아침 보고서: 어젯밤 피해와 어제 셔터로 돌려보낸 손님의 정체
+	if s.day > 1 then
 		s.request = nil
-		fire(s, MorningReport, { day = s.day, refused = s.refused })
+		fire(s, MorningReport, {
+			day = s.day,
+			refused = s.refused,
+			victims = s.yesterdayVictims or {},
+			earned = s.yesterdayEarned or 0,
+			money = s.money,
+			deaths = s.deaths,
+			maxDeaths = Config.MaxDeaths,
+		})
 		if not waitUntil(s, function()
 			return s.request == "morning"
 		end) then
@@ -352,6 +383,8 @@ local function runNight(s)
 		table.insert(victimNames, ("%s(%s)"):format(victim.name, victim.animalName))
 	end
 
+	s.yesterdayVictims = victimNames
+	s.yesterdayEarned = s.earned
 	sendState(s)
 	local gameOver = s.deaths >= Config.MaxDeaths
 	fire(s, NightReport, {

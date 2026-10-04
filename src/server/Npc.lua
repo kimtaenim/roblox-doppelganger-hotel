@@ -53,8 +53,8 @@ function Npc.say(model, text, duration)
 
 	local bubble = Instance.new("BillboardGui")
 	bubble.Name = "Speech"
-	bubble.Size = UDim2.fromOffset(280, 70)
-	bubble.StudsOffset = Vector3.new(0, 3.2, 0)
+	bubble.Size = UDim2.fromOffset(200, 44)
+	bubble.StudsOffset = Vector3.new(0, 2.8, 0)
 	bubble.AlwaysOnTop = true
 	bubble.MaxDistance = 80
 	bubble.Parent = head
@@ -69,7 +69,7 @@ function Npc.say(model, text, duration)
 	label.Text = text
 	label.Parent = bubble
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 14)
+	corner.CornerRadius = UDim.new(0, 10)
 	corner.Parent = label
 	local padding = Instance.new("UIPadding")
 	padding.PaddingLeft = UDim.new(0, 10)
@@ -78,7 +78,7 @@ function Npc.say(model, text, duration)
 	padding.PaddingBottom = UDim.new(0, 6)
 	padding.Parent = label
 	local size = Instance.new("UITextSizeConstraint")
-	size.MaxTextSize = 22
+	size.MaxTextSize = 14
 	size.Parent = label
 
 	task.delay(duration or 4, function()
