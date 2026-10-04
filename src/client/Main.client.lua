@@ -226,7 +226,7 @@ end
 local _, photoBody = window("예약 확인서 · RESERVATION", rgb(225, 190, 120), rgb(50, 32, 22), rgb(238, 230, 212), {
 	AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.new(0, 16, 1, -16),
-	Size = UDim2.fromScale(0.3, 0.6),
+	Size = UDim2.fromScale(0.3, 0.5),
 })
 maxSize(photoBody.Parent, 320, 440)
 local photoCard = make("Frame", {
