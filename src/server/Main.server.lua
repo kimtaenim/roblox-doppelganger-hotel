@@ -1,5 +1,5 @@
 -- 게임 전체 흐름을 담당하는 서버 스크립트예요.
--- 로비 → (혼자 시작) → 낮: 손님 체크인 → 밤: 결과 확인 → 다음 날 ...
+-- 로비 → (혼자 시작) → 밤 근무: 손님 체크인 → 근무 끝: 결과 확인 → 아침 보고서 → 다음 날 밤 ...
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
@@ -22,7 +22,7 @@ local function remote(name)
 	event.Parent = remotes
 	return event
 end
-local StateEvent = remote("State") -- 서버 → 화면: 몇 일차, 낮/밤, 돈, 희생자
+local StateEvent = remote("State") -- 서버 → 화면: 몇 일차, 근무 중/근무 끝, 돈, 희생자
 local GuestArrived = remote("GuestArrived") -- 서버 → 화면: 손님이 프론트에 도착
 local Toast = remote("Toast") -- 서버 → 화면: 안내 메시지
 local NightReport = remote("NightReport") -- 서버 → 화면: 밤 결과
@@ -369,10 +369,10 @@ local function runDay(s)
 	s.refused = {}
 
 	if s.day <= Config.PracticeDays then
-		fire(s, Toast, { text = ("☀️ %d일차 아침! 첫날은 연습이에요. 도플갱어는 오지 않아요."):format(s.day), kind = "info" })
+		fire(s, Toast, { text = ("🌙 %d일차 밤 근무 시작! 첫날은 연습이에요. 도플갱어는 오지 않아요."):format(s.day), kind = "info" })
 	else
 		fire(s, Toast, {
-			text = ("☀️ %d일차 아침... 오늘은 도플갱어가 찾아올 거예요. 사진과 CCTV를 꼼꼼히 보세요!"):format(s.day),
+			text = ("🌙 %d일차 밤 근무... 오늘은 도플갱어가 찾아올 거예요. 사진과 CCTV를 꼼꼼히 보세요!"):format(s.day),
 			kind = "warn",
 		})
 	end

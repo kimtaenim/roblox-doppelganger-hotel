@@ -268,7 +268,10 @@ local function buildHotel()
 	---------------------------------------------------------------- 1층 로비와 프론트
 	-- 직원 구역과 손님 구역을 나누는 벽 (꾸밈은 LobbyDecor 에서 해요)
 	part(interior, "PartitionL", V(18, FH, 1), V(-21, FH / 2, 6), rgb(52, 32, 22))
-	part(interior, "PartitionR", V(18, FH, 1), V(21, FH / 2, 6), rgb(52, 32, 22))
+	-- 오른쪽 벽에는 직원용 출입구(x 24~28)가 뚫려 있어서 프런트 밖으로 나갈 수 있어요.
+	part(interior, "PartitionR", V(12, FH, 1), V(18, FH / 2, 6), rgb(52, 32, 22))
+	part(interior, "PartitionR2", V(2, FH, 1), V(29, FH / 2, 6), rgb(52, 32, 22))
+	part(interior, "StaffDoorTop", V(4, FH - 9.4, 1), V(26, 9.4 + (FH - 9.4) / 2, 6), rgb(52, 32, 22))
 	LobbyDecor.build(hotel, interior, lights, markers)
 
 	---------------------------------------------------------------- 위치 표시 (보이지 않아요)

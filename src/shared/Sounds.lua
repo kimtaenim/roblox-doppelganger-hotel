@@ -7,5 +7,6 @@ return {
 	Owl = { "rbxassetid://138183136" },
 	Bat = { "rbxassetid://6136804563" },
 	ElevatorDing = { "rbxassetid://7527328153", "rbxassetid://4462044869", "rbxassetid://237877850" },
+	Scream = { "rbxassetid://6754147732", "rbxassetid://6150329916", "rbxassetid://7152458214", "rbxassetid://8819324666" },
 	PoliceSiren = { "rbxassetid://1555732147", "rbxassetid://2195502769", "rbxassetid://156721873", "rbxassetid://175964948" },
 }

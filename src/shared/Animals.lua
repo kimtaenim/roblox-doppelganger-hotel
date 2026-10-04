@@ -146,7 +146,6 @@ function Animals.build(data, anomaly)
 	for i = 0, 1 do
 		ball(model, "Button", 0.12, torsoCF * CFrame.new(0.2, -0.3 - i * 0.35, front - 0.01), rgb(190, 150, 70))
 	end
-	vcyl(model, "Neck", 0.5, 0.8, CFrame.new(0, 4.5, weirdBody and -0.3 or 0), fur)
 
 	-- 팔 (소매 + 흰 소맷부리 + 손)
 	for _, side in ipairs({ -1, 1 }) do
@@ -177,7 +176,7 @@ function Animals.build(data, anomaly)
 		vcyl(model, "NeckBent", 1.8, 0.5, CFrame.new(0.55, 7.4, -0.3) * CFrame.Angles(0, 0, math.rad(-40)), fur)
 		headCF = CFrame.new(1.6, 7.5, -0.3) * CFrame.Angles(0, 0, math.rad(-105))
 	else
-		headCF = CFrame.new(0, 5.8, 0)
+		headCF = CFrame.new(0, 5.45, 0) -- 목 없이 몸통 위에 바로 붙어요
 	end
 	local head = ball(headGroup, "Head", 2.4, headCF, fur)
 	headGroup.PrimaryPart = head
@@ -241,6 +240,18 @@ function Animals.build(data, anomaly)
 			end
 		end
 	end
+	-- 통통한 볼살 (얼굴 아래쪽을 둥글고 넓게)
+	if data.animal ~= "pig" then
+		for _, side in ipairs({ -1, 1 }) do
+			ball(headGroup, "CheekFluff", 0.95, at(side * 0.78, -0.32, -0.5), fur)
+		end
+	end
+	-- 이마의 털 뭉치 (고양이·여우·강아지)
+	if data.animal == "cat" or data.animal == "fox" or data.animal == "dog" then
+		for i = -1, 1 do
+			newPart(headGroup, "Tuft", "WedgePart", V(0.18, 0.35, 0.4), at(i * 0.2, 1.08, -0.45) * CFrame.Angles(math.rad(-30), 0, i * 0.3), fur)
+		end
+	end
 	if not isMonster then
 		for _, side in ipairs({ -1, 1 }) do
 			local blush = newPart(headGroup, "Blush", "Part", V(0.4, 0.22, 0.05), at(side * 0.72, -0.12, -0.92) * CFrame.Angles(0, -side * 0.6, 0), PINK)
@@ -251,12 +262,30 @@ function Animals.build(data, anomaly)
 	-- 눈썹
 	for _, side in ipairs({ -1, 1 }) do
 		local angle = isMonster and side * 0.45 or -side * 0.12
-		newPart(headGroup, "Brow", "Part", V(0.42, 0.08, 0.06), at(side * 0.45, 0.7, -1.0) * CFrame.Angles(0, 0, angle), dark:Lerp(BLACK, 0.4))
+		newPart(headGroup, "Brow", "Part", V(0.42, 0.08, 0.06), at(side * 0.45, 0.72, -1.0) * CFrame.Angles(0, 0, angle), dark:Lerp(BLACK, 0.4))
 	end
 
-	-- 눈: 흰자위 + 눈동자 + 반짝임
+	-- 도플갱어: 퀭하게 꺼진 눈두덩, 얼굴의 검붉은 핏줄, 셔츠의 핏자국
+	if isMonster then
+		for _, side in ipairs({ -1, 1 }) do
+			ball(headGroup, "Socket", 0.78, at(side * 0.45, 0.3, -0.84), rgb(35, 18, 22))
+		end
+		local veinRandom = Random.new((data.id or 1) + 99)
+		for _ = 1, 7 do
+			local vx, vy = veinRandom:NextNumber(-0.8, 0.8), veinRandom:NextNumber(-0.4, 1.0)
+			local vz = -math.sqrt(math.max(0.05, 1.44 - vx * vx - vy * vy)) - 0.01
+			newPart(headGroup, "FaceVein", "Part", V(0.03, veinRandom:NextNumber(0.3, 0.6), 0.03), at(vx, vy, vz) * CFrame.Angles(0, 0, veinRandom:NextNumber(-1, 1)), rgb(90, 20, 40))
+		end
+		for _ = 1, 4 do
+			newPart(model, "BloodStain", "Part", V(veinRandom:NextNumber(0.2, 0.5), veinRandom:NextNumber(0.2, 0.6), 0.04), torsoCF * CFrame.new(veinRandom:NextNumber(-0.6, 0.6), veinRandom:NextNumber(-0.8, 0.6), front - 0.05), BLOOD)
+		end
+	end
+
+	-- 눈
+	local irises = { rgb(200, 140, 40), rgb(90, 150, 60), rgb(110, 70, 40), rgb(70, 120, 190) }
+	local irisColor = irises[style:NextInteger(1, #irises)]
 	if anomaly == "eyes" then
-		-- 눈이 있어야 할 자리가 새까맣게 뚫려 있고, 검은 눈물이 흘러내려요.
+		-- 눈 자리가 새까맣게 뚫려 있고, 검은 눈물이 흘러내리고, 이마와 볼에 작은 눈이 더 있어요.
 		for _, side in ipairs({ -1, 1 }) do
 			local x = side * 0.45
 			ball(headGroup, "Void", 0.72, at(x, 0.3, -0.92), BLACK)
@@ -265,23 +294,33 @@ function Animals.build(data, anomaly)
 			newPart(headGroup, "BlackTear", "Part", V(0.14, 1.7, 0.1), at(x, -0.55, -1.02) * CFrame.Angles(math.rad(-20), 0, 0), BLACK)
 			newPart(headGroup, "BlackTear", "Part", V(0.08, 1.1, 0.1), at(x + side * 0.2, -0.35, -0.98) * CFrame.Angles(math.rad(-15), 0, 0), BLACK)
 		end
+		for _, spot in ipairs({ V(0, 0.85, -0.85), V(-0.75, -0.05, -0.92), V(0.55, 0.95, -0.7) }) do
+			local cf = at(spot.X, spot.Y, spot.Z)
+			ball(headGroup, "ExtraEye", 0.3, cf, rgb(245, 225, 215))
+			local red = ball(headGroup, "ExtraPupil", 0.12, cf * CFrame.new(0, 0, -0.12), rgb(200, 0, 0))
+			red.Material = Enum.Material.Neon
+		end
 	else
-		-- 이빨/입 도플갱어는 눈동자가 바늘처럼 작아져서 뚫어지게 쳐다봐요.
+		-- 이빨/입 도플갱어는 핏발 선 눈에 빨갛게 빛나는 바늘 같은 눈동자로 노려봐요.
 		local stare = anomaly == "teeth" or anomaly == "mouth"
-		local pupil = stare and 0.08 or 0.3
 		for _, side in ipairs({ -1, 1 }) do
 			local x = side * 0.45
 			local sclera = ball(headGroup, "EyeWhite", 0.56, at(x, 0.3, -0.97), WHITE)
 			if stare then
-				sclera.Color = rgb(250, 225, 220)
+				sclera.Color = rgb(250, 215, 210)
 				for i = -1, 1, 2 do
 					newPart(headGroup, "Vein", "Part", V(0.2, 0.03, 0.03), at(x + i * 0.13, 0.3 + i * 0.05, -1.22) * CFrame.Angles(0, 0, i * 0.5), rgb(200, 30, 30))
 				end
+				local pupil = ball(headGroup, "Pupil", 0.08, at(x, 0.3, -1.24), rgb(255, 20, 20))
+				pupil.Material = Enum.Material.Neon
+			else
+				ball(headGroup, "Iris", 0.42, at(x, 0.3, -1.1), irisColor)
+				ball(headGroup, "Pupil", 0.22, at(x, 0.3, -1.24), BLACK)
+				ball(headGroup, "EyeShine", 0.1, at(x - 0.07, 0.38, -1.36), WHITE)
+				ball(headGroup, "EyeShine", 0.05, at(x + 0.06, 0.23, -1.35), WHITE)
 			end
-			ball(headGroup, "Pupil", pupil, at(x, 0.3, -1.28 + pupil / 2), BLACK)
-			if not stare then
-				ball(headGroup, "EyeShine", 0.1, at(x - 0.06, 0.39, -1.32), WHITE)
-			end
+			-- 윗눈꺼풀 (부드러운 눈매)
+			newPart(headGroup, "Eyelid", "Part", V(0.62, 0.13, 0.3), at(x, 0.57, -0.98) * CFrame.Angles(math.rad(-15), 0, -side * 0.1), dark)
 		end
 	end
 
@@ -291,37 +330,39 @@ function Animals.build(data, anomaly)
 	end
 
 	if anomaly == "teeth" then
-		-- 쩍 벌어진 입 안에 뾰족한 이빨이 빽빽해요.
-		newPart(headGroup, "Mouth", "Part", V(0.95, 0.6, 0.08), at(0, mouthY - 0.1, mouthZ - 0.12), DARK_BLOOD)
+		-- 턱이 빠진 듯 쩍 벌어진 입, 빽빽한 송곳니, 길게 늘어진 혀
+		newPart(headGroup, "Mouth", "Part", V(0.95, 0.95, 0.08), at(0, mouthY - 0.28, mouthZ - 0.12), DARK_BLOOD)
 		newPart(headGroup, "Gum", "Part", V(0.95, 0.08, 0.09), at(0, mouthY + 0.18, mouthZ - 0.13), BLOOD)
-		newPart(headGroup, "Gum", "Part", V(0.95, 0.08, 0.09), at(0, mouthY - 0.38, mouthZ - 0.13), BLOOD)
+		newPart(headGroup, "Gum", "Part", V(0.95, 0.08, 0.09), at(0, mouthY - 0.74, mouthZ - 0.13), BLOOD)
 		for i = 1, 7 do
 			local x = (i - 4) * 0.13
-			fang(headGroup, at(x, mouthY + 0.05, mouthZ - 0.16), 0.24, 0.12, true)
-			fang(headGroup, at(x + 0.06, mouthY - 0.26, mouthZ - 0.16), 0.2, 0.11, false)
+			fang(headGroup, at(x, mouthY + 0.02, mouthZ - 0.16), i % 3 == 1 and 0.36 or 0.24, 0.12, true)
+			fang(headGroup, at(x + 0.06, mouthY - 0.6, mouthZ - 0.16), i % 3 == 2 and 0.32 or 0.2, 0.11, false)
 		end
-		bloodDrip(-0.3, 0.5)
-		bloodDrip(0.25, 0.8)
+		newPart(headGroup, "Tongue", "Part", V(0.3, 1.5, 0.1), at(0.12, mouthY - 1.1, mouthZ - 0.2) * CFrame.Angles(math.rad(-10), 0, 0.15), rgb(120, 20, 35))
+		bloodDrip(-0.3, 0.7)
+		bloodDrip(0.3, 1.0)
 	elseif anomaly == "mouth" then
 		-- 입이 귀밑까지 쭉 찢어져서 웃고 있어요.
-		newPart(headGroup, "Mouth", "Part", V(1.0, 0.36, 0.1), at(0, mouthY, mouthZ - 0.12), DARK_BLOOD)
+		newPart(headGroup, "Mouth", "Part", V(1.2, 0.45, 0.1), at(0, mouthY, mouthZ - 0.12), DARK_BLOOD)
 		for _, side in ipairs({ -1, 1 }) do
-			local cheek = at(side * 0.8, mouthY + 0.22, -0.85) * CFrame.Angles(0, side * 0.6, side * 0.45)
-			newPart(headGroup, "TornMouth", "Part", V(1.1, 0.26, 0.35), cheek, DARK_BLOOD)
-			newPart(headGroup, "TornEdge", "Part", V(1.1, 0.05, 0.37), cheek * CFrame.new(0, 0.14, 0), BLOOD)
-			newPart(headGroup, "TornEdge", "Part", V(1.1, 0.05, 0.37), cheek * CFrame.new(0, -0.14, 0), BLOOD)
-			for i = 0, 3 do
-				local toothCF = cheek * CFrame.new(-side * 0.35 + side * i * 0.22, 0, -0.18)
-				fang(headGroup, toothCF * CFrame.new(0, 0.06, 0), 0.16, 0.1, true)
+			local cheek = at(side * 0.82, mouthY + 0.28, -0.85) * CFrame.Angles(0, side * 0.6, side * 0.5)
+			newPart(headGroup, "TornMouth", "Part", V(1.25, 0.32, 0.35), cheek, DARK_BLOOD)
+			newPart(headGroup, "TornEdge", "Part", V(1.25, 0.05, 0.37), cheek * CFrame.new(0, 0.17, 0), BLOOD)
+			newPart(headGroup, "TornEdge", "Part", V(1.25, 0.05, 0.37), cheek * CFrame.new(0, -0.17, 0), BLOOD)
+			for i = 0, 4 do
+				local toothCF = cheek * CFrame.new(-side * 0.45 + side * i * 0.22, 0, -0.18)
+				fang(headGroup, toothCF * CFrame.new(0, 0.08, 0), 0.18, 0.1, true)
+				fang(headGroup, toothCF * CFrame.new(0.05, -0.08, 0), 0.15, 0.09, false)
 			end
 		end
-		for i = 1, 6 do
-			fang(headGroup, at((i - 3.5) * 0.15, mouthY + 0.1, mouthZ - 0.17), 0.2, 0.12, true)
-			fang(headGroup, at((i - 3.5) * 0.15, mouthY - 0.12, mouthZ - 0.17), 0.16, 0.1, false)
+		for i = 1, 8 do
+			fang(headGroup, at((i - 4.5) * 0.14, mouthY + 0.14, mouthZ - 0.17), 0.22, 0.12, true)
+			fang(headGroup, at((i - 4.5) * 0.14, mouthY - 0.15, mouthZ - 0.17), 0.18, 0.1, false)
 		end
-		bloodDrip(-0.4, 0.6)
-		bloodDrip(0.05, 1.0)
-		bloodDrip(0.42, 0.45)
+		bloodDrip(-0.45, 0.7)
+		bloodDrip(0.05, 1.2)
+		bloodDrip(0.45, 0.5)
 	else
 		-- 살짝 웃는 w 모양 입
 		for _, side in ipairs({ -1, 1 }) do
@@ -346,7 +387,7 @@ function Animals.build(data, anomaly)
 		end
 		newPart(headGroup, "GlassesBridge", "Part", V(0.3, 0.05, 0.05), at(0, 0.36, -1.32), rgb(40, 30, 25))
 	elseif accessory == 3 then
-		vcyl(model, "Scarf", 0.45, 1.1, CFrame.new(0, 4.45, weirdBody and -0.3 or 0), tieColor)
+		vcyl(model, "Scarf", 0.45, 1.1, CFrame.new(0, 4.3, weirdBody and -0.3 or 0), tieColor)
 		newPart(model, "ScarfEnd", "Part", V(0.35, 1.0, 0.1), CFrame.new(0.35, 3.85, (weirdBody and -0.3 or 0) - 0.62) * CFrame.Angles(0, 0, 0.1), tieColor)
 	elseif accessory == 4 then
 		vcyl(headGroup, "Beret", 0.45, 1.9, at(0.15, 1.05, 0.05) * CFrame.Angles(0, 0, -0.15), tieColor)

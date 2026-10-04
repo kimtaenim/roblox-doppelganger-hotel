@@ -3,9 +3,12 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local ContentProvider = game:GetService("ContentProvider")
+local SoundService = game:GetService("SoundService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Animals = require(Shared:WaitForChild("Animals"))
+local Sounds = require(Shared:WaitForChild("Sounds"))
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 
 local player = Players.LocalPlayer
@@ -174,28 +177,35 @@ brassFrame(partyButton, 1)
 ---------------------------------------------------------------- 위쪽 상태 표시
 local hud = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 64),
-	Size = UDim2.new(0.9, 0, 0, 40),
+	Position = UDim2.new(0.5, 0, 0, 14),
+	Size = UDim2.new(0.62, 0, 0, 26),
 	BackgroundColor3 = ESPRESSO,
-	BackgroundTransparency = 0.15,
+	BackgroundTransparency = 0.2,
 	Visible = false,
 }, gui)
 round(hud, 4)
-maxSize(hud, 620, 40)
+maxSize(hud, 860, 26)
 brassFrame(hud, 1)
-local hudText = label(hud, { Size = UDim2.fromScale(1, 1), TextColor3 = CREAM, Font = SERIF }, 20)
+-- 가로로 긴 한 줄 (줄바꿈 없이)
+local hudText = label(hud, {
+	Position = UDim2.new(0, 12, 0, 3),
+	Size = UDim2.new(1, -24, 1, -6),
+	TextColor3 = CREAM,
+	Font = SERIF,
+	TextWrapped = false,
+}, 16)
 
 ---------------------------------------------------------------- 안내 메시지 (토스트)
 local toast = label(gui, {
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 112),
-	Size = UDim2.new(0.9, 0, 0, 56),
+	Position = UDim2.new(0.5, 0, 0, 48),
+	Size = UDim2.new(0.62, 0, 0, 34),
 	BackgroundTransparency = 0.12,
 	BackgroundColor3 = ESPRESSO,
 	Visible = false,
-}, 20)
+}, 16)
 round(toast, 4)
-maxSize(toast, 760, 56)
+maxSize(toast, 760, 34)
 brassFrame(toast, 1)
 
 local TOAST_COLORS = {
@@ -407,18 +417,30 @@ local deskSpeech = label(actionBar, {
 	TextColor3 = rgb(255, 235, 200),
 	TextXAlignment = Enum.TextXAlignment.Left,
 }, 15)
+local cctvButton = button(actionBar, "CCTV 보기", rgb(30, 45, 35), {
+	TextColor3 = rgb(150, 240, 150),
+	Position = UDim2.new(0, 10, 1, -44),
+	Size = UDim2.new(1 / 3, -13, 0, 36),
+}, 17)
+brassFrame(cctvButton, 1)
 local acceptButton = button(actionBar, "예약 받기", BOTTLE, {
 	TextColor3 = CREAM,
-	Position = UDim2.new(0, 10, 1, -44),
-	Size = UDim2.new(0.5, -15, 0, 36),
-}, 18)
+	Position = UDim2.new(1 / 3, 3, 1, -44),
+	Size = UDim2.new(1 / 3, -6, 0, 36),
+}, 17)
 local shutterButton = button(actionBar, "셔터 닫기", OXBLOOD, {
 	TextColor3 = CREAM,
-	Position = UDim2.new(0.5, 5, 1, -44),
-	Size = UDim2.new(0.5, -15, 0, 36),
-}, 18)
+	Position = UDim2.new(2 / 3, 3, 1, -44),
+	Size = UDim2.new(1 / 3, -13, 0, 36),
+}, 17)
+
+-- CCTV 창은 처음엔 숨겨 두고, [CCTV 보기] 버튼을 누르면 떠요.
+local cctvWindow = cctvBody.Parent
+cctvWindow.Visible = false
 
 local currentGuestId = nil
+local currentData = nil
+local scaredGuestId = nil
 local currentDay = 1
 local photoMoveConnection = nil
 
@@ -441,7 +463,9 @@ end
 
 local function hideDesk()
 	desk.Visible = false
+	cctvWindow.Visible = false
 	currentGuestId = nil
+	currentData = nil
 	if photoMoveConnection then
 		photoMoveConnection:Disconnect()
 		photoMoveConnection = nil
@@ -450,8 +474,130 @@ local function hideDesk()
 	cctvView:ClearAllChildren()
 end
 
+---------------------------------------------------------------- 깜짝 놀래키기 (도플갱어)
+-- 도플갱어의 무서운 얼굴이 화면 앞으로 확 달려들어요.
+local scareFrame = make("Frame", {
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = rgb(60, 0, 0),
+	BackgroundTransparency = 1,
+	Visible = false,
+	ZIndex = 50,
+}, gui)
+local scareView = make("ViewportFrame", {
+	Size = UDim2.fromScale(1, 1),
+	BackgroundTransparency = 1,
+	ImageColor3 = rgb(255, 200, 200),
+	Ambient = rgb(130, 70, 70),
+	LightColor = rgb(255, 90, 90),
+	ZIndex = 51,
+}, scareFrame)
+
+local screamSound = nil
+task.spawn(function()
+	for _, id in ipairs(Sounds.Scream or {}) do
+		local sound = Instance.new("Sound")
+		sound.SoundId = id
+		sound.Volume = 0.8
+		sound.Parent = SoundService
+		local ok = false
+		pcall(function()
+			ContentProvider:PreloadAsync({ sound }, function(_, status)
+				ok = status == Enum.AssetFetchStatus.Success
+			end)
+		end)
+		if ok then
+			screamSound = sound
+			return
+		end
+		sound:Destroy()
+	end
+end)
+
+local scaring = false
+local function jumpScare(data, kind)
+	if scaring then
+		return
+	end
+	scaring = true
+	scareView:ClearAllChildren()
+	local camera = make("Camera", { FieldOfView = 60 }, scareView)
+	scareView.CurrentCamera = camera
+	local monster = Animals.build(data, kind)
+	monster.Parent = scareView
+	local headGroup = monster:FindFirstChild("HeadGroup")
+	local target = headGroup and headGroup.PrimaryPart.Position or Vector3.new(0, 5.5, 0)
+
+	scareFrame.Visible = true
+	if screamSound then
+		screamSound:Play()
+	end
+	shakeCamera()
+	local start = os.clock()
+	while os.clock() - start < 0.75 do
+		local t = (os.clock() - start) / 0.75
+		local distance = 7 - math.min(t * 4, 1) * 4.7 -- 순식간에 코앞까지
+		local jitter = Vector3.new((math.random() - 0.5) * 0.15, (math.random() - 0.5) * 0.15, 0)
+		camera.CFrame = CFrame.lookAt(target + Vector3.new(0, 0, -distance) + jitter, target)
+		scareFrame.BackgroundTransparency = 0.25 + math.random() * 0.3
+		RunService.RenderStepped:Wait()
+	end
+	scareFrame.Visible = false
+	scareView:ClearAllChildren()
+	scaring = false
+end
+
+-- 잠시 뒤 확률적으로 놀래켜요. (손님 한 명당 한 번만)
+local function maybeScare(data, kind, delay, chance)
+	task.delay(delay, function()
+		if currentGuestId == data.id and scaredGuestId ~= data.id and math.random() < chance then
+			scaredGuestId = data.id
+			jumpScare(data, kind == "moving" and "mouth" or kind)
+		end
+	end)
+end
+
+-- 가짜 깜짝: 아무 손님에게나 가끔, CCTV에 검은 그림자가 스쳐 지나가요.
+local function shadowFlash()
+	if not cctvWindow.Visible then
+		return
+	end
+	local shadow = Instance.new("Model")
+	make("Part", { Anchored = true, Size = Vector3.new(1.4, 4.6, 0.9), CFrame = CFrame.new(4.5, 2.3, 5), Color = rgb(5, 5, 5) }, shadow)
+	local head = make("Part", { Anchored = true, Size = Vector3.new(1.5, 1.5, 1.5), CFrame = CFrame.new(4.5, 5.3, 5), Color = rgb(5, 5, 5) }, shadow)
+	head.Shape = Enum.PartType.Ball
+	shadow.Parent = cctvView
+	for _, bar in ipairs(staticBars) do
+		bar.Visible = true
+		bar.Position = UDim2.new(0.02, 0, math.random() * 0.9, 0)
+	end
+	task.wait(0.25)
+	shadow:Destroy()
+	for _, bar in ipairs(staticBars) do
+		bar.Visible = false
+	end
+end
+
+local function toggleCCTV()
+	if not currentData then
+		return
+	end
+	cctvWindow.Visible = not cctvWindow.Visible
+	cctvButton.Text = cctvWindow.Visible and "CCTV 닫기" or "CCTV 보기"
+	if cctvWindow.Visible then
+		if currentData.cctvAnomaly then
+			maybeScare(currentData, currentData.cctvAnomaly, 1 + math.random() * 0.8, 0.6)
+		elseif math.random() < 0.12 then
+			task.delay(0.8 + math.random(), shadowFlash)
+		end
+	end
+end
+cctvButton.Activated:Connect(toggleCCTV)
+
 local function showGuest(data)
 	currentGuestId = data.id
+	currentData = data
+	cctvWindow.Visible = false
+	cctvButton.Text = "CCTV 보기"
 	currentDay = data.day
 	deskHeader.Text = ("손님 %d/%d · %s (%s)"):format(data.index, data.total, data.name, data.animalName)
 	deskSpeech.Text = ("“%s”"):format(data.line or "...")
@@ -509,6 +655,11 @@ local function showGuest(data)
 	)
 
 	desk.Visible = true
+
+	-- 사진에 이상한 점이 있으면 가끔 사진 속 얼굴이 달려들어요.
+	if data.photoAnomaly and data.photoAnomaly ~= "moving" then
+		maybeScare(data, data.photoAnomaly, 2.5 + math.random() * 2, 0.35)
+	end
 end
 
 local function decide(choice)
@@ -613,8 +764,8 @@ end)
 
 local function showNight(report)
 	hideDesk()
-	nightTitle.Text = ("🌙 %d일차 밤"):format(report.day)
-	nightBody.Text = "직원들이 모두 퇴근했어요...\n\n로비를 둘러보세요."
+	nightTitle.Text = ("🌑 %d일차 근무 끝"):format(report.day)
+	nightBody.Text = "새벽 3시... 직원들이 모두 퇴근했어요.\n\n로비를 둘러보세요."
 	nightButton.Visible = false
 	nightLobbyButton.Visible = false
 	night.Visible = true
@@ -644,7 +795,7 @@ local function showNight(report)
 		nightLobbyButton.Visible = false
 	else
 		nightMode = "next"
-		nightButton.Text = "☀️ 다음 날로"
+		nightButton.Text = "🌙 다음 날 밤 근무로"
 		nightLobbyButton.Visible = true
 	end
 	nightBody.Text = table.concat(lines, "\n")
@@ -797,11 +948,11 @@ Remotes.State.OnClientEvent:Connect(function(state)
 
 	local guests = ""
 	if state.phase == "Day" and state.guestIndex > 0 then
-		guests = ("  ·  손님 %d/%d"):format(state.guestIndex, state.guestsTotal)
+		guests = ("   ·   손님 %d/%d"):format(state.guestIndex, state.guestsTotal)
 	end
-	hudText.Text = ("%d일차 · %s  ·  💰 %d  ·  💀 %d/%d%s"):format(
+	hudText.Text = ("%d일차   ·   %s   ·   💰 %d   ·   💀 %d/%d%s"):format(
 		state.day,
-		state.phase == "Day" and "☀️ 낮" or "🌙 밤",
+		state.phase == "Day" and "🌙 밤 근무" or "🌑 근무 끝",
 		state.money,
 		state.deaths,
 		state.maxDeaths,

@@ -161,13 +161,15 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 		{ CFrame.new(-17, FLOOR, -19) * CFrame.Angles(0, math.pi, 0), 24 },
 		{ CFrame.new(17, FLOOR, -19) * CFrame.Angles(0, math.pi, 0), 24 },
 		{ CFrame.new(-21.4, FLOOR, 5.5), 15.2 },
-		{ CFrame.new(21.4, FLOOR, 5.5), 15.2 },
+		{ CFrame.new(18.9, FLOOR, 5.5), 10.2 },
+		{ CFrame.new(28.5, FLOOR, 5.5), 1 },
 		-- 직원 구역
 		{ CFrame.new(0, FLOOR, 19), 58 },
 		{ CFrame.new(-29, FLOOR, 12.75) * CFrame.Angles(0, math.rad(-90), 0), 12.5 },
 		{ CFrame.new(29, FLOOR, 12.75) * CFrame.Angles(0, math.rad(90), 0), 12.5 },
 		{ CFrame.new(-21.4, FLOOR, 6.5) * CFrame.Angles(0, math.pi, 0), 15.2 },
-		{ CFrame.new(21.4, FLOOR, 6.5) * CFrame.Angles(0, math.pi, 0), 15.2 },
+		{ CFrame.new(18.9, FLOOR, 6.5) * CFrame.Angles(0, math.pi, 0), 10.2 },
+		{ CFrame.new(28.5, FLOOR, 6.5) * CFrame.Angles(0, math.pi, 0), 1 },
 	}
 	for _, wall in ipairs(walls) do
 		dressWall(interior, wall[1], wall[2])
@@ -221,6 +223,18 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 			D(interior, "Muntin", V(10, 0.15, 0.15), V(x, 8.7 + dy, -18.5), rgb(35, 40, 40), Mat.Metal)
 		end
 	end
+
+	------------------------------------------------ 직원용 출입구 (프런트 오른쪽)
+	for _, x in ipairs({ 23.8, 28.2 }) do
+		D(interior, "StaffDoorPost", V(0.4, 9.4, 1.3), V(x, 5.1, 6), WOOD_DARK, Mat.Wood)
+	end
+	D(interior, "StaffDoorHeader", V(4.8, 0.5, 1.3), V(26, 9.65, 6), WOOD_DARK, Mat.Wood)
+	for _, z in ipairs({ 5.42, 6.58 }) do
+		D(interior, "StaffDoorWallpaper", V(4, 3.2, 0.15), V(26, 11.5, z), TEAL, Mat.Fabric)
+		D(interior, "StaffDoorCrown", V(4, 0.85, 0.6), V(26, 13.1, z), WOOD_DARK, Mat.Wood)
+	end
+	local staffSign = D(interior, "StaffSign", V(2.4, 0.5, 0.05), V(26, 10.4, 5.36), BRASS, Mat.Metal)
+	text(staffSign, Enum.NormalId.Front, "STAFF ONLY", rgb(40, 25, 10), Enum.Font.Garamond)
 
 	------------------------------------------------ 프론트 데스크 (사진 오른쪽 느낌)
 	-- 원목 카운터 + 세로 홈 + 놋쇠 테두리
@@ -516,7 +530,7 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 	-- 9) 얼굴 없는 벨보이 마네킹 (고개가 플레이어를 따라 돌아가요)
 	local bellhop = Animals.build({ name = "Bellhop", animal = "fox", fur = rgb(225, 225, 220), cloth = rgb(130, 20, 30) }, nil)
 	for _, part in ipairs(bellhop:GetDescendants()) do
-		if part:IsA("BasePart") and (part.Name:find("Eye") or part.Name == "Pupil" or part.Name == "Mouth" or part.Name == "Nose" or part.Name == "Brow" or part.Name == "Blush" or part.Name:find("Glasses") or part.Name:find("Hat") or part.Name:find("Beret")) then
+		if part:IsA("BasePart") and (part.Name:find("Eye") or part.Name == "Pupil" or part.Name == "Iris" or part.Name == "Mouth" or part.Name == "Nose" or part.Name == "Brow" or part.Name == "Blush" or part.Name:find("Glasses") or part.Name:find("Hat") or part.Name:find("Beret")) then
 			part:Destroy()
 		end
 	end
@@ -533,7 +547,7 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 		D(interior, "PortraitCanvas", V(3.4, 4.4, 0.1), V(x, 8.8, 5.02), rgb(25, 20, 18))
 		local bust = Animals.build(data, anomaly)
 		scaled(bust, 0.45)
-		bust:PivotTo(CFrame.new(x, 8.8 - 5.8 * 0.45, 4.6))
+		bust:PivotTo(CFrame.new(x, 8.8 - 5.45 * 0.45, 4.6))
 		bust.Parent = decor
 		local plate = D(interior, "Plaque", V(1.8, 0.4, 0.05), V(x, 6.0, 5.02), BRASS, Mat.Metal)
 		text(plate, Enum.NormalId.Front, plaque, rgb(40, 25, 10), Enum.Font.Garamond)
