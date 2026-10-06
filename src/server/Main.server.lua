@@ -417,7 +417,7 @@ local function runKid(s)
 		pcall(function()
 			bag:ScaleTo(0.6)
 		end)
-		bag:PivotTo(kid:GetPivot() * CFrame.new(0, 1.7, 0.75))
+		bag:PivotTo(kid:GetPivot() * CFrame.new(0, 1.9, 0.95))
 	end
 	kid.Parent = guestFolder
 	s.guestModel = kid

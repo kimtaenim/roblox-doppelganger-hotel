@@ -138,9 +138,13 @@ function Animals.build(data, anomaly)
 	end
 	ellipsoid(model, "Hips", V(1.8, 1.0, 1.45), CFrame.new(0, 2.2, 0), pants)
 
-	-- 몸통 (둥근 달걀 모양 재킷) + 셔츠, 넥타이, 단추, 행커치프
-	local torsoCF = weirdBody and CFrame.new(0, 3.3, -0.2) * CFrame.Angles(math.rad(-14), 0, 0) or CFrame.new(0, 3.2, 0)
-	local torsoSize = weirdBody and V(1.4, 2.9, 1.1) or V(2.0, 2.7, 1.65)
+	-- 몸통: 머리 바로 밑에 붙은 넓고 둥근 덩어리 (머리와 이어져서 서양배·베개 모양이 돼요)
+	-- 몸이 이상한 도플갱어만 가늘고 길쭉해요.
+	local torsoCF = weirdBody and CFrame.new(0, 3.3, -0.2) * CFrame.Angles(math.rad(-14), 0, 0) or CFrame.new(0, 3.88, 0)
+	local torsoSize = weirdBody and V(1.4, 2.9, 1.1) or V(3.76, 3.53, 2.94)
+	-- 셔츠, 넥타이, 단추 높이 (몸통 가운데 기준, 머리에 가려지지 않는 곳)
+	local Y = weirdBody and { collar = 1.05, knot = 0.98, tie = 0.45, shirt = 0.75, button = -0.25, pocket = 0.5, pocketX = -0.5 }
+		or { collar = 0.34, knot = 0.3, tie = -0.22, shirt = 0.0, button = -0.8, pocket = -0.25, pocketX = -0.85 }
 	ellipsoid(model, "Torso", torsoSize, torsoCF, cloth)
 	local tw, th, td = torsoSize.X / 2, torsoSize.Y / 2, torsoSize.Z / 2
 	-- 몸통 앞면의 (x, y) 자리에 딱 붙는 위치 (곡면을 따라 기울어져요)
@@ -151,24 +155,26 @@ function Animals.build(data, anomaly)
 		local yaw = -math.atan(td * (x / (tw * tw)) / math.sqrt(k))
 		return torsoCF * CFrame.new(x, y, z) * CFrame.Angles(pitch, yaw, 0)
 	end
-	ellipsoid(model, "Shirt", V(0.62, 1.0, 0.14), onTorso(0, 0.75, -0.02), WHITE)
+	ellipsoid(model, "Shirt", V(0.7, 1.1, 0.14), onTorso(0, Y.shirt, -0.02), WHITE)
 	for _, side in ipairs({ -1, 1 }) do
-		ellipsoid(model, "Collar", V(0.3, 0.14, 0.1), onTorso(side * 0.17, 1.05, 0) * CFrame.Angles(0, 0, side * 0.6), WHITE)
-		ball(model, "Shoulder", 0.9, torsoCF * CFrame.new(side * 0.8, 0.85, 0), cloth)
+		ellipsoid(model, "Collar", V(0.34, 0.15, 0.1), onTorso(side * 0.19, Y.collar, 0) * CFrame.Angles(0, 0, side * 0.6), WHITE)
+		if weirdBody then
+			ball(model, "Shoulder", 0.9, torsoCF * CFrame.new(side * 0.8, 0.85, 0), cloth)
+		end
 	end
 	if accessory == 5 then
 		for _, side in ipairs({ -1, 1 }) do
-			ellipsoid(model, "BowTie", V(0.3, 0.2, 0.1), onTorso(side * 0.15, 0.98, 0.02) * CFrame.Angles(0, 0, side * 0.25), tieColor)
+			ellipsoid(model, "BowTie", V(0.34, 0.22, 0.1), onTorso(side * 0.17, Y.knot, 0.02) * CFrame.Angles(0, 0, side * 0.25), tieColor)
 		end
-		ball(model, "BowKnot", 0.14, onTorso(0, 0.98, 0.05), tieColor)
+		ball(model, "BowKnot", 0.15, onTorso(0, Y.knot, 0.05), tieColor)
 	else
-		ball(model, "TieKnot", 0.2, onTorso(0, 0.98, 0.03), tieColor)
-		ellipsoid(model, "Tie", V(0.24, 0.95, 0.08), onTorso(0, 0.45, 0.02), tieColor)
+		ball(model, "TieKnot", 0.22, onTorso(0, Y.knot, 0.03), tieColor)
+		ellipsoid(model, "Tie", V(0.26, 1.0, 0.08), onTorso(0, Y.tie, 0.02), tieColor)
 	end
 	for i = 0, 1 do
-		ball(model, "Button", 0.12, onTorso(0.24, -0.25 - i * 0.35, 0), rgb(190, 150, 70))
+		ball(model, "Button", 0.13, onTorso(0.28, Y.button - i * 0.38, 0), rgb(190, 150, 70))
 	end
-	ellipsoid(model, "PocketSquare", V(0.24, 0.14, 0.06), onTorso(-0.5, 0.5, 0), tieColor:Lerp(WHITE, 0.4))
+	ellipsoid(model, "PocketSquare", V(0.26, 0.15, 0.06), onTorso(Y.pocketX, Y.pocket, 0), tieColor:Lerp(WHITE, 0.4))
 
 	-- 팔 (소매 + 흰 소맷부리 + 손)
 	for _, side in ipairs({ -1, 1 }) do
@@ -181,7 +187,8 @@ function Animals.build(data, anomaly)
 				fang(model, claw, 0.6, 0.12, false).Color = BLACK
 			end
 		else
-			local armCF = CFrame.new(side * 1.05, 3.3, 0) * CFrame.Angles(0, 0, side * 0.12)
+			-- 둥근 몸통 옆구리에 짧은 팔이 붙어요.
+			local armCF = CFrame.new(side * 1.85, 3.35, 0) * CFrame.Angles(0, 0, side * 0.3)
 			ellipsoid(model, "Sleeve", V(0.62, 1.75, 0.62), armCF, cloth)
 			ellipsoid(model, "Cuff", V(0.62, 0.16, 0.62), armCF * CFrame.new(0, -0.78, 0), WHITE)
 			ball(model, "Hand", 0.64, armCF * CFrame.new(0, -0.98, 0), light)
@@ -430,8 +437,16 @@ function Animals.build(data, anomaly)
 		end
 		newPart(headGroup, "GlassesBridge", "Part", V(0.3, 0.05, 0.05), at(0, 0.36, -1.32), rgb(40, 30, 25))
 	elseif accessory == 3 then
-		vcyl(model, "Scarf", 0.45, 1.1, CFrame.new(0, 4.3, weirdBody and -0.3 or 0), tieColor)
-		newPart(model, "ScarfEnd", "Part", V(0.35, 1.0, 0.1), CFrame.new(0.35, 3.85, (weirdBody and -0.3 or 0) - 0.62) * CFrame.Angles(0, 0, 0.1), tieColor)
+		if weirdBody then
+			vcyl(model, "Scarf", 0.45, 1.1, CFrame.new(0, 4.3, -0.3), tieColor)
+		else
+			ellipsoid(model, "Scarf", V(3.85, 0.55, 3.1), CFrame.new(0, 4.25, 0), tieColor)
+		end
+		if weirdBody then
+			newPart(model, "ScarfEnd", "Part", V(0.35, 1.0, 0.1), CFrame.new(0.35, 3.85, -0.92) * CFrame.Angles(0, 0, 0.1), tieColor)
+		else
+			ellipsoid(model, "ScarfEnd", V(0.42, 1.1, 0.1), onTorso(0.5, -0.15, 0.04) * CFrame.Angles(0, 0, 0.1), tieColor)
+		end
 	elseif accessory == 4 then
 		vcyl(headGroup, "Beret", 0.45, 1.9, at(0.15, 1.05, 0.05) * CFrame.Angles(0, 0, -0.15), tieColor)
 		ball(headGroup, "BeretTop", 0.25, at(0.3, 1.32, 0.05), tieColor)
@@ -440,15 +455,15 @@ function Animals.build(data, anomaly)
 	-- 꼬리
 	if data.animal == "cat" or data.animal == "fox" then
 		local size = data.animal == "fox" and V(0.75, 0.75, 1.9) or V(0.45, 0.45, 1.6)
-		local tailCF = CFrame.new(0, 2.4, 1.25) * CFrame.Angles(math.rad(35), 0, 0)
+		local tailCF = CFrame.new(0, 2.4, 1.6) * CFrame.Angles(math.rad(35), 0, 0)
 		ellipsoid(model, "Tail", size, tailCF, fur)
 		if data.animal == "fox" then
 			ball(model, "TailTip", 0.75, tailCF * CFrame.new(0, 0, 0.9), WHITE)
 		end
 	elseif data.animal == "dog" then
-		ellipsoid(model, "Tail", V(0.4, 0.4, 1.3), CFrame.new(0, 2.5, 1.0) * CFrame.Angles(math.rad(50), 0, 0), fur)
+		ellipsoid(model, "Tail", V(0.4, 0.4, 1.3), CFrame.new(0, 2.5, 1.4) * CFrame.Angles(math.rad(50), 0, 0), fur)
 	else
-		ball(model, "Tail", 0.6, CFrame.new(0, 2.3, 0.8), data.animal == "pig" and PINK or light)
+		ball(model, "Tail", 0.7, CFrame.new(0, 2.4, 1.2), data.animal == "pig" and PINK or light)
 	end
 
 	-- 귀여운 2등신에 가까운 비율: 몸은 조금 작게, 머리는 크게 (몸이 이상한 도플갱어는 그대로 길쭉하게)
