@@ -138,8 +138,8 @@ function Animals.build(data, anomaly)
 			ellipsoid(model, "Leg", V(0.7, 1.9, 0.7), CFrame.new(x, 1.3, 0), pants)
 		else
 			local x = side * 0.9
-			ellipsoid(model, "Shoe", V(1.3, 0.75, 1.75), CFrame.new(x, 0.37, -0.2) * CFrame.Angles(0, side * 0.15, 0), shoeColor)
-			ellipsoid(model, "Leg", V(1.3, 1.8, 1.3), CFrame.new(x, 1.25, 0) * CFrame.Angles(0, 0, side * 0.12), pants)
+			ellipsoid(model, "Shoe", V(1.3, 0.75, 1.75), CFrame.new(x, 0.37, -0.2), shoeColor)
+			ellipsoid(model, "Leg", V(1.3, 1.8, 1.3), CFrame.new(x, 1.25, 0), pants)
 		end
 	end
 	if weirdBody then
