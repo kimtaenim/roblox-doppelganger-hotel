@@ -20,11 +20,11 @@ local Config = {
 
 	-- 정신력: 근무하는 동안 조금씩 줄고, 다 떨어지면 쓰러져서 호텔 밖(로비)으로 나가요.
 	SanityMax = 100,
-	SanityDrainShift = 0.45, -- 밤 근무 중 1초에 줄어드는 양 (하루가 지날수록 조금씩 더 빨라져요)
-	SanityDrainPerDay = 0.08, -- 하루마다 빨라지는 비율
-	SanityDrainNight = 0.3, -- 근무가 끝난 뒤 1초에 줄어드는 양
-	SanityScareLoss = 8, -- 도플갱어에게 놀랐을 때 줄어드는 양
-	SanityCorpseLoss = 10, -- 밤에 사체를 봤을 때 줄어드는 양 (한 구마다)
+	SanityDrainShift = 0.15, -- 밤 근무 중 1초에 줄어드는 양 (하루가 지날수록 조금씩 더 빨라져요)
+	SanityDrainPerDay = 0.05, -- 하루마다 빨라지는 비율
+	SanityDrainNight = 0.1, -- 근무가 끝난 뒤 1초에 줄어드는 양
+	SanityScareLoss = 6, -- 도플갱어에게 놀랐을 때 줄어드는 양
+	SanityCorpseLoss = 8, -- 밤에 사체를 봤을 때 줄어드는 양 (한 구마다)
 
 	-- 음료 기계: 마시면 정신력이 채워져요. 기계마다 하룻밤에 몇 잔씩 나와요.
 	DrinkRestore = 40,

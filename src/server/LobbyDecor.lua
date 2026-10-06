@@ -238,14 +238,14 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 	text(staffSign, Enum.NormalId.Front, "STAFF ONLY", rgb(40, 25, 10), Enum.Font.Garamond)
 
 	------------------------------------------------ 프론트 데스크 (사진 오른쪽 느낌)
-	-- 원목 카운터 + 세로 홈 + 놋쇠 테두리
-	P(interior, "Counter", V(24.8, 4.05, 2), V(0, 2.425, 6), WOOD, Mat.Wood)
+	-- 원목 카운터 + 세로 홈 + 놋쇠 테두리 (카운터 윗면 높이 3.6)
+	P(interior, "Counter", V(24.8, 2.85, 2), V(0, 1.825, 6), WOOD, Mat.Wood)
 	for x = -11.2, 11.2, 1.6 do
-		D(interior, "CounterGroove", V(0.12, 3.6, 0.05), V(x, 2.4, 4.97), WOOD_DARK, Mat.Wood)
+		D(interior, "CounterGroove", V(0.12, 2.5, 0.05), V(x, 1.85, 4.97), WOOD_DARK, Mat.Wood)
 	end
-	P(interior, "CounterTop", V(25.2, 0.35, 2.8), V(0, 4.625, 5.9), WOOD_DARK, Mat.Wood)
-	D(interior, "CounterBrass", V(25.2, 0.08, 0.1), V(0, 4.62, 4.48), BRASS, Mat.Metal)
-	P(interior, "CounterBarrier", V(24.8, 4.4, 0.3), V(0, 7, 6.6), rgb(255, 255, 255), nil, { Transparency = 1 })
+	P(interior, "CounterTop", V(25.2, 0.35, 2.8), V(0, 3.425, 5.9), WOOD_DARK, Mat.Wood)
+	D(interior, "CounterBrass", V(25.2, 0.08, 0.1), V(0, 3.42, 4.48), BRASS, Mat.Metal)
+	P(interior, "CounterBarrier", V(24.8, 5.6, 0.3), V(0, 6.4, 6.6), rgb(255, 255, 255), nil, { Transparency = 1 })
 
 	-- 창구 기둥과 윗부분 (셔터가 숨어 있는 곳)
 	for _, x in ipairs({ -13.2, 13.2 }) do
@@ -268,7 +268,7 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 		CanQuery = false,
 		CanTouch = false,
 	})
-	P(markers, "ShutterClosed", V(24.8, 4.4, 0.2), V(0, 7.0, 5.0), rgb(255, 0, 255), nil, {
+	P(markers, "ShutterClosed", V(24.8, 5.6, 0.2), V(0, 6.4, 5.0), rgb(255, 0, 255), nil, {
 		Transparency = 1,
 		CanCollide = false,
 		CanQuery = false,
@@ -277,11 +277,11 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 	D(hotel, "Shutter", shutterOpen.Size, shutterOpen.CFrame, rgb(62, 56, 50), Mat.DiamondPlate)
 
 	-- 카운터 위 소품: 벚꽃 화병, 떨어진 꽃잎, 종, 숙박부, 다이얼 전화기
-	vcyl(interior, "Vase", 1.4, 0.7, V(-10.5, 5.5, 5.6), rgb(90, 120, 70), Mat.Glass).Transparency = 0.3
+	vcyl(interior, "Vase", 1.4, 0.7, V(-10.5, 4.3, 5.6), rgb(90, 120, 70), Mat.Glass).Transparency = 0.3
 	local blossomRandom = Random.new(7)
 	for i = 1, 5 do
 		local angle = (i - 3) * 0.35
-		local branch = CFrame.new(-10.5, 6.2, 5.6) * CFrame.Angles(0, 0, angle) * CFrame.new(0, 1.4, 0)
+		local branch = CFrame.new(-10.5, 5.0, 5.6) * CFrame.Angles(0, 0, angle) * CFrame.new(0, 1.4, 0)
 		D(interior, "Branch", V(0.08, 2.8, 0.08), branch, rgb(60, 40, 30), Mat.Wood)
 		for k = 1, 7 do
 			local p = (branch * CFrame.new(0, blossomRandom:NextNumber(-0.6, 1.4), 0)).Position
@@ -294,20 +294,20 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 		end
 	end
 	for _ = 1, 6 do
-		D(interior, "Petal", V(0.18, 0.02, 0.18), V(-10.5 + blossomRandom:NextNumber(-1.5, 2), 4.81, 5.2 + blossomRandom:NextNumber(0, 1)), rgb(230, 170, 190))
+		D(interior, "Petal", V(0.18, 0.02, 0.18), V(-10.5 + blossomRandom:NextNumber(-1.5, 2), 3.61, 5.2 + blossomRandom:NextNumber(0, 1)), rgb(230, 170, 190))
 	end
-	ball(interior, "Bell", 0.6, V(3, 5.05, 5.4), BRASS, Mat.Metal)
-	D(interior, "Ledger", V(1.6, 0.1, 1.1), V(-3, 4.85, 5.6), rgb(240, 232, 215))
-	D(interior, "Pen", V(0.05, 0.05, 0.9), CFrame.new(-2.3, 4.93, 5.5) * CFrame.Angles(0, 0.4, 0), WOOD_DARK)
-	D(interior, "PhoneBase", V(1.2, 0.5, 1), V(8, 5.05, 5.6), rgb(20, 20, 20))
-	D(interior, "PhoneHandset", V(1.4, 0.3, 0.35), V(8, 5.45, 5.6), rgb(20, 20, 20))
-	cyl(interior, "PhoneDial", 0.05, 0.6, CFrame.new(8, 5.1, 5.08) * CFrame.Angles(0, math.rad(90), 0), rgb(230, 225, 210))
+	ball(interior, "Bell", 0.6, V(3, 3.85, 5.4), BRASS, Mat.Metal)
+	D(interior, "Ledger", V(1.6, 0.1, 1.1), V(-3, 3.65, 5.6), rgb(240, 232, 215))
+	D(interior, "Pen", V(0.05, 0.05, 0.9), CFrame.new(-2.3, 3.73, 5.5) * CFrame.Angles(0, 0.4, 0), WOOD_DARK)
+	D(interior, "PhoneBase", V(1.2, 0.5, 1), V(8, 3.85, 5.6), rgb(20, 20, 20))
+	D(interior, "PhoneHandset", V(1.4, 0.3, 0.35), V(8, 4.25, 5.6), rgb(20, 20, 20))
+	cyl(interior, "PhoneDial", 0.05, 0.6, CFrame.new(8, 3.9, 5.08) * CFrame.Angles(0, math.rad(90), 0), rgb(230, 225, 210))
 
 	-- 직원 쪽 낡은 브라운관 모니터 두 대
 	for _, info in ipairs({ { -9, "CCTV", rgb(120, 255, 120) }, { 9, "예약 확인", rgb(150, 200, 255) } }) do
 		local x = info[1]
-		D(interior, "CRT", V(2.2, 1.7, 1.6), V(x, 5.65, 6.9), rgb(175, 170, 155))
-		local screen = D(interior, "CRTScreen", V(1.8, 1.3, 0.05), V(x, 5.7, 7.71), rgb(10, 20, 10))
+		D(interior, "CRT", V(2.2, 1.7, 1.6), V(x, 4.45, 6.9), rgb(175, 170, 155))
+		local screen = D(interior, "CRTScreen", V(1.8, 1.3, 0.05), V(x, 4.5, 7.71), rgb(10, 20, 10))
 		text(screen, Enum.NormalId.Back, info[2], info[3], Enum.Font.Code)
 	end
 
@@ -553,7 +553,9 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 		D(interior, "PortraitCanvas", V(3.4, 4.4, 0.1), V(x, 8.8, 5.02), rgb(25, 20, 18))
 		local bust = Animals.build(data, anomaly)
 		scaled(bust, 0.45)
-		bust:PivotTo(CFrame.new(x, 8.8 - 5.45 * 0.45, 4.6))
+		bust:PivotTo(CFrame.new(x, 6, 4.6))
+		local headPos = bust.HeadGroup:GetPivot().Position
+		bust:PivotTo(bust:GetPivot() + (Vector3.new(x, 8.8, 4.6) - headPos))
 		bust.Parent = decor
 		local plate = D(interior, "Plaque", V(1.8, 0.4, 0.05), V(x, 6.0, 5.02), BRASS, Mat.Metal)
 		text(plate, Enum.NormalId.Front, plaque, rgb(40, 25, 10), Enum.Font.Garamond)
@@ -647,9 +649,9 @@ function LobbyDecor.build(hotel, interior, lights, markers)
 	light(shade, 14, 1.2, rgb(255, 200, 140), "Guest")
 
 	-- 카운터 끝 초록 갓 은행원 스탠드
-	D(interior, "BankerBase", V(0.8, 0.15, 0.5), V(11.5, 4.88, 5.6), BRASS, Mat.Metal)
-	D(interior, "BankerStem", V(0.1, 0.9, 0.1), V(11.5, 5.4, 5.7), BRASS, Mat.Metal)
-	local banker = cyl(lights, "BankerShade", 1.4, 0.6, CFrame.new(11.5, 5.95, 5.6), rgb(30, 100, 60), Mat.Glass)
+	D(interior, "BankerBase", V(0.8, 0.15, 0.5), V(11.5, 3.68, 5.6), BRASS, Mat.Metal)
+	D(interior, "BankerStem", V(0.1, 0.9, 0.1), V(11.5, 4.2, 5.7), BRASS, Mat.Metal)
+	local banker = cyl(lights, "BankerShade", 1.4, 0.6, CFrame.new(11.5, 4.75, 5.6), rgb(30, 100, 60), Mat.Glass)
 	banker.Transparency = 0.15
 	banker:SetAttribute("Zone", "Guest")
 	local bankerLight = Instance.new("SpotLight")

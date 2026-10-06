@@ -401,8 +401,9 @@ end
 
 local function runKid(s)
 	local kid = Animals.build(KID, nil)
+	-- 어린이라서 어른보다 머리 하나만큼 작아요.
 	pcall(function()
-		kid:ScaleTo(0.7)
+		kid:ScaleTo(0.85 * 0.6) -- 어른(0.85) 키의 60%
 	end)
 	local stage = "drink"
 	if s.day == Config.KidFirstDay + Config.KidEveryDays then
@@ -412,9 +413,11 @@ local function runKid(s)
 	end
 	if stage == "bag" then
 		-- 등에 노란 책가방을 메고 와요.
-		local back = kid:GetPivot() * CFrame.new(0, 2.4, 0.85)
-		local bag = Props.backpack(kid, back)
-		bag.Parent = kid
+		local bag = Props.backpack(kid, CFrame.new())
+		pcall(function()
+			bag:ScaleTo(0.6)
+		end)
+		bag:PivotTo(kid:GetPivot() * CFrame.new(0, 1.7, 0.75))
 	end
 	kid.Parent = guestFolder
 	s.guestModel = kid
@@ -424,9 +427,9 @@ local function runKid(s)
 	if not s.active then
 		return
 	end
-	-- 키가 작아서 받침대 위에 올라서요.
-	local stool = Props.solid(guestFolder, "Stool", Vector3.new(2, 1.6, 2), CFrame.new(markers.Counter.Position + Vector3.new(0, 0.7, 0)), rgb(110, 70, 45), Enum.Material.Wood)
-	kid:PivotTo(CFrame.new(markers.Counter.Position + Vector3.new(0, 1.6, 0)))
+	-- 키가 작아서 낮은 받침대 위에 올라서요.
+	local stool = Props.solid(guestFolder, "Stool", Vector3.new(1.8, 0.9, 1.8), CFrame.new(markers.Counter.Position + Vector3.new(0, 0.35, 0)), rgb(110, 70, 45), Enum.Material.Wood)
+	kid:PivotTo(CFrame.new(markers.Counter.Position + Vector3.new(0, 0.9, 0)))
 	Npc.face(kid, markers.DeskSpawn.Position)
 
 	local function say(line)

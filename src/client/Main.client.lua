@@ -3,6 +3,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local ContentProvider = game:GetService("ContentProvider")
 local SoundService = game:GetService("SoundService")
 
@@ -557,7 +558,6 @@ cctvWindow.Visible = false
 
 local currentGuestId = nil
 local currentData = nil
-local scaredGuestId = nil
 local currentDay = 1
 local photoMoveConnection = nil
 
@@ -578,17 +578,28 @@ local function fillViewport(view, data, anomaly, cameraCFrame, fov, withFloor)
 	return model
 end
 
+-- 사진과 CCTV 위에 공포 효과를 그리는 투명한 층
+local photoFx = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 8, ClipsDescendants = true }, photoCard)
+local cctvFx = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 8, ClipsDescendants = true }, cctvCard)
+local photoModel, cctvModel = nil, nil
+local guestToken = 0 -- 손님이 바뀔 때마다 1씩 늘어요 (지난 손님의 효과는 멈춰요)
+local cctvFxUsed = false
+
 local function hideDesk()
 	desk.Visible = false
 	cctvWindow.Visible = false
 	currentGuestId = nil
 	currentData = nil
+	guestToken += 1
 	if photoMoveConnection then
 		photoMoveConnection:Disconnect()
 		photoMoveConnection = nil
 	end
 	photoView:ClearAllChildren()
 	cctvView:ClearAllChildren()
+	photoFx:ClearAllChildren()
+	cctvFx:ClearAllChildren()
+	photoCard.Rotation = -2
 end
 
 ---------------------------------------------------------------- 깜짝 놀래키기 (도플갱어)
@@ -664,34 +675,322 @@ local function jumpScare(data, kind)
 	scaring = false
 end
 
--- 잠시 뒤 확률적으로 놀래켜요. (손님 한 명당 한 번만)
-local function maybeScare(data, kind, delay, chance)
-	task.delay(delay, function()
-		if currentGuestId == data.id and scaredGuestId ~= data.id and math.random() < chance then
-			scaredGuestId = data.id
-			jumpScare(data, kind == "moving" and "mouth" or kind)
-		end
-	end)
+---------------------------------------------------------------- 여러 가지 공포 효과
+-- 같은 손님을 보고 있는 동안에만 계속돼요.
+local function alive(token, needCCTV)
+	return guestToken == token and currentGuestId ~= nil and (not needCCTV or cctvWindow.Visible)
 end
 
--- 가짜 깜짝: 아무 손님에게나 가끔, CCTV에 검은 그림자가 스쳐 지나가요.
-local function shadowFlash()
-	if not cctvWindow.Visible then
+local function staticBurst(seconds)
+	local stop = os.clock() + seconds
+	while os.clock() < stop do
+		for _, bar in ipairs(staticBars) do
+			bar.Visible = math.random() < 0.8
+			bar.Position = UDim2.new(0.02, 0, math.random() * 0.9, 0)
+		end
+		task.wait(0.04)
+	end
+	for _, bar in ipairs(staticBars) do
+		bar.Visible = false
+	end
+end
+
+local CREEPY_LINES = { "뒤를 봐", "그건 손님이 아니야", "웃고 있어", "문을 닫아", "너를 보고 있어", "들여보내지 마", "도망쳐" }
+
+-- 손님 모델의 검은 그림자 버전 (모든 파트가 새까매요)
+local function silhouette(data)
+	local model = Animals.build(data, nil)
+	for _, part in ipairs(model:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.Color = rgb(5, 5, 5)
+			part.Material = Enum.Material.SmoothPlastic
+		end
+	end
+	return model
+end
+
+-- 머리가 천천히 카메라 쪽으로 돌아가서 정면으로 쳐다봐요.
+local function turnHeadToCamera(token, model, camera, seconds, needCCTV, glow)
+	local headGroup = model and model:FindFirstChild("HeadGroup")
+	if not headGroup or not camera then
 		return
 	end
+	local base = headGroup:GetPivot()
+	local target = CFrame.lookAt(base.Position, camera.CFrame.Position)
+	local start = os.clock()
+	while alive(token, needCCTV) and os.clock() - start < seconds do
+		local t = (os.clock() - start) / seconds
+		headGroup:PivotTo(base:Lerp(target, t * t * (3 - 2 * t)))
+		RunService.RenderStepped:Wait()
+	end
+	if glow and alive(token, needCCTV) then
+		for _, part in ipairs(headGroup:GetDescendants()) do
+			if part:IsA("BasePart") and (part.Name == "Pupil" or part.Name == "Iris") then
+				part.Color = rgb(255, 30, 30)
+				part.Material = Enum.Material.Neon
+			end
+		end
+	end
+end
+
+local CCTV_FX = {}
+
+-- 신호가 끊겼다가, 돌아오는 순간 얼굴이 화면에 가득 차요.
+function CCTV_FX.noSignal(token, data, strong)
+	local cover = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = rgb(5, 5, 20), ZIndex = 9 }, cctvFx)
+	label(cover, { Text = "NO SIGNAL", Font = Enum.Font.Code, TextColor3 = rgb(200, 200, 255), Size = UDim2.fromScale(1, 1), ZIndex = 10 }, 22)
+	staticBurst(0.8)
+	cover:Destroy()
+	local camera = cctvView.CurrentCamera
+	local head = cctvModel and cctvModel:FindFirstChild("HeadGroup")
+	if strong and camera and head and alive(token, true) then
+		Remotes.Scared:FireServer()
+		local original = camera.CFrame
+		local headPos = head:GetPivot().Position
+		camera.CFrame = CFrame.lookAt(headPos + Vector3.new(0.3, 0.3, -2.6), headPos)
+		task.wait(0.4)
+		staticBurst(0.15)
+		camera.CFrame = original
+	end
+end
+
+-- 손님이 천천히 고개를 들어 CCTV를 똑바로 쳐다보고, 눈이 빨갛게 빛나요.
+function CCTV_FX.stare(token)
+	Remotes.Scared:FireServer()
+	turnHeadToCamera(token, cctvModel, cctvView.CurrentCamera, 1.8, true, true)
+end
+
+-- 화면에서 사라졌다가, 카메라 바로 앞에 다시 나타나요.
+function CCTV_FX.vanish(token)
+	if not cctvModel then
+		return
+	end
+	local original = cctvModel:GetPivot()
+	cctvModel.Parent = nil
+	staticBurst(0.9)
+	if not alive(token, true) then
+		return
+	end
+	Remotes.Scared:FireServer()
+	cctvModel:PivotTo(original * CFrame.new(1.5, 0, -5) * CFrame.Angles(0, math.rad(-15), 0))
+	cctvModel.Parent = cctvView
+	staticBurst(0.2)
+end
+
+-- 똑같은 손님이 하나 더 옆에 서 있다가 사라져요. (도플갱어!)
+function CCTV_FX.duplicate(token, data)
+	local twin = Animals.build(data, data.cctvAnomaly)
+	twin:PivotTo(CFrame.new(-2.8, 0.1, 1.5) * CFrame.Angles(0, math.rad(20), 0))
+	Remotes.Scared:FireServer()
+	for _ = 1, 4 do
+		if not alive(token, true) then
+			break
+		end
+		twin.Parent = cctvView
+		task.wait(0.12)
+		twin.Parent = nil
+		task.wait(0.25)
+	end
+	twin:Destroy()
+end
+
+-- CCTV 화면에 빨간 글씨가 떠올랐다 사라져요.
+function CCTV_FX.message(token)
+	local text = label(cctvFx, {
+		Text = CREEPY_LINES[math.random(#CREEPY_LINES)],
+		Font = Enum.Font.Code,
+		TextColor3 = rgb(255, 40, 40),
+		TextTransparency = 1,
+		Position = UDim2.fromScale(0.1 + math.random() * 0.3, 0.2 + math.random() * 0.5),
+		Size = UDim2.fromScale(0.6, 0.12),
+		ZIndex = 9,
+	}, 22)
+	for i = 1, 10 do
+		text.TextTransparency = 1 - i / 10
+		task.wait(0.05)
+	end
+	task.wait(1.2)
+	for i = 1, 10 do
+		text.TextTransparency = i / 10
+		task.wait(0.05)
+	end
+	text:Destroy()
+end
+
+-- 카메라가 스스로 얼굴을 확대해요. 지지직거리면서.
+function CCTV_FX.zoom(token, data, strong)
+	local camera = cctvView.CurrentCamera
+	if not camera then
+		return
+	end
+	local fov = camera.FieldOfView
+	local head = cctvModel and cctvModel:FindFirstChild("HeadGroup")
+	local original = camera.CFrame
+	local start = os.clock()
+	while alive(token, true) and os.clock() - start < 2.5 do
+		local t = (os.clock() - start) / 2.5
+		camera.FieldOfView = fov - (fov - 18) * t
+		if head then
+			camera.CFrame = original:Lerp(CFrame.lookAt(original.Position, head:GetPivot().Position), t)
+		end
+		if math.random() < 0.08 then
+			task.spawn(staticBurst, 0.1)
+		end
+		RunService.RenderStepped:Wait()
+	end
+	if strong and alive(token, true) then
+		Remotes.Scared:FireServer()
+		task.wait(0.8)
+	end
+	camera.FieldOfView = fov
+	camera.CFrame = original
+end
+
+function CCTV_FX.shadow(token)
 	local shadow = Instance.new("Model")
 	make("Part", { Anchored = true, Size = Vector3.new(1.4, 4.6, 0.9), CFrame = CFrame.new(4.5, 2.3, 5), Color = rgb(5, 5, 5) }, shadow)
 	local head = make("Part", { Anchored = true, Size = Vector3.new(1.5, 1.5, 1.5), CFrame = CFrame.new(4.5, 5.3, 5), Color = rgb(5, 5, 5) }, shadow)
 	head.Shape = Enum.PartType.Ball
 	shadow.Parent = cctvView
-	for _, bar in ipairs(staticBars) do
-		bar.Visible = true
-		bar.Position = UDim2.new(0.02, 0, math.random() * 0.9, 0)
-	end
-	task.wait(0.25)
+	staticBurst(0.25)
 	shadow:Destroy()
-	for _, bar in ipairs(staticBars) do
-		bar.Visible = false
+end
+
+local PHOTO_FX = {}
+
+-- 사진 위쪽에서 핏물이 주르륵 흘러내려요.
+function PHOTO_FX.drip(token)
+	for _ = 1, 7 do
+		local drip = make("Frame", {
+			Position = UDim2.fromScale(0.05 + math.random() * 0.9, 0),
+			Size = UDim2.new(0, math.random(2, 5), 0, 0),
+			BackgroundColor3 = rgb(110, 0, 0),
+			BorderSizePixel = 0,
+			ZIndex = 9,
+		}, photoFx)
+		TweenService:Create(drip, TweenInfo.new(2 + math.random() * 2, Enum.EasingStyle.Quad), {
+			Size = UDim2.new(0, drip.Size.X.Offset, 0.3 + math.random() * 0.6, 0),
+		}):Play()
+		task.wait(0.2)
+	end
+end
+
+-- 사진에 쩍 금이 가요.
+function PHOTO_FX.crack(token)
+	local cx, cy = 0.3 + math.random() * 0.4, 0.3 + math.random() * 0.4
+	for i = 1, 6 do
+		make("Frame", {
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.fromScale(cx, cy),
+			Size = UDim2.new(0.2 + math.random() * 0.3, 0, 0, 2),
+			Rotation = i * 60 + math.random(-20, 20),
+			BackgroundColor3 = rgb(20, 15, 15),
+			BorderSizePixel = 0,
+			ZIndex = 9,
+		}, photoFx)
+	end
+	for _ = 1, 6 do
+		photoCard.Rotation = -2 + (math.random() - 0.5) * 4
+		task.wait(0.03)
+	end
+	photoCard.Rotation = -2
+end
+
+-- 사진 아래쪽에 빨간 손글씨가 서서히 나타나요.
+function PHOTO_FX.write(token)
+	local lines = { "도와줘", "나는 여기 없어", "진짜는 지하에 있어", "그 애를 믿지 마", "다음은 너야" }
+	local text = label(photoFx, {
+		Text = lines[math.random(#lines)],
+		Font = Enum.Font.Fondamento,
+		TextColor3 = rgb(150, 0, 0),
+		TextTransparency = 1,
+		Rotation = math.random(-8, 8),
+		Position = UDim2.fromScale(0.1, 0.6),
+		Size = UDim2.fromScale(0.8, 0.18),
+		ZIndex = 9,
+	}, 26)
+	for i = 1, 20 do
+		text.TextTransparency = 1 - i / 20
+		task.wait(0.08)
+	end
+end
+
+-- 사진이 순간순간 다른 모습(괴물 / 검은 그림자)으로 바뀌어 보여요.
+function PHOTO_FX.flicker(token, data)
+	if not photoModel then
+		return
+	end
+	local strong = data.photoAnomaly ~= nil
+	local other = strong and Animals.build(data, data.photoAnomaly == "moving" and "mouth" or data.photoAnomaly) or silhouette(data)
+	if strong then
+		Remotes.Scared:FireServer()
+	end
+	for _ = 1, strong and 5 or 2 do
+		if not alive(token) then
+			break
+		end
+		photoModel.Parent = nil
+		other.Parent = photoView
+		task.wait(0.08)
+		other.Parent = nil
+		photoModel.Parent = photoView
+		task.wait(0.3 + math.random() * 0.4)
+	end
+	other:Destroy()
+end
+
+-- 사진 속 손님이 천천히 고개를 돌려 나를 쳐다봐요.
+function PHOTO_FX.turn(token)
+	Remotes.Scared:FireServer()
+	turnHeadToCamera(token, photoModel, photoView.CurrentCamera, 2.5, false, true)
+end
+
+function PHOTO_FX.lunge(token, data)
+	jumpScare(data, data.photoAnomaly == "moving" and "mouth" or data.photoAnomaly)
+end
+
+local function pick(list)
+	return list[math.random(#list)]
+end
+
+-- 사진: 이상한 점이 있는 사진은 강한 효과, 평범한 사진도 가끔 약한 효과가 있어요.
+local function photoEffects(data, token)
+	local strong = data.photoAnomaly and data.photoAnomaly ~= "moving"
+	local chance = strong and 0.75 or 0.25
+	if math.random() > chance then
+		return
+	end
+	task.wait(2 + math.random() * 3)
+	if not alive(token) then
+		return
+	end
+	local choices = strong and { "lunge", "flicker", "turn", "drip" } or { "drip", "crack", "write", "flicker" }
+	PHOTO_FX[pick(choices)](token, data)
+end
+
+-- CCTV: 처음 열었을 때 한 번. 이상한 점이 있으면 강한 효과, 없어도 가끔 약한 효과가 있어요.
+local function cctvEffects(data, token)
+	if cctvFxUsed then
+		return
+	end
+	cctvFxUsed = true
+	local strong = data.cctvAnomaly ~= nil
+	if math.random() > (strong and 0.8 or 0.3) then
+		return
+	end
+	task.wait(1 + math.random() * 1.5)
+	if not alive(token, true) then
+		return
+	end
+	if strong then
+		local choice = pick({ "lunge", "stare", "vanish", "duplicate", "noSignal", "zoom" })
+		if choice == "lunge" then
+			jumpScare(data, data.cctvAnomaly)
+		else
+			CCTV_FX[choice](token, data, true)
+		end
+	else
+		CCTV_FX[pick({ "shadow", "noSignal", "message", "zoom" })](token, data, false)
 	end
 end
 
@@ -702,19 +1001,17 @@ local function toggleCCTV()
 	cctvWindow.Visible = not cctvWindow.Visible
 	cctvButton.Text = cctvWindow.Visible and "CCTV 닫기" or "CCTV 보기"
 	if cctvWindow.Visible then
-		if currentData.cctvAnomaly then
-			maybeScare(currentData, currentData.cctvAnomaly, 1 + math.random() * 0.8, 0.6)
-		elseif math.random() < 0.12 then
-			task.delay(0.8 + math.random(), shadowFlash)
-		end
+		task.spawn(cctvEffects, currentData, guestToken)
 	end
 end
 cctvButton.Activated:Connect(toggleCCTV)
 
 local function showGuest(data)
+	hideDesk()
 	currentGuestId = data.id
 	currentData = data
-	cctvWindow.Visible = false
+	cctvFxUsed = false
+	local token = guestToken
 	cctvButton.Text = "CCTV 보기"
 	currentDay = data.day
 	deskHeader.Text = ("손님 %d/%d · %s (%s)"):format(data.index, data.total, data.name, data.animalName)
@@ -728,18 +1025,14 @@ local function showGuest(data)
 	)
 
 	-- 예약 사진: 얼굴이 잘 보이게 정면에서 찍어요.
-	local photoModel = fillViewport(
+	photoModel = fillViewport(
 		photoView,
 		data,
 		data.photoAnomaly,
-		CFrame.lookAt(Vector3.new(0, 5.6, -8), Vector3.new(0, 5.4, 0)),
+		CFrame.lookAt(Vector3.new(0, 5.3, -8.5), Vector3.new(0, 5.1, 0)),
 		40,
 		false
 	)
-	if photoMoveConnection then
-		photoMoveConnection:Disconnect()
-		photoMoveConnection = nil
-	end
 	if data.photoAnomaly == "moving" then
 		-- 사진 속 머리가 천천히 돌아가다가 가끔 뚝! 하고 꺾여요.
 		local headGroup = photoModel:FindFirstChild("HeadGroup")
@@ -763,7 +1056,7 @@ local function showGuest(data)
 	end
 
 	-- CCTV: 위에서 비스듬히 내려다봐요.
-	fillViewport(
+	cctvModel = fillViewport(
 		cctvView,
 		data,
 		data.cctvAnomaly,
@@ -773,11 +1066,7 @@ local function showGuest(data)
 	)
 
 	desk.Visible = true
-
-	-- 사진에 이상한 점이 있으면 가끔 사진 속 얼굴이 달려들어요.
-	if data.photoAnomaly and data.photoAnomaly ~= "moving" then
-		maybeScare(data, data.photoAnomaly, 2.5 + math.random() * 2, 0.35)
-	end
+	task.spawn(photoEffects, data, token)
 end
 
 local function decide(choice)
