@@ -130,13 +130,23 @@ function Animals.build(data, anomaly)
 	local weirdBody = anomaly == "body"
 
 	-- 몸은 모두 매끈한 타원(곡선)으로 만들어요.
-	-- 신발과 다리
+	-- 신발과 다리: 짧고 통통한 다리를 넓게 벌리고 서요. (몸이 이상한 도플갱어는 가느다란 다리)
 	for _, side in ipairs({ -1, 1 }) do
-		local x = side * 0.42
-		ellipsoid(model, "Shoe", V(0.78, 0.55, 1.15), CFrame.new(x, 0.3, -0.15), shoeColor)
-		ellipsoid(model, "Leg", V(0.7, 1.9, 0.7), CFrame.new(x, 1.3, 0), pants)
+		if weirdBody then
+			local x = side * 0.42
+			ellipsoid(model, "Shoe", V(0.78, 0.55, 1.15), CFrame.new(x, 0.3, -0.15), shoeColor)
+			ellipsoid(model, "Leg", V(0.7, 1.9, 0.7), CFrame.new(x, 1.3, 0), pants)
+		else
+			local x = side * 0.9
+			ellipsoid(model, "Shoe", V(1.3, 0.75, 1.75), CFrame.new(x, 0.37, -0.2) * CFrame.Angles(0, side * 0.15, 0), shoeColor)
+			ellipsoid(model, "Leg", V(1.3, 1.8, 1.3), CFrame.new(x, 1.25, 0) * CFrame.Angles(0, 0, side * 0.12), pants)
+		end
 	end
-	ellipsoid(model, "Hips", V(1.8, 1.0, 1.45), CFrame.new(0, 2.2, 0), pants)
+	if weirdBody then
+		ellipsoid(model, "Hips", V(1.8, 1.0, 1.45), CFrame.new(0, 2.2, 0), pants)
+	else
+		ellipsoid(model, "Hips", V(3.0, 1.4, 2.3), CFrame.new(0, 2.1, 0), pants)
+	end
 
 	-- 몸통: 머리 바로 밑에 붙은 넓고 둥근 덩어리 (머리와 이어져서 서양배·베개 모양이 돼요)
 	-- 몸이 이상한 도플갱어만 가늘고 길쭉해요.
@@ -296,11 +306,6 @@ function Animals.build(data, anomaly)
 		end
 	end
 
-	-- 눈썹
-	for _, side in ipairs({ -1, 1 }) do
-		local angle = isMonster and side * 0.45 or -side * 0.12
-		ellipsoid(headGroup, "Brow", V(0.42, 0.09, 0.07), at(side * 0.45, 0.72, -1.0) * CFrame.Angles(0, 0, angle), dark:Lerp(BLACK, 0.4))
-	end
 
 	-- 도플갱어: 퀭하게 꺼진 눈두덩, 얼굴의 검붉은 핏줄, 셔츠의 핏자국
 	if isMonster then
@@ -318,8 +323,8 @@ function Animals.build(data, anomaly)
 		end
 	end
 
-	-- 눈: 사람 같은 아몬드형 눈 (흰자위 타원 + 홍채 + 눈동자 + 반짝임 + 속눈썹 라인 + 살짝 내려온 눈꺼풀)
-	-- 귀엽지만 눈꺼풀이 살짝 덮여 있고 눈을 깜빡이지 않아서 어딘가 섬뜩해요.
+	-- 눈: 사람 같은 아몬드형 눈 (흰자위 타원 + 홍채 + 눈동자 + 반짝임). 눈 위에는 아무것도 붙이지 않아요.
+	-- 귀엽지만 눈을 한 번도 깜빡이지 않아서 어딘가 섬뜩해요.
 	local irises = { rgb(200, 140, 40), rgb(90, 150, 60), rgb(110, 70, 40), rgb(70, 120, 190), rgb(150, 150, 160) }
 	local irisColor = irises[style:NextInteger(1, #irises)]
 	local function eyeFrame(side, size)
@@ -368,8 +373,6 @@ function Animals.build(data, anomaly)
 				disc(headGroup, "Pupil", 0.14, on(0, -0.01, -0.095), BLACK)
 				ball(headGroup, "EyeShine", 0.07, on(-0.06, 0.04, -0.11), WHITE)
 				ball(headGroup, "EyeShine", 0.035, on(0.05, -0.05, -0.11), WHITE)
-				-- 살짝 내려온 윗눈꺼풀 (졸린 듯, 무표정하게 지켜보는 눈매)
-				ellipsoid(headGroup, "EyeLid", V(0.72, 0.22, 0.2), on(0, 0.17, 0), dark)
 			end
 		end
 	end
