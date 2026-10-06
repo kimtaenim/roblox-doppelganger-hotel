@@ -115,7 +115,6 @@ function Animals.build(data, anomaly)
 	local light = fur:Lerp(Color3.new(1, 1, 1), 0.55)
 	local dark = fur:Lerp(Color3.new(0, 0, 0), 0.35)
 	local pants = cloth:Lerp(Color3.new(0, 0, 0), 0.5)
-	local lapel = cloth:Lerp(Color3.new(0, 0, 0), 0.25)
 	local ties = { rgb(150, 30, 40), rgb(30, 50, 110), rgb(200, 160, 50), rgb(40, 90, 60), rgb(20, 20, 20) }
 	local tieColor = ties[style:NextInteger(1, #ties)]
 	local shoeColor = style:NextNumber() < 0.5 and rgb(30, 22, 18) or rgb(90, 55, 30)
@@ -130,63 +129,64 @@ function Animals.build(data, anomaly)
 
 	local weirdBody = anomaly == "body"
 
+	-- 몸은 모두 매끈한 타원(곡선)으로 만들어요.
 	-- 신발과 다리
 	for _, side in ipairs({ -1, 1 }) do
-		local x = side * 0.45
-		newPart(model, "Shoe", "Part", V(0.75, 0.5, 0.8), CFrame.new(x, 0.25, 0), shoeColor)
-		ball(model, "ShoeToe", 0.75, CFrame.new(x, 0.32, -0.42), shoeColor)
-		vcyl(model, "Leg", 1.7, 0.68, CFrame.new(x, 1.3, 0), pants)
+		local x = side * 0.42
+		ellipsoid(model, "Shoe", V(0.78, 0.55, 1.15), CFrame.new(x, 0.3, -0.15), shoeColor)
+		ellipsoid(model, "Leg", V(0.7, 1.9, 0.7), CFrame.new(x, 1.3, 0), pants)
 	end
-	newPart(model, "Hips", "Part", V(1.7, 0.6, 1.3), CFrame.new(0, 2.15, 0), pants)
+	ellipsoid(model, "Hips", V(1.8, 1.0, 1.45), CFrame.new(0, 2.2, 0), pants)
 
-	-- 몸통 (재킷) + 셔츠, 넥타이, 단추, 벨트
+	-- 몸통 (둥근 달걀 모양 재킷) + 셔츠, 넥타이, 단추, 행커치프
 	local torsoCF = weirdBody and CFrame.new(0, 3.3, -0.2) * CFrame.Angles(math.rad(-14), 0, 0) or CFrame.new(0, 3.2, 0)
-	local torsoWidth = weirdBody and 1.3 or 1.9
-	vcyl(model, "Torso", weirdBody and 2.6 or 2.3, torsoWidth, torsoCF, cloth)
-	local front = -torsoWidth / 2
-	vcyl(model, "Belt", 0.2, torsoWidth + 0.05, torsoCF * CFrame.new(0, -1.0, 0), rgb(30, 25, 20))
-	newPart(model, "Buckle", "Part", V(0.3, 0.22, 0.06), torsoCF * CFrame.new(0, -1.0, front - 0.03), rgb(190, 150, 70))
-	newPart(model, "Shirt", "Part", V(0.6, 1.0, 0.1), torsoCF * CFrame.new(0, 0.55, front + 0.02), WHITE)
+	local torsoSize = weirdBody and V(1.4, 2.9, 1.1) or V(2.0, 2.7, 1.65)
+	ellipsoid(model, "Torso", torsoSize, torsoCF, cloth)
+	local tw, th, td = torsoSize.X / 2, torsoSize.Y / 2, torsoSize.Z / 2
+	-- 몸통 앞면의 (x, y) 자리에 딱 붙는 위치 (곡면을 따라 기울어져요)
+	local function onTorso(x, y, lift)
+		local k = math.max(0.03, 1 - (x / tw) ^ 2 - (y / th) ^ 2)
+		local z = -td * math.sqrt(k) - (lift or 0.01)
+		local pitch = math.atan(td * (y / (th * th)) / math.sqrt(k))
+		local yaw = -math.atan(td * (x / (tw * tw)) / math.sqrt(k))
+		return torsoCF * CFrame.new(x, y, z) * CFrame.Angles(pitch, yaw, 0)
+	end
+	ellipsoid(model, "Shirt", V(0.62, 1.0, 0.14), onTorso(0, 0.75, -0.02), WHITE)
 	for _, side in ipairs({ -1, 1 }) do
-		newPart(model, "Lapel", "Part", V(0.3, 1.1, 0.08), torsoCF * CFrame.new(side * 0.36, 0.55, front - 0.01) * CFrame.Angles(0, 0, side * 0.3), lapel)
-		ball(model, "Shoulder", 0.85, torsoCF * CFrame.new(side * (torsoWidth / 2 + 0.05), 0.9, 0), cloth)
+		ellipsoid(model, "Collar", V(0.3, 0.14, 0.1), onTorso(side * 0.17, 1.05, 0) * CFrame.Angles(0, 0, side * 0.6), WHITE)
+		ball(model, "Shoulder", 0.9, torsoCF * CFrame.new(side * 0.8, 0.85, 0), cloth)
 	end
 	if accessory == 5 then
 		for _, side in ipairs({ -1, 1 }) do
-			newPart(model, "BowTie", "WedgePart", V(0.08, 0.3, 0.3), torsoCF * CFrame.new(side * 0.15, 0.95, front - 0.04) * CFrame.Angles(0, side * math.rad(90), 0), tieColor)
+			ellipsoid(model, "BowTie", V(0.3, 0.2, 0.1), onTorso(side * 0.15, 0.98, 0.02) * CFrame.Angles(0, 0, side * 0.25), tieColor)
 		end
+		ball(model, "BowKnot", 0.14, onTorso(0, 0.98, 0.05), tieColor)
 	else
-		ball(model, "TieKnot", 0.2, torsoCF * CFrame.new(0, 0.95, front - 0.02), tieColor)
-		newPart(model, "Tie", "Part", V(0.2, 0.85, 0.05), torsoCF * CFrame.new(0, 0.45, front - 0.03), tieColor)
+		ball(model, "TieKnot", 0.2, onTorso(0, 0.98, 0.03), tieColor)
+		ellipsoid(model, "Tie", V(0.24, 0.95, 0.08), onTorso(0, 0.45, 0.02), tieColor)
 	end
 	for i = 0, 1 do
-		ball(model, "Button", 0.12, torsoCF * CFrame.new(0.2, -0.3 - i * 0.35, front - 0.01), rgb(190, 150, 70))
+		ball(model, "Button", 0.12, onTorso(0.24, -0.25 - i * 0.35, 0), rgb(190, 150, 70))
 	end
-	-- 셔츠 깃, 가슴 주머니와 행커치프
-	for _, side in ipairs({ -1, 1 }) do
-		newPart(model, "Collar", "Part", V(0.26, 0.16, 0.06), torsoCF * CFrame.new(side * 0.17, 1.02, front - 0.04) * CFrame.Angles(0, 0, side * 0.6), WHITE)
-	end
-	local pocketZ = -math.sqrt(math.max(0.01, (torsoWidth / 2) ^ 2 - 0.3)) - 0.02
-	newPart(model, "PocketFlap", "Part", V(0.45, 0.08, 0.06), torsoCF * CFrame.new(-0.55, 0.4, pocketZ), lapel)
-	newPart(model, "PocketSquare", "Part", V(0.22, 0.16, 0.05), torsoCF * CFrame.new(-0.55, 0.5, pocketZ - 0.01), tieColor:Lerp(WHITE, 0.4))
+	ellipsoid(model, "PocketSquare", V(0.24, 0.14, 0.06), onTorso(-0.5, 0.5, 0), tieColor:Lerp(WHITE, 0.4))
 
 	-- 팔 (소매 + 흰 소맷부리 + 손)
 	for _, side in ipairs({ -1, 1 }) do
 		if weirdBody then
 			-- 바닥까지 늘어진 팔과 긴 검은 손톱
 			local x = side * 0.95
-			vcyl(model, "Arm", 4.4, 0.42, CFrame.new(x, 2.4, -0.3) * CFrame.Angles(0, 0, side * 0.06), fur)
+			ellipsoid(model, "Arm", V(0.42, 4.4, 0.42), CFrame.new(x, 2.4, -0.3) * CFrame.Angles(0, 0, side * 0.06), fur)
 			for i = -1, 1 do
 				local claw = CFrame.new(x + side * 0.15 + i * 0.12, 0.1, -0.3) * CFrame.Angles(0, 0, math.rad(180))
 				fang(model, claw, 0.6, 0.12, false).Color = BLACK
 			end
 		else
-			local armCF = CFrame.new(side * 1.2, 3.25, 0) * CFrame.Angles(0, 0, side * 0.07)
-			vcyl(model, "Sleeve", 1.6, 0.6, armCF, cloth)
-			vcyl(model, "Cuff", 0.14, 0.62, armCF * CFrame.new(0, -0.82, 0), WHITE)
-			ball(model, "Hand", 0.62, armCF * CFrame.new(0, -1.1, 0), light)
+			local armCF = CFrame.new(side * 1.05, 3.3, 0) * CFrame.Angles(0, 0, side * 0.12)
+			ellipsoid(model, "Sleeve", V(0.62, 1.75, 0.62), armCF, cloth)
+			ellipsoid(model, "Cuff", V(0.62, 0.16, 0.62), armCF * CFrame.new(0, -0.78, 0), WHITE)
+			ball(model, "Hand", 0.64, armCF * CFrame.new(0, -0.98, 0), light)
 			if side == -1 then
-				vcyl(model, "Watch", 0.12, 0.66, armCF * CFrame.new(0, -0.68, 0), rgb(190, 150, 70))
+				ellipsoid(model, "Watch", V(0.66, 0.12, 0.66), armCF * CFrame.new(0, -0.66, 0), rgb(190, 150, 70))
 			end
 		end
 	end
@@ -211,22 +211,20 @@ function Animals.build(data, anomaly)
 		return headCF * CFrame.new(x, y, z)
 	end
 
-	-- 귀 (안쪽은 분홍색)
+	-- 귀 (부드러운 타원, 안쪽은 분홍색)
 	for _, side in ipairs({ -1, 1 }) do
 		if def.ears == "pointy" or def.ears == "small" then
-			local s = def.ears == "small" and 0.6 or 1
-			local earCF = at(side * 0.65, 1.15, 0.1) * CFrame.Angles(0, 0, -side * 0.25)
-			newPart(headGroup, "Ear", "WedgePart", V(0.25, 1.1 * s, 0.9 * s), earCF, fur)
-			newPart(headGroup, "EarInner", "WedgePart", V(0.1, 0.75 * s, 0.55 * s), earCF * CFrame.new(0, -0.1 * s, -0.05), PINK)
-			ball(headGroup, "EarFluff", 0.3 * s, earCF * CFrame.new(0, -0.35 * s, -0.15), light)
+			local s = def.ears == "small" and 0.65 or 1
+			local earCF = at(side * 0.68, 1.02, 0.05) * CFrame.Angles(0, 0, -side * 0.32)
+			ellipsoid(headGroup, "Ear", V(0.75 * s, 1.15 * s, 0.32), earCF, fur)
+			ellipsoid(headGroup, "EarInner", V(0.42 * s, 0.75 * s, 0.12), earCF * CFrame.new(0, -0.05 * s, -0.12), PINK)
+			ball(headGroup, "EarFluff", 0.3 * s, earCF * CFrame.new(0, -0.32 * s, -0.15), light)
 		elseif def.ears == "floppy" then
-			newPart(headGroup, "Ear", "Part", V(0.35, 1.5, 0.8), at(side * 1.18, -0.05, 0) * CFrame.Angles(0, 0, side * 0.25), dark)
-			ball(headGroup, "EarTip", 0.8, at(side * 1.32, -0.75, 0), dark)
+			ellipsoid(headGroup, "Ear", V(0.5, 1.6, 0.85), at(side * 1.2, -0.15, 0.05) * CFrame.Angles(0, 0, side * 0.25), dark)
 		elseif def.ears == "long" then
-			local earCF = at(side * 0.45, 2.1, 0) * CFrame.Angles(0, 0, -side * 0.12)
-			newPart(headGroup, "Ear", "Part", V(0.5, 2.2, 0.3), earCF, fur)
-			ball(headGroup, "EarTip", 0.5, earCF * CFrame.new(0, 1.05, 0), fur)
-			newPart(headGroup, "EarInner", "Part", V(0.3, 1.7, 0.1), earCF * CFrame.new(0, 0, -0.12), PINK)
+			local earCF = at(side * 0.42, 2.0, 0.05) * CFrame.Angles(0, 0, -side * 0.12)
+			ellipsoid(headGroup, "Ear", V(0.6, 2.4, 0.34), earCF, fur)
+			ellipsoid(headGroup, "EarInner", V(0.34, 1.8, 0.12), earCF * CFrame.new(0, 0, -0.13), PINK)
 		elseif def.ears == "round" then
 			ball(headGroup, "Ear", 0.85, at(side * 0.85, 0.95, 0), fur)
 			ball(headGroup, "EarInner", 0.45, at(side * 0.85, 0.95, -0.28), dark)
@@ -236,8 +234,7 @@ function Animals.build(data, anomaly)
 	-- 주둥이, 코, 볼, 수염
 	local mouthY, mouthZ = -0.6, -1.2
 	if data.animal == "pig" then
-		local snout = newPart(headGroup, "Snout", "Part", V(0.5, 0.9, 0.9), at(0, -0.2, -1.2) * CFrame.Angles(0, math.rad(90), 0), PINK)
-		snout.Shape = Enum.PartType.Cylinder
+		ellipsoid(headGroup, "Snout", V(0.85, 0.65, 0.5), at(0, -0.2, -1.15), PINK)
 		for _, side in ipairs({ -1, 1 }) do
 			ball(headGroup, "Nostril", 0.15, at(side * 0.17, -0.2, -1.45), BLACK)
 		end
@@ -282,7 +279,7 @@ function Animals.build(data, anomaly)
 	-- 이마의 털 뭉치 (고양이·여우·강아지)
 	if data.animal == "cat" or data.animal == "fox" or data.animal == "dog" then
 		for i = -1, 1 do
-			newPart(headGroup, "Tuft", "WedgePart", V(0.18, 0.35, 0.4), at(i * 0.2, 1.08, -0.45) * CFrame.Angles(math.rad(-30), 0, i * 0.3), fur)
+			ellipsoid(headGroup, "Tuft", V(0.22, 0.45, 0.25), at(i * 0.2, 1.08, -0.45) * CFrame.Angles(math.rad(-30), 0, i * 0.3), fur)
 		end
 	end
 	if not isMonster then
@@ -295,7 +292,7 @@ function Animals.build(data, anomaly)
 	-- 눈썹
 	for _, side in ipairs({ -1, 1 }) do
 		local angle = isMonster and side * 0.45 or -side * 0.12
-		newPart(headGroup, "Brow", "Part", V(0.42, 0.08, 0.06), at(side * 0.45, 0.72, -1.0) * CFrame.Angles(0, 0, angle), dark:Lerp(BLACK, 0.4))
+		ellipsoid(headGroup, "Brow", V(0.42, 0.09, 0.07), at(side * 0.45, 0.72, -1.0) * CFrame.Angles(0, 0, angle), dark:Lerp(BLACK, 0.4))
 	end
 
 	-- 도플갱어: 퀭하게 꺼진 눈두덩, 얼굴의 검붉은 핏줄, 셔츠의 핏자국
@@ -310,7 +307,7 @@ function Animals.build(data, anomaly)
 			newPart(headGroup, "FaceVein", "Part", V(0.03, veinRandom:NextNumber(0.3, 0.6), 0.03), at(vx, vy, vz) * CFrame.Angles(0, 0, veinRandom:NextNumber(-1, 1)), rgb(90, 20, 40))
 		end
 		for _ = 1, 4 do
-			newPart(model, "BloodStain", "Part", V(veinRandom:NextNumber(0.2, 0.5), veinRandom:NextNumber(0.2, 0.6), 0.04), torsoCF * CFrame.new(veinRandom:NextNumber(-0.6, 0.6), veinRandom:NextNumber(-0.8, 0.6), front - 0.05), BLOOD)
+			newPart(model, "BloodStain", "Part", V(veinRandom:NextNumber(0.2, 0.5), veinRandom:NextNumber(0.2, 0.6), 0.04), onTorso(veinRandom:NextNumber(-0.5, 0.5), veinRandom:NextNumber(-0.7, 0.5), 0.01), BLOOD)
 		end
 	end
 
@@ -367,12 +364,6 @@ function Animals.build(data, anomaly)
 				-- 살짝 내려온 윗눈꺼풀 (졸린 듯, 무표정하게 지켜보는 눈매)
 				ellipsoid(headGroup, "EyeLid", V(0.72, 0.22, 0.2), on(0, 0.17, 0), dark)
 			end
-			-- 속눈썹 라인 (아치 모양 + 바깥쪽 끝이 살짝 올라간 꼬리)
-			local lashColor = dark:Lerp(BLACK, 0.6)
-			newPart(headGroup, "EyeLash", "Part", V(0.36, 0.045, 0.05), on(-0.15, 0.13, -0.08) * CFrame.Angles(0, 0, 0.22), lashColor)
-			newPart(headGroup, "EyeLash", "Part", V(0.36, 0.045, 0.05), on(0.15, 0.13, -0.08) * CFrame.Angles(0, 0, -0.22), lashColor)
-			newPart(headGroup, "EyeLash", "Part", V(0.12, 0.04, 0.04), on(side * 0.36, 0.14, -0.06) * CFrame.Angles(0, 0, side * 0.6), lashColor)
-			newPart(headGroup, "EyeLower", "Part", V(0.38, 0.025, 0.04), on(0, -0.15, -0.075), light)
 		end
 	end
 
@@ -418,7 +409,7 @@ function Animals.build(data, anomaly)
 	else
 		-- 살짝 웃는 w 모양 입
 		for _, side in ipairs({ -1, 1 }) do
-			newPart(headGroup, "Mouth", "Part", V(0.22, 0.05, 0.05), at(side * 0.1, mouthY, mouthZ) * CFrame.Angles(0, 0, side * 0.45), rgb(60, 30, 30))
+			ellipsoid(headGroup, "Mouth", V(0.24, 0.06, 0.05), at(side * 0.1, mouthY, mouthZ) * CFrame.Angles(0, 0, side * 0.45), rgb(60, 30, 30))
 		end
 	end
 
@@ -448,14 +439,14 @@ function Animals.build(data, anomaly)
 
 	-- 꼬리
 	if data.animal == "cat" or data.animal == "fox" then
-		local size = data.animal == "fox" and V(0.7, 0.7, 1.8) or V(0.35, 0.35, 1.6)
+		local size = data.animal == "fox" and V(0.75, 0.75, 1.9) or V(0.45, 0.45, 1.6)
 		local tailCF = CFrame.new(0, 2.4, 1.25) * CFrame.Angles(math.rad(35), 0, 0)
-		newPart(model, "Tail", "Part", size, tailCF, fur)
+		ellipsoid(model, "Tail", size, tailCF, fur)
 		if data.animal == "fox" then
 			ball(model, "TailTip", 0.75, tailCF * CFrame.new(0, 0, 0.9), WHITE)
 		end
 	elseif data.animal == "dog" then
-		newPart(model, "Tail", "Part", V(0.35, 0.35, 1.2), CFrame.new(0, 2.5, 1.1) * CFrame.Angles(math.rad(50), 0, 0), fur)
+		ellipsoid(model, "Tail", V(0.4, 0.4, 1.3), CFrame.new(0, 2.5, 1.0) * CFrame.Angles(math.rad(50), 0, 0), fur)
 	else
 		ball(model, "Tail", 0.6, CFrame.new(0, 2.3, 0.8), data.animal == "pig" and PINK or light)
 	end
