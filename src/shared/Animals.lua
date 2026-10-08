@@ -358,23 +358,36 @@ function Animals.build(data, anomaly)
 			local function on(x, y, z)
 				return eye * CFrame.new(x, y, z)
 			end
+			local sclera = ellipsoid(headGroup, "EyeWhite", V(0.8, stare and 0.46 or 0.4, 0.16), on(0, 0, -0.01), rgb(245, 242, 235))
 			if stare then
-				-- 눈과 같은 각도로 붙은 퀭한 눈두덩 (흰자 바로 뒤)
-				ellipsoid(headGroup, "Socket", V(0.98, 0.7, 0.1), on(0, 0, 0.04), rgb(40, 20, 25))
-			end
-			local sclera = ellipsoid(headGroup, "EyeWhite", V(0.8, stare and 0.56 or 0.4, 0.16), on(0, 0, -0.01), rgb(245, 242, 235))
-			if stare then
-				-- 크게 부릅뜬 핏발 선 사람 눈: 작은 홍채와 바늘 같은 눈동자
-				sclera.Color = rgb(248, 238, 232)
-				for i = 1, 6 do
-					local angle = i * math.pi / 3 + 0.3
-					local cx, cy = math.cos(angle) * 0.27, math.sin(angle) * 0.16
-					newPart(headGroup, "EyeVein", "Part", V(0.16, 0.02, 0.02), on(cx, cy, -0.075) * CFrame.Angles(0, 0, angle), rgb(190, 30, 35))
+				-- 핏발 선 눈: 아몬드 모양 그대로, 흰자가 살짝 붉고 아주 가는 핏줄이 눈꼬리에서 홍채 쪽으로 구불구불 뻗어요.
+				sclera.Color = rgb(242, 222, 216)
+				local hw, hh, hd = 0.4, 0.23, 0.08 -- 흰자 반지름 (가로, 세로, 깊이)
+				local function onSclera(x, y)
+					local k = math.max(0.02, 1 - (x / hw) ^ 2 - (y / hh) ^ 2)
+					return -0.01 - hd * math.sqrt(k) - 0.004
 				end
-				disc(headGroup, "Iris", 0.2, on(0, 0, -0.085), rgb(110, 30, 30))
-				local pupil = disc(headGroup, "Pupil", 0.07, on(0, 0, -0.1), rgb(10, 5, 5))
-				ball(headGroup, "RedGlint", 0.03, on(-0.03, 0.03, -0.11), rgb(255, 60, 60)).Material = Enum.Material.Neon
-				pupil.Name = "Pupil"
+				local veinRandom = Random.new((data.id or 1) * 7 + side)
+				for _, corner in ipairs({ -1, 1 }) do
+					for i = 1, 5 do
+						local x, y = corner * 0.36, (i - 3) * 0.045
+						local angle = (i - 3) * 0.3 + veinRandom:NextNumber(-0.25, 0.25)
+						for _ = 1, 3 do
+							local length = veinRandom:NextNumber(0.045, 0.075)
+							local dx, dy = -corner * math.cos(angle) * length, math.sin(angle) * length
+							local mx, my = x + dx / 2, y + dy / 2
+							if math.abs(mx) < 0.17 then
+								break -- 홍채 근처에서 멈춰요
+							end
+							newPart(headGroup, "EyeVein", "Part", V(length, 0.008, 0.006), on(mx, my, onSclera(mx, my)) * CFrame.Angles(0, 0, math.atan2(dy, dx)), rgb(160, 20, 30))
+							x, y = x + dx, y + dy
+							angle += veinRandom:NextNumber(-0.7, 0.7)
+						end
+					end
+				end
+				disc(headGroup, "Iris", 0.33, on(0, 0, -0.092), irisColor)
+				disc(headGroup, "Pupil", 0.06, on(0, 0, -0.104), rgb(10, 8, 8))
+				ball(headGroup, "EyeShine", 0.035, on(-0.05, 0.05, -0.115), WHITE)
 			else
 				-- 사람 같은 아몬드형 눈: 눈꼬리가 수평이고, 홍채가 흰자 위아래에 거의 닿아요.
 				-- 동물 얼굴에 사람 눈이 달려 있어서 귀엽지만 섬뜩해요.
