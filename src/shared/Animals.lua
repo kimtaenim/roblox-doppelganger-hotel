@@ -310,9 +310,6 @@ function Animals.build(data, anomaly)
 
 	-- 도플갱어: 퀭하게 꺼진 눈두덩, 얼굴의 검붉은 핏줄, 셔츠의 핏자국
 	if isMonster then
-		for _, side in ipairs({ -1, 1 }) do
-			ellipsoid(headGroup, "Socket", V(1.0, 0.68, 0.3), at(side * 0.46, 0.05, -1.0), rgb(35, 18, 22))
-		end
 		local veinRandom = Random.new((data.id or 1) + 99)
 		for _ = 1, 7 do
 			local vx, vy = veinRandom:NextNumber(-0.8, 0.8), veinRandom:NextNumber(-0.4, 1.0)
@@ -340,12 +337,12 @@ function Animals.build(data, anomaly)
 		-- 눈 자리가 새까맣게 뚫려 있고, 검은 눈물이 흘러내리고, 이마와 볼에 작은 눈이 더 있어요.
 		for _, side in ipairs({ -1, 1 }) do
 			local eye = eyeFrame(side)
-			ellipsoid(headGroup, "Void", V(0.85, 0.5, 0.22), eye * CFrame.new(0, 0, 0.02), BLACK)
+			ellipsoid(headGroup, "Void", V(0.8, 0.46, 0.16), eye * CFrame.new(0, 0, -0.02), BLACK)
 			local glint = ball(headGroup, "RedGlint", 0.08, eye * CFrame.new(0, 0, -0.1), rgb(255, 30, 30))
 			glint.Material = Enum.Material.Neon
-			local x = side * 0.46
-			newPart(headGroup, "BlackTear", "Part", V(0.14, 1.7, 0.1), at(x, -0.55, -1.02) * CFrame.Angles(math.rad(-20), 0, 0), BLACK)
-			newPart(headGroup, "BlackTear", "Part", V(0.08, 1.1, 0.1), at(x + side * 0.2, -0.35, -0.98) * CFrame.Angles(math.rad(-15), 0, 0), BLACK)
+			-- 검은 눈물: 눈 아래쪽 가장자리에서 시작해서 볼을 따라 흘러내려요.
+			ellipsoid(headGroup, "BlackTear", V(0.08, 0.7, 0.05), eye * CFrame.new(-side * 0.08, -0.55, 0.0) * CFrame.Angles(math.rad(-18), 0, 0), BLACK)
+			ellipsoid(headGroup, "BlackTear", V(0.06, 0.4, 0.05), eye * CFrame.new(side * 0.18, -0.4, 0.02) * CFrame.Angles(math.rad(-14), 0, 0), BLACK)
 		end
 		for i, spot in ipairs({ V(0, 0.85, -0.85), V(-0.75, -0.05, -0.92), V(0.55, 0.95, -0.7) }) do
 			local cf = at(spot.X, spot.Y, spot.Z) * CFrame.Angles(0, 0, (i - 2) * 0.4)
@@ -357,18 +354,27 @@ function Animals.build(data, anomaly)
 		-- 이빨/입 도플갱어는 핏발 선 눈을 크게 뜨고 빨간 바늘 같은 눈동자로 노려봐요.
 		local stare = anomaly == "teeth" or anomaly == "mouth"
 		for _, side in ipairs({ -1, 1 }) do
-			local eye = eyeFrame(side, stare and 0.2 or 0)
+			local eye = eyeFrame(side, 0)
 			local function on(x, y, z)
 				return eye * CFrame.new(x, y, z)
 			end
-			local sclera = ellipsoid(headGroup, "EyeWhite", V(0.76, stare and 0.5 or 0.4, 0.16), on(0, 0, -0.01), rgb(245, 242, 235))
 			if stare then
-				sclera.Color = rgb(250, 215, 210)
-				for i = -1, 1, 2 do
-					newPart(headGroup, "EyeVein", "Part", V(0.18, 0.03, 0.02), on(i * 0.22, i * 0.03, -0.085) * CFrame.Angles(0, 0, i * 0.5), rgb(200, 30, 30))
+				-- 눈과 같은 각도로 붙은 퀭한 눈두덩 (흰자 바로 뒤)
+				ellipsoid(headGroup, "Socket", V(0.98, 0.7, 0.1), on(0, 0, 0.04), rgb(40, 20, 25))
+			end
+			local sclera = ellipsoid(headGroup, "EyeWhite", V(0.8, stare and 0.56 or 0.4, 0.16), on(0, 0, -0.01), rgb(245, 242, 235))
+			if stare then
+				-- 크게 부릅뜬 핏발 선 사람 눈: 작은 홍채와 바늘 같은 눈동자
+				sclera.Color = rgb(248, 238, 232)
+				for i = 1, 6 do
+					local angle = i * math.pi / 3 + 0.3
+					local cx, cy = math.cos(angle) * 0.27, math.sin(angle) * 0.16
+					newPart(headGroup, "EyeVein", "Part", V(0.16, 0.02, 0.02), on(cx, cy, -0.075) * CFrame.Angles(0, 0, angle), rgb(190, 30, 35))
 				end
-				local pupil = disc(headGroup, "Pupil", 0.08, on(0, 0, -0.095), rgb(255, 20, 20))
-				pupil.Material = Enum.Material.Neon
+				disc(headGroup, "Iris", 0.2, on(0, 0, -0.085), rgb(110, 30, 30))
+				local pupil = disc(headGroup, "Pupil", 0.07, on(0, 0, -0.1), rgb(10, 5, 5))
+				ball(headGroup, "RedGlint", 0.03, on(-0.03, 0.03, -0.11), rgb(255, 60, 60)).Material = Enum.Material.Neon
+				pupil.Name = "Pupil"
 			else
 				-- 사람 같은 아몬드형 눈: 눈꼬리가 수평이고, 홍채가 흰자 위아래에 거의 닿아요.
 				-- 동물 얼굴에 사람 눈이 달려 있어서 귀엽지만 섬뜩해요.
