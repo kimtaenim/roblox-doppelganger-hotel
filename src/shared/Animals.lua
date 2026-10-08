@@ -140,23 +140,23 @@ function Animals.build(data, anomaly)
 		else
 			-- 가는 원기둥 모양의 늘씬한 다리, 두 다리 사이를 넉넉히 띄워요.
 			local x = side * 0.72
-			ellipsoid(model, "Shoe", V(0.78, 0.5, 1.05), CFrame.new(x, 0.25, -0.12), shoeColor)
-			vcyl(model, "Leg", 1.9, 0.56, CFrame.new(x, 1.3, 0), pants)
+			ellipsoid(model, "Shoe", V(0.9, 0.52, 1.15), CFrame.new(x, 0.26, -0.12), shoeColor)
+			vcyl(model, "Leg", 1.9, 0.74, CFrame.new(x, 1.3, 0), pants)
 		end
 	end
 	if weirdBody then
 		ellipsoid(model, "Hips", V(1.8, 1.0, 1.45), CFrame.new(0, 2.2, 0), pants)
 	else
-		ellipsoid(model, "Hips", V(2.4, 0.9, 1.9), CFrame.new(0, 2.25, 0), pants)
+		ellipsoid(model, "Hips", V(2.2, 0.8, 1.9), CFrame.new(0, 2.4, 0), pants)
 	end
 
 	-- 몸통: 머리 바로 밑에 붙은 넓고 둥근 덩어리 (머리와 이어져서 서양배·베개 모양이 돼요)
 	-- 몸이 이상한 도플갱어만 가늘고 길쭉해요.
-	local torsoCF = weirdBody and CFrame.new(0, 3.3, -0.2) * CFrame.Angles(math.rad(-14), 0, 0) or CFrame.new(0, 3.7, 0)
-	local torsoSize = weirdBody and V(1.4, 2.9, 1.1) or V(2.9, 3.2, 2.9)
+	local torsoCF = weirdBody and CFrame.new(0, 3.3, -0.2) * CFrame.Angles(math.rad(-14), 0, 0) or CFrame.new(0, 3.85, 0)
+	local torsoSize = weirdBody and V(1.4, 2.9, 1.1) or V(2.4, 2.7, 2.4)
 	-- 셔츠, 넥타이, 단추 높이 (몸통 가운데 기준, 머리에 가려지지 않는 곳)
 	local Y = weirdBody and { collar = 1.05, knot = 0.98, tie = 0.45, shirt = 0.75, button = -0.25, pocket = 0.5, pocketX = -0.5 }
-		or { collar = 0.42, knot = 0.38, tie = -0.12, shirt = 0.1, button = -0.68, pocket = -0.15, pocketX = -0.75 }
+		or { collar = 0.42, knot = 0.38, tie = -0.1, shirt = 0.1, button = -0.6, pocket = -0.1, pocketX = -0.62 }
 	local tw, th, td = torsoSize.X / 2, torsoSize.Y / 2, torsoSize.Z / 2
 	local edge = 0.5 -- 둥근 모서리의 반지름
 	if weirdBody then
@@ -218,7 +218,7 @@ function Animals.build(data, anomaly)
 			end
 		else
 			-- 둥근 몸통 옆구리에 짧은 팔이 붙어요.
-			local armCF = CFrame.new(side * 1.55, 3.3, 0) * CFrame.Angles(0, 0, side * 0.25)
+			local armCF = CFrame.new(side * 1.32, 3.45, 0) * CFrame.Angles(0, 0, side * 0.25)
 			ellipsoid(model, "Sleeve", V(0.62, 1.75, 0.62), armCF, cloth)
 			ellipsoid(model, "Cuff", V(0.62, 0.16, 0.62), armCF * CFrame.new(0, -0.78, 0), WHITE)
 			ball(model, "Hand", 0.64, armCF * CFrame.new(0, -0.98, 0), light)
@@ -494,7 +494,7 @@ function Animals.build(data, anomaly)
 		if weirdBody then
 			vcyl(model, "Scarf", 0.45, 1.1, CFrame.new(0, 4.3, -0.3), tieColor)
 		else
-			ellipsoid(model, "Scarf", V(3.5, 0.5, 2.8), CFrame.new(0, 4.4, 0), tieColor)
+			ellipsoid(model, "Scarf", V(2.9, 0.5, 2.6), CFrame.new(0, 4.55, 0), tieColor)
 		end
 		if weirdBody then
 			newPart(model, "ScarfEnd", "Part", V(0.35, 1.0, 0.1), CFrame.new(0.35, 3.85, -0.92) * CFrame.Angles(0, 0, 0.1), tieColor)
