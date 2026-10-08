@@ -295,7 +295,7 @@ function Animals.build(data, anomaly)
 		if data.animal == "cat" or data.animal == "fox" or data.animal == "rabbit" then
 			for _, side in ipairs({ -1, 1 }) do
 				for i = 0, 1 do
-					newPart(headGroup, "Whisker", "Part", V(0.6, 0.025, 0.025), at(side * 0.55, -0.52 - i * 0.1, -1.0) * CFrame.Angles(0, -side * 0.35, side * (0.1 - i * 0.18)), rgb(150, 130, 120))
+					newPart(headGroup, "Whisker", "Part", V(0.6, 0.025, 0.025), at(side * 0.55, -0.52 - i * 0.1, -1.05) * CFrame.Angles(0, -side * 0.35, side * (0.1 - i * 0.18)), rgb(150, 130, 120))
 				end
 			end
 		end
@@ -306,21 +306,35 @@ function Animals.build(data, anomaly)
 		ball(headGroup, "NoseShine", 0.05, nose.CFrame * CFrame.new(-0.03, 0.04, -0.06), WHITE)
 	end
 
-	-- 통통한 볼살: 머리 아래쪽에 옆으로 넓은 타원을 겹쳐서, 얼굴이 만두처럼 아래로 갈수록 볼록하게 이어져요.
-	-- (따로 붙인 공이 아니라서 경계가 거의 보이지 않아요)
-	local JOWL_Y, JOWL = -0.38, V(1.32, 0.98, 1.08)
-	if not weirdBody then
-		ellipsoid(headGroup, "CheekFluff", JOWL * 2, at(0, JOWL_Y, 0), fur)
+	-- 통통한 볼살: 공을 머리 속에 깊이 묻어서 조금만 튀어나오게 해요.
+	-- 공이 크고 깊을수록 얼굴과 만나는 경계가 완만해져서 부드럽게 이어져 보여요.
+	local cheeks = {} -- 볼 공의 중심과 반지름 (찢어진 입이 볼 위로 이어지게 써요)
+	if data.animal ~= "pig" then
+		local size, bulge = 1.3, 0.2
+		for _, side in ipairs({ -1, 1 }) do
+			local dir = Vector3.new(side * 0.8, -0.42, -0.5).Unit
+			local center = dir * (1.2 + bulge - size / 2)
+			ball(headGroup, "CheekFluff", size, headCF * CFrame.new(center), fur)
+			table.insert(cheeks, { center = center, radius = size / 2 })
+			if not isMonster then
+				-- 볼 공 앞쪽 면에 발그레한 볼터치
+				local face = (dir + Vector3.new(0, 0.1, -1.1)).Unit
+				local spot = center + face * (size / 2 + 0.005)
+				local blush = ellipsoid(headGroup, "Blush", V(0.42, 0.24, 0.06), headCF * CFrame.lookAt(spot, spot + face), rgb(255, 150, 170))
+				blush.Transparency = 0.15
+			end
+		end
 	end
 	-- 머리 앞면의 (x, y) 자리 (머리 곡면 위). 머리 밖이면 nil.
 	local function headSurface(x, y, lift)
 		local k = 1.44 - x * x - y * y
 		local z = k >= 0.02 and -math.sqrt(k) or nil
-		if not weirdBody then
-			local j = 1 - (x / JOWL.X) ^ 2 - ((y - JOWL_Y) / JOWL.Y) ^ 2
-			if j >= 0.02 then
-				local jz = -JOWL.Z * math.sqrt(j)
-				z = z and math.min(z, jz) or jz
+		for _, cheek in ipairs(cheeks) do
+			local c, r = cheek.center, cheek.radius
+			local ck = r * r - (x - c.X) ^ 2 - (y - c.Y) ^ 2
+			if ck >= 0.01 then
+				local cz = c.Z - math.sqrt(ck)
+				z = z and math.min(z, cz) or cz
 			end
 		end
 		return z and z - (lift or 0.02)
@@ -329,12 +343,6 @@ function Animals.build(data, anomaly)
 	if data.animal == "cat" or data.animal == "fox" or data.animal == "dog" then
 		for i = -1, 1 do
 			ellipsoid(headGroup, "Tuft", V(0.22, 0.45, 0.25), at(i * 0.2, 1.08, -0.45) * CFrame.Angles(math.rad(-30), 0, i * 0.3), fur)
-		end
-	end
-	if not isMonster then
-		for _, side in ipairs({ -1, 1 }) do
-			local blush = ellipsoid(headGroup, "Blush", V(0.42, 0.24, 0.08), at(side * 0.74, -0.42, headSurface(0.74, -0.42, 0.0)) * CFrame.Angles(0, -side * 0.7, 0), rgb(255, 150, 170))
-			blush.Transparency = 0.15
 		end
 	end
 
