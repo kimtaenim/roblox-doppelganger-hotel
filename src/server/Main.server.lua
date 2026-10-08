@@ -403,7 +403,7 @@ local function runKid(s)
 	local kid = Animals.build(KID, nil)
 	-- 어린이라서 어른보다 머리 하나만큼 작아요.
 	pcall(function()
-		kid:ScaleTo(0.85 * 0.6) -- 어른(0.85) 키의 60%
+		kid:ScaleTo(0.8 * 0.6) -- 어른(0.8) 키의 60%
 	end)
 	local stage = "drink"
 	if s.day == Config.KidFirstDay + Config.KidEveryDays then

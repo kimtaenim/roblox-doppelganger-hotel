@@ -1029,7 +1029,7 @@ local function showGuest(data)
 		photoView,
 		data,
 		data.photoAnomaly,
-		CFrame.lookAt(Vector3.new(0, 5.3, -8.5), Vector3.new(0, 5.1, 0)),
+		CFrame.lookAt(Vector3.new(0, 5.9, -10), Vector3.new(0, 5.6, 0)),
 		40,
 		false
 	)

@@ -5,25 +5,26 @@ local Animals = {}
 local rgb = Color3.fromRGB
 local V = Vector3.new
 
+-- 미니 인형처럼 부드러운 파스텔 색이에요.
 Animals.Types = {
-	cat = { name = "고양이", ears = "pointy", furs = { rgb(235, 150, 70), rgb(150, 150, 155), rgb(60, 60, 65), rgb(240, 238, 230) } },
-	dog = { name = "강아지", ears = "floppy", furs = { rgb(165, 115, 70), rgb(225, 185, 115), rgb(245, 240, 230) } },
-	rabbit = { name = "토끼", ears = "long", furs = { rgb(245, 245, 245), rgb(185, 185, 190), rgb(185, 145, 110) } },
-	bear = { name = "곰", ears = "round", furs = { rgb(125, 85, 55), rgb(80, 58, 40), rgb(240, 240, 235) } },
-	fox = { name = "여우", ears = "pointy", furs = { rgb(225, 115, 45), rgb(200, 90, 40) } },
-	pig = { name = "돼지", ears = "small", furs = { rgb(245, 175, 175), rgb(235, 160, 165) } },
+	cat = { name = "고양이", ears = "pointy", furs = { rgb(250, 205, 165), rgb(205, 200, 215), rgb(250, 240, 230), rgb(240, 185, 150) } },
+	dog = { name = "강아지", ears = "floppy", furs = { rgb(235, 205, 160), rgb(250, 240, 225), rgb(215, 180, 150) } },
+	rabbit = { name = "토끼", ears = "long", furs = { rgb(252, 248, 245), rgb(230, 215, 235), rgb(240, 210, 190) } },
+	bear = { name = "곰", ears = "round", furs = { rgb(200, 160, 125), rgb(235, 215, 190), rgb(175, 140, 115) } },
+	fox = { name = "여우", ears = "pointy", furs = { rgb(250, 175, 120), rgb(245, 195, 150) } },
+	pig = { name = "돼지", ears = "small", furs = { rgb(252, 200, 205), rgb(248, 185, 195) } },
 }
 
 Animals.List = { "cat", "dog", "rabbit", "bear", "fox", "pig" }
 
 Animals.Clothes = {
-	rgb(70, 110, 190),
-	rgb(190, 60, 60),
-	rgb(70, 150, 90),
-	rgb(230, 190, 60),
-	rgb(130, 80, 170),
-	rgb(60, 60, 70),
-	rgb(240, 240, 240),
+	rgb(160, 225, 210), -- 민트
+	rgb(250, 175, 195), -- 분홍
+	rgb(195, 175, 235), -- 라벤더
+	rgb(250, 225, 140), -- 버터 노랑
+	rgb(150, 200, 240), -- 하늘
+	rgb(250, 190, 150), -- 복숭아
+	rgb(245, 240, 225), -- 크림
 }
 
 -- 도플갱어의 이상한 점 종류
@@ -118,7 +119,7 @@ function Animals.build(data, anomaly)
 	local ties = { rgb(150, 30, 40), rgb(30, 50, 110), rgb(200, 160, 50), rgb(40, 90, 60), rgb(20, 20, 20) }
 	local tieColor = ties[style:NextInteger(1, #ties)]
 	local shoeColor = style:NextNumber() < 0.5 and rgb(30, 22, 18) or rgb(90, 55, 30)
-	local accessory = style:NextInteger(0, 5) -- 0 없음, 1 중절모, 2 안경, 3 목도리, 4 베레모, 5 나비넥타이
+	local accessory = style:NextInteger(0, 5) -- 0 없음, 1 중절모, 2 머리 리본, 3 목도리, 4 베레모, 5 나비넥타이
 
 	local model = Instance.new("Model")
 	model.Name = data.name or "Guest"
@@ -138,24 +139,24 @@ function Animals.build(data, anomaly)
 			ellipsoid(model, "Leg", V(0.7, 1.9, 0.7), CFrame.new(x, 1.3, 0), pants)
 		else
 			-- 가는 원기둥 모양의 늘씬한 다리, 두 다리 사이를 넉넉히 띄워요.
-			local x = side * 0.85
-			ellipsoid(model, "Shoe", V(0.8, 0.5, 1.15), CFrame.new(x, 0.25, -0.15), shoeColor)
-			vcyl(model, "Leg", 2.1, 0.48, CFrame.new(x, 1.45, 0), pants)
+			local x = side * 0.72
+			ellipsoid(model, "Shoe", V(0.78, 0.5, 1.05), CFrame.new(x, 0.25, -0.12), shoeColor)
+			vcyl(model, "Leg", 1.9, 0.44, CFrame.new(x, 1.3, 0), pants)
 		end
 	end
 	if weirdBody then
 		ellipsoid(model, "Hips", V(1.8, 1.0, 1.45), CFrame.new(0, 2.2, 0), pants)
 	else
-		ellipsoid(model, "Hips", V(2.7, 1.0, 2.1), CFrame.new(0, 2.35, 0), pants)
+		ellipsoid(model, "Hips", V(2.4, 0.9, 1.9), CFrame.new(0, 2.25, 0), pants)
 	end
 
 	-- 몸통: 머리 바로 밑에 붙은 넓고 둥근 덩어리 (머리와 이어져서 서양배·베개 모양이 돼요)
 	-- 몸이 이상한 도플갱어만 가늘고 길쭉해요.
-	local torsoCF = weirdBody and CFrame.new(0, 3.3, -0.2) * CFrame.Angles(math.rad(-14), 0, 0) or CFrame.new(0, 3.88, 0)
-	local torsoSize = weirdBody and V(1.4, 2.9, 1.1) or V(3.76, 3.53, 2.94)
+	local torsoCF = weirdBody and CFrame.new(0, 3.3, -0.2) * CFrame.Angles(math.rad(-14), 0, 0) or CFrame.new(0, 3.7, 0)
+	local torsoSize = weirdBody and V(1.4, 2.9, 1.1) or V(3.3, 3.2, 2.6)
 	-- 셔츠, 넥타이, 단추 높이 (몸통 가운데 기준, 머리에 가려지지 않는 곳)
 	local Y = weirdBody and { collar = 1.05, knot = 0.98, tie = 0.45, shirt = 0.75, button = -0.25, pocket = 0.5, pocketX = -0.5 }
-		or { collar = 0.34, knot = 0.3, tie = -0.22, shirt = 0.0, button = -0.8, pocket = -0.25, pocketX = -0.85 }
+		or { collar = 0.42, knot = 0.38, tie = -0.12, shirt = 0.1, button = -0.68, pocket = -0.15, pocketX = -0.75 }
 	ellipsoid(model, "Torso", torsoSize, torsoCF, cloth)
 	local tw, th, td = torsoSize.X / 2, torsoSize.Y / 2, torsoSize.Z / 2
 	-- 몸통 앞면의 (x, y) 자리에 딱 붙는 위치 (곡면을 따라 기울어져요)
@@ -199,7 +200,7 @@ function Animals.build(data, anomaly)
 			end
 		else
 			-- 둥근 몸통 옆구리에 짧은 팔이 붙어요.
-			local armCF = CFrame.new(side * 1.85, 3.35, 0) * CFrame.Angles(0, 0, side * 0.3)
+			local armCF = CFrame.new(side * 1.62, 3.3, 0) * CFrame.Angles(0, 0, side * 0.3)
 			ellipsoid(model, "Sleeve", V(0.62, 1.75, 0.62), armCF, cloth)
 			ellipsoid(model, "Cuff", V(0.62, 0.16, 0.62), armCF * CFrame.new(0, -0.78, 0), WHITE)
 			ball(model, "Hand", 0.64, armCF * CFrame.new(0, -0.98, 0), light)
@@ -250,34 +251,33 @@ function Animals.build(data, anomaly)
 	end
 
 	-- 주둥이, 코, 볼, 수염
-	local mouthY, mouthZ = -0.6, -1.2
+	local mouthY, mouthZ = -0.72, -1.0
 	if data.animal == "pig" then
-		ellipsoid(headGroup, "Snout", V(0.85, 0.65, 0.5), at(0, -0.2, -1.15), PINK)
+		ellipsoid(headGroup, "Snout", V(0.6, 0.45, 0.35), at(0, -0.45, -1.07), PINK:Lerp(fur, 0.3))
 		for _, side in ipairs({ -1, 1 }) do
-			ball(headGroup, "Nostril", 0.15, at(side * 0.17, -0.2, -1.45), BLACK)
+			ball(headGroup, "Nostril", 0.1, at(side * 0.11, -0.45, -1.23), rgb(150, 80, 90))
 		end
 		mouthY, mouthZ = -0.78, -0.95
 	elseif data.animal == "bear" then
-		ball(headGroup, "Muzzle", 1.0, at(0, -0.35, -0.9), light)
-		ball(headGroup, "Nose", 0.34, at(0, -0.15, -1.36), BLACK)
-		mouthZ = -1.3
+		ball(headGroup, "Muzzle", 0.62, at(0, -0.52, -0.92), light)
+		ball(headGroup, "Nose", 0.2, at(0, -0.42, -1.2), rgb(70, 45, 40))
+		mouthY, mouthZ = -0.66, -1.17
 	else
-		local size = data.animal == "dog" and 0.85 or 0.72
 		for _, side in ipairs({ -1, 1 }) do
-			ball(headGroup, "Muzzle", size, at(side * 0.22, -0.38, -0.95), light)
+			ball(headGroup, "Muzzle", 0.48, at(side * 0.14, -0.55, -0.98), light)
 		end
-		ball(headGroup, "Chin", 0.55, at(0, -0.62, -0.88), light)
 		if data.animal == "fox" then
-			ball(headGroup, "Snout", 0.55, at(0, -0.28, -1.22), light)
+			ball(headGroup, "Snout", 0.36, at(0, -0.48, -1.12), light)
 		end
-		ball(headGroup, "Nose", 0.28, at(0, -0.12, data.animal == "fox" and -1.47 or -1.3), data.animal == "rabbit" and PINK or BLACK)
+		ball(headGroup, "Nose", 0.17, at(0, -0.42, data.animal == "fox" and -1.29 or -1.17), data.animal == "rabbit" and PINK or rgb(70, 45, 40))
+		mouthY, mouthZ = -0.68, -1.15
 		if data.animal == "rabbit" and not isMonster then
-			newPart(headGroup, "BuckTooth", "Part", V(0.22, 0.22, 0.06), at(0, -0.72, -1.15), WHITE)
+			newPart(headGroup, "BuckTooth", "Part", V(0.14, 0.14, 0.04), at(0, -0.8, -1.08), WHITE)
 		end
 		if data.animal == "cat" or data.animal == "fox" or data.animal == "rabbit" then
 			for _, side in ipairs({ -1, 1 }) do
 				for i = 0, 1 do
-					newPart(headGroup, "Whisker", "Part", V(0.9, 0.03, 0.03), at(side * 0.75, -0.3 - i * 0.12, -1.05) * CFrame.Angles(0, -side * 0.35, side * (0.12 - i * 0.2)), rgb(60, 55, 50))
+					newPart(headGroup, "Whisker", "Part", V(0.6, 0.025, 0.025), at(side * 0.55, -0.52 - i * 0.1, -1.0) * CFrame.Angles(0, -side * 0.35, side * (0.1 - i * 0.18)), rgb(150, 130, 120))
 				end
 			end
 		end
@@ -285,13 +285,13 @@ function Animals.build(data, anomaly)
 	-- 코끝 반짝임
 	local nose = headGroup:FindFirstChild("Nose")
 	if nose then
-		ball(headGroup, "NoseShine", 0.08, nose.CFrame * CFrame.new(-0.05, 0.07, -0.1), WHITE)
+		ball(headGroup, "NoseShine", 0.05, nose.CFrame * CFrame.new(-0.03, 0.04, -0.06), WHITE)
 	end
 
 	-- 통통한 볼살 (얼굴 아래쪽을 둥글고 넓게)
 	if data.animal ~= "pig" then
 		for _, side in ipairs({ -1, 1 }) do
-			ball(headGroup, "CheekFluff", 0.95, at(side * 0.78, -0.32, -0.5), fur)
+			ball(headGroup, "CheekFluff", 0.8, at(side * 0.8, -0.4, -0.45), fur)
 		end
 	end
 	-- 이마의 털 뭉치 (고양이·여우·강아지)
@@ -302,7 +302,7 @@ function Animals.build(data, anomaly)
 	end
 	if not isMonster then
 		for _, side in ipairs({ -1, 1 }) do
-			local blush = ellipsoid(headGroup, "Blush", V(0.42, 0.24, 0.08), at(side * 0.74, -0.14, -0.9) * CFrame.Angles(0, -side * 0.65, 0), rgb(255, 150, 160))
+			local blush = ellipsoid(headGroup, "Blush", V(0.42, 0.24, 0.08), at(side * 0.78, -0.42, -0.82) * CFrame.Angles(0, -side * 0.75, 0), rgb(255, 150, 170))
 			blush.Transparency = 0.15
 		end
 	end
@@ -311,7 +311,7 @@ function Animals.build(data, anomaly)
 	-- 도플갱어: 퀭하게 꺼진 눈두덩, 얼굴의 검붉은 핏줄, 셔츠의 핏자국
 	if isMonster then
 		for _, side in ipairs({ -1, 1 }) do
-			ellipsoid(headGroup, "Socket", V(0.9, 0.55, 0.3), at(side * 0.46, 0.28, -0.95) * CFrame.Angles(0, 0, side * 0.2), rgb(35, 18, 22))
+			ellipsoid(headGroup, "Socket", V(1.1, 0.95, 0.3), at(side * 0.5, 0.0, -0.98) * CFrame.Angles(0, 0, side * 0.15), rgb(35, 18, 22))
 		end
 		local veinRandom = Random.new((data.id or 1) + 99)
 		for _ = 1, 7 do
@@ -326,21 +326,21 @@ function Animals.build(data, anomaly)
 
 	-- 눈: 사람 같은 아몬드형 눈 (흰자위 타원 + 홍채 + 눈동자 + 반짝임). 눈 위에는 아무것도 붙이지 않아요.
 	-- 귀엽지만 눈을 한 번도 깜빡이지 않아서 어딘가 섬뜩해요.
-	local irises = { rgb(200, 140, 40), rgb(90, 150, 60), rgb(110, 70, 40), rgb(70, 120, 190), rgb(150, 150, 160) }
+	local irises = { rgb(70, 50, 110), rgb(40, 90, 140), rgb(110, 60, 50), rgb(50, 110, 90), rgb(140, 70, 110) }
 	local irisColor = irises[style:NextInteger(1, #irises)]
 	local function eyeFrame(side, size)
-		local x, y = side * 0.46, 0.28
+		local x, y = side * 0.5, 0.0 -- 얼굴 아래쪽에 넓게 떨어진 큰 눈
 		local z = -math.sqrt(1.44 - x * x - y * y)
 		local surface = Vector3.new(x, y, z)
 		-- 눈 바깥쪽 끝이 살짝 올라가요.
-		return headCF * CFrame.lookAt(surface, surface + surface.Unit) * CFrame.Angles(0, 0, side * (size or 0.15))
+		return headCF * CFrame.lookAt(surface, surface + surface.Unit) * CFrame.Angles(0, 0, side * (size or 0.08))
 	end
 
 	if anomaly == "eyes" then
 		-- 눈 자리가 새까맣게 뚫려 있고, 검은 눈물이 흘러내리고, 이마와 볼에 작은 눈이 더 있어요.
 		for _, side in ipairs({ -1, 1 }) do
 			local eye = eyeFrame(side)
-			ellipsoid(headGroup, "Void", V(0.72, 0.4, 0.22), eye * CFrame.new(0, 0, 0.02), BLACK)
+			ellipsoid(headGroup, "Void", V(0.95, 0.82, 0.22), eye * CFrame.new(0, 0, 0.02), BLACK)
 			local glint = ball(headGroup, "RedGlint", 0.08, eye * CFrame.new(0, 0, -0.1), rgb(255, 30, 30))
 			glint.Material = Enum.Material.Neon
 			local x = side * 0.46
@@ -357,23 +357,26 @@ function Animals.build(data, anomaly)
 		-- 이빨/입 도플갱어는 핏발 선 눈을 크게 뜨고 빨간 바늘 같은 눈동자로 노려봐요.
 		local stare = anomaly == "teeth" or anomaly == "mouth"
 		for _, side in ipairs({ -1, 1 }) do
-			local eye = eyeFrame(side, stare and 0.3 or 0.15)
+			local eye = eyeFrame(side, stare and 0.25 or 0.08)
 			local function on(x, y, z)
 				return eye * CFrame.new(x, y, z)
 			end
-			local sclera = ellipsoid(headGroup, "EyeWhite", V(0.62, stare and 0.36 or 0.3, 0.16), on(0, 0, -0.01), WHITE)
+			local sclera = ellipsoid(headGroup, "EyeWhite", V(0.88, stare and 0.8 or 0.74, 0.16), on(0, 0, -0.01), WHITE)
 			if stare then
 				sclera.Color = rgb(250, 215, 210)
 				for i = -1, 1, 2 do
-					newPart(headGroup, "EyeVein", "Part", V(0.16, 0.025, 0.02), on(i * 0.17, i * 0.03, -0.085) * CFrame.Angles(0, 0, i * 0.5), rgb(200, 30, 30))
+					newPart(headGroup, "EyeVein", "Part", V(0.24, 0.03, 0.02), on(i * 0.24, i * 0.05, -0.085) * CFrame.Angles(0, 0, i * 0.5), rgb(200, 30, 30))
 				end
-				local pupil = disc(headGroup, "Pupil", 0.06, on(0, 0, -0.095), rgb(255, 20, 20))
+				local pupil = disc(headGroup, "Pupil", 0.08, on(0, 0, -0.095), rgb(255, 20, 20))
 				pupil.Material = Enum.Material.Neon
 			else
-				disc(headGroup, "Iris", 0.27, on(0, -0.01, -0.085), irisColor)
-				disc(headGroup, "Pupil", 0.14, on(0, -0.01, -0.095), BLACK)
-				ball(headGroup, "EyeShine", 0.07, on(-0.06, 0.04, -0.11), WHITE)
-				ball(headGroup, "EyeShine", 0.035, on(0.05, -0.05, -0.11), WHITE)
+				-- 큰 홍채 + 아래쪽 밝은 반사 + 눈동자 + 반짝임 세 개 (유리구슬 같은 인형 눈)
+				disc(headGroup, "Iris", 0.64, on(0, -0.02, -0.085), irisColor)
+				ellipsoid(headGroup, "IrisGlow", V(0.42, 0.2, 0.03), on(0, -0.18, -0.098), irisColor:Lerp(WHITE, 0.45))
+				disc(headGroup, "Pupil", 0.34, on(0, -0.01, -0.1), rgb(20, 15, 25))
+				ball(headGroup, "EyeShine", 0.2, on(-0.13, 0.14, -0.12), WHITE)
+				ball(headGroup, "EyeShine", 0.09, on(0.14, -0.1, -0.12), WHITE)
+				ball(headGroup, "EyeShine", 0.05, on(0.02, -0.2, -0.12), WHITE)
 			end
 		end
 	end
@@ -424,27 +427,25 @@ function Animals.build(data, anomaly)
 		end
 	end
 
-	-- 소품 (모자, 안경, 목도리, 베레모)
+	-- 소품 (모자, 리본, 목도리, 베레모)
 	if accessory == 1 then
 		local hatColor = style:NextNumber() < 0.5 and rgb(30, 28, 30) or rgb(90, 70, 50)
 		vcyl(headGroup, "HatBrim", 0.12, 2.3, at(0, 1.05, 0) * CFrame.Angles(math.rad(-6), 0, 0), hatColor)
 		vcyl(headGroup, "HatCrown", 0.9, 1.5, at(0, 1.5, 0.05) * CFrame.Angles(math.rad(-6), 0, 0), hatColor)
 		vcyl(headGroup, "HatBand", 0.18, 1.52, at(0, 1.15, 0.03) * CFrame.Angles(math.rad(-6), 0, 0), tieColor)
 	elseif accessory == 2 then
+		-- 머리 위 큰 리본
+		local bows = { rgb(250, 160, 190), rgb(255, 120, 150), rgb(170, 150, 235), rgb(130, 200, 235), rgb(255, 210, 120) }
+		local bowColor = bows[style:NextInteger(1, #bows)]
 		for _, side in ipairs({ -1, 1 }) do
-			local lens = newPart(headGroup, "Glasses", "Part", V(0.06, 0.62, 0.62), at(side * 0.45, 0.3, -1.3) * CFrame.Angles(0, math.rad(90), 0), rgb(200, 220, 230))
-			lens.Shape = Enum.PartType.Cylinder
-			lens.Transparency = 0.7
-			local rim = newPart(headGroup, "GlassesRim", "Part", V(0.04, 0.68, 0.68), at(side * 0.45, 0.3, -1.27) * CFrame.Angles(0, math.rad(90), 0), rgb(40, 30, 25))
-			rim.Shape = Enum.PartType.Cylinder
-			rim.Transparency = 0.15
+			ellipsoid(headGroup, "Bow", V(0.75, 0.55, 0.28), at(side * 0.4, 1.0, -0.35) * CFrame.Angles(math.rad(-25), 0, side * 0.35), bowColor)
 		end
-		newPart(headGroup, "GlassesBridge", "Part", V(0.3, 0.05, 0.05), at(0, 0.36, -1.32), rgb(40, 30, 25))
+		ball(headGroup, "BowKnot", 0.3, at(0, 1.02, -0.42), bowColor:Lerp(BLACK, 0.1))
 	elseif accessory == 3 then
 		if weirdBody then
 			vcyl(model, "Scarf", 0.45, 1.1, CFrame.new(0, 4.3, -0.3), tieColor)
 		else
-			ellipsoid(model, "Scarf", V(3.85, 0.55, 3.1), CFrame.new(0, 4.25, 0), tieColor)
+			ellipsoid(model, "Scarf", V(3.5, 0.5, 2.8), CFrame.new(0, 4.4, 0), tieColor)
 		end
 		if weirdBody then
 			newPart(model, "ScarfEnd", "Part", V(0.35, 1.0, 0.1), CFrame.new(0.35, 3.85, -0.92) * CFrame.Angles(0, 0, 0.1), tieColor)
@@ -470,16 +471,16 @@ function Animals.build(data, anomaly)
 		ball(model, "Tail", 0.7, CFrame.new(0, 2.4, 1.2), data.animal == "pig" and PINK or light)
 	end
 
-	-- 귀여운 2등신에 가까운 비율: 몸은 조금 작게, 머리는 크게 (몸이 이상한 도플갱어는 그대로 길쭉하게)
+	-- 미니 인형 같은 2등신 비율: 몸은 작게, 머리는 아주 크게 (몸이 이상한 도플갱어는 그대로 길쭉하게)
 	if not weirdBody then
 		headGroup.Parent = nil
 		pcall(function()
-			model:ScaleTo(0.85)
+			model:ScaleTo(0.8)
 		end)
 		pcall(function()
-			headGroup:ScaleTo(1.3)
+			headGroup:ScaleTo(1.5)
 		end)
-		headGroup:PivotTo(CFrame.new(0, 5.15, 0))
+		headGroup:PivotTo(CFrame.new(0, 5.65, 0))
 		headGroup.Parent = model
 	end
 
