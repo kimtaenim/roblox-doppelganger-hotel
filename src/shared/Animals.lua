@@ -130,22 +130,23 @@ function Animals.build(data, anomaly)
 	local weirdBody = anomaly == "body"
 
 	-- 몸은 모두 매끈한 타원(곡선)으로 만들어요.
-	-- 신발과 다리: 짧고 통통한 다리를 넓게 벌리고 서요. (몸이 이상한 도플갱어는 가느다란 다리)
+	-- 신발과 다리 (몸이 이상한 도플갱어는 안쪽으로 붙은 다리)
 	for _, side in ipairs({ -1, 1 }) do
 		if weirdBody then
 			local x = side * 0.42
 			ellipsoid(model, "Shoe", V(0.78, 0.55, 1.15), CFrame.new(x, 0.3, -0.15), shoeColor)
 			ellipsoid(model, "Leg", V(0.7, 1.9, 0.7), CFrame.new(x, 1.3, 0), pants)
 		else
-			local x = side * 0.9
-			ellipsoid(model, "Shoe", V(1.3, 0.75, 1.75), CFrame.new(x, 0.37, -0.2), shoeColor)
-			ellipsoid(model, "Leg", V(1.3, 1.8, 1.3), CFrame.new(x, 1.25, 0), pants)
+			-- 가는 원기둥 모양의 늘씬한 다리, 두 다리 사이를 넉넉히 띄워요.
+			local x = side * 0.85
+			ellipsoid(model, "Shoe", V(0.8, 0.5, 1.15), CFrame.new(x, 0.25, -0.15), shoeColor)
+			vcyl(model, "Leg", 2.1, 0.48, CFrame.new(x, 1.45, 0), pants)
 		end
 	end
 	if weirdBody then
 		ellipsoid(model, "Hips", V(1.8, 1.0, 1.45), CFrame.new(0, 2.2, 0), pants)
 	else
-		ellipsoid(model, "Hips", V(3.0, 1.4, 2.3), CFrame.new(0, 2.1, 0), pants)
+		ellipsoid(model, "Hips", V(2.7, 1.0, 2.1), CFrame.new(0, 2.35, 0), pants)
 	end
 
 	-- 몸통: 머리 바로 밑에 붙은 넓고 둥근 덩어리 (머리와 이어져서 서양배·베개 모양이 돼요)
