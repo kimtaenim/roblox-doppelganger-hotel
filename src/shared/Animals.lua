@@ -306,11 +306,24 @@ function Animals.build(data, anomaly)
 		ball(headGroup, "NoseShine", 0.05, nose.CFrame * CFrame.new(-0.03, 0.04, -0.06), WHITE)
 	end
 
-	-- 통통한 볼살 (얼굴 아래쪽을 둥글고 넓게)
-	if data.animal ~= "pig" then
-		for _, side in ipairs({ -1, 1 }) do
-			ball(headGroup, "CheekFluff", 0.8, at(side * 0.8, -0.4, -0.45), fur)
+	-- 통통한 볼살: 머리 아래쪽에 옆으로 넓은 타원을 겹쳐서, 얼굴이 만두처럼 아래로 갈수록 볼록하게 이어져요.
+	-- (따로 붙인 공이 아니라서 경계가 거의 보이지 않아요)
+	local JOWL_Y, JOWL = -0.38, V(1.32, 0.98, 1.08)
+	if not weirdBody then
+		ellipsoid(headGroup, "CheekFluff", JOWL * 2, at(0, JOWL_Y, 0), fur)
+	end
+	-- 머리 앞면의 (x, y) 자리 (머리 곡면 위). 머리 밖이면 nil.
+	local function headSurface(x, y, lift)
+		local k = 1.44 - x * x - y * y
+		local z = k >= 0.02 and -math.sqrt(k) or nil
+		if not weirdBody then
+			local j = 1 - (x / JOWL.X) ^ 2 - ((y - JOWL_Y) / JOWL.Y) ^ 2
+			if j >= 0.02 then
+				local jz = -JOWL.Z * math.sqrt(j)
+				z = z and math.min(z, jz) or jz
+			end
 		end
+		return z and z - (lift or 0.02)
 	end
 	-- 이마의 털 뭉치 (고양이·여우·강아지)
 	if data.animal == "cat" or data.animal == "fox" or data.animal == "dog" then
@@ -320,22 +333,75 @@ function Animals.build(data, anomaly)
 	end
 	if not isMonster then
 		for _, side in ipairs({ -1, 1 }) do
-			local blush = ellipsoid(headGroup, "Blush", V(0.42, 0.24, 0.08), at(side * 0.78, -0.42, -0.82) * CFrame.Angles(0, -side * 0.75, 0), rgb(255, 150, 170))
+			local blush = ellipsoid(headGroup, "Blush", V(0.42, 0.24, 0.08), at(side * 0.74, -0.42, headSurface(0.74, -0.42, 0.0)) * CFrame.Angles(0, -side * 0.7, 0), rgb(255, 150, 170))
 			blush.Transparency = 0.15
 		end
 	end
 
 
-	-- 도플갱어: 퀭하게 꺼진 눈두덩, 얼굴의 검붉은 핏줄, 셔츠의 핏자국
+	-- 점들을 이어서 구불구불한 선을 그려요. 겹치는 타원이라 매끈하게 이어져요.
+	local function curvyLine(parent, name, points, width, depth, color, toCF)
+		for i = 1, #points - 1 do
+			local p1, p2 = points[i], points[i + 1]
+			local w = type(width) == "function" and width(i / (#points - 1)) or width
+			local mid = (p1 + p2) / 2
+			local up = (p2 - p1)
+			if up.Magnitude < 0.001 then
+				continue
+			end
+			local cf = toCF(mid, up.Unit)
+			ellipsoid(parent, name, V(w, up.Magnitude + w * 2.5, depth), cf, color)
+		end
+	end
+	-- 머리 위의 선: 각 조각이 머리 곡면을 따라 누워요.
+	local function onHead(mid, dir)
+		local normal = mid.Unit
+		local right = dir:Cross(normal).Unit
+		return headCF * CFrame.fromMatrix(mid, right, dir)
+	end
+
+	-- 도플갱어: 얼굴의 검붉은 핏줄, 셔츠의 핏자국 (모두 구불구불한 곡선이에요)
 	if isMonster then
 		local veinRandom = Random.new((data.id or 1) + 99)
-		for _ = 1, 7 do
-			local vx, vy = veinRandom:NextNumber(-0.8, 0.8), veinRandom:NextNumber(-0.4, 1.0)
-			local vz = -math.sqrt(math.max(0.05, 1.44 - vx * vx - vy * vy)) - 0.01
-			newPart(headGroup, "FaceVein", "Part", V(0.03, veinRandom:NextNumber(0.3, 0.6), 0.03), at(vx, vy, vz) * CFrame.Angles(0, 0, veinRandom:NextNumber(-1, 1)), rgb(90, 20, 40))
+		for _ = 1, 5 do
+			local x, y = veinRandom:NextNumber(-0.75, 0.75), veinRandom:NextNumber(0.35, 0.95)
+			local angle = veinRandom:NextNumber(0, math.pi * 2)
+			local points = {}
+			for _ = 1, 11 do
+				local z = headSurface(x, y, 0.01)
+				if not z then
+					break
+				end
+				table.insert(points, Vector3.new(x, y, z))
+				x += math.cos(angle) * 0.05
+				y += math.sin(angle) * 0.05
+				angle += veinRandom:NextNumber(-0.5, 0.5)
+			end
+			curvyLine(headGroup, "FaceVein", points, function(t)
+				return 0.045 - 0.025 * t
+			end, 0.02, rgb(90, 20, 40), onHead)
 		end
-		for _ = 1, 4 do
-			newPart(model, "BloodStain", "Part", V(veinRandom:NextNumber(0.2, 0.5), veinRandom:NextNumber(0.2, 0.6), 0.04), onTorso(veinRandom:NextNumber(-0.5, 0.5), veinRandom:NextNumber(-0.7, 0.5), 0.01), BLOOD)
+		-- 셔츠의 핏자국: 겹친 얼룩 + 아래로 구불구불 흘러내린 자국
+		for _ = 1, 3 do
+			local sx, sy = veinRandom:NextNumber(-0.6, 0.6), veinRandom:NextNumber(-0.3, 0.6)
+			for _ = 1, 3 do
+				local r = veinRandom:NextNumber(0.14, 0.26)
+				ellipsoid(model, "BloodStain", V(r * 1.3, r, 0.03), onTorso(sx + veinRandom:NextNumber(-0.1, 0.1), sy + veinRandom:NextNumber(-0.08, 0.08), 0.01) * CFrame.Angles(0, 0, veinRandom:NextNumber(0, math.pi)), BLOOD)
+			end
+			local x, y = sx, sy
+			local points = {}
+			local phase = veinRandom:NextNumber(0, math.pi * 2)
+			for i = 0, 6 do
+				table.insert(points, Vector2.new(x + math.sin(phase + i * 0.9) * 0.05, y))
+				y -= 0.11
+			end
+			for i = 1, #points - 1 do
+				local a, b = points[i], points[i + 1]
+				local tilt = math.atan2(b.X - a.X, a.Y - b.Y)
+				local w = 0.08 - 0.03 * i / #points
+				ellipsoid(model, "BloodStain", V(w, (a - b).Magnitude + w, 0.03), onTorso((a.X + b.X) / 2, (a.Y + b.Y) / 2, 0.01) * CFrame.Angles(0, 0, tilt), BLOOD)
+			end
+			ellipsoid(model, "BloodStain", V(0.1, 0.13, 0.03), onTorso(points[#points].X, points[#points].Y - 0.03, 0.012), BLOOD)
 		end
 	end
 
@@ -417,8 +483,36 @@ function Animals.build(data, anomaly)
 	end
 
 	-- 입
-	local function bloodDrip(x, length)
-		newPart(headGroup, "Blood", "Part", V(0.08, length, 0.06), at(x, mouthY - 0.2 - length / 2, mouthZ + 0.08), BLOOD)
+	-- 입에서 흘러내리는 피: 얼굴 곡면을 따라 구불구불 흐르다가 끝에 동그란 핏방울이 맺혀요.
+	local dripRandom = Random.new((data.id or 1) + 7)
+	local function bloodDrip(x, length, startY)
+		local y = startY or (mouthY - 0.15)
+		local phase = dripRandom:NextNumber(0, math.pi * 2)
+		local drift = dripRandom:NextNumber(-0.08, 0.08)
+		local steps = math.max(6, math.floor(length / 0.05))
+		local lastZ = headSurface(x, y, 0.02) or (mouthZ - 0.2)
+		local points = {}
+		for i = 0, steps do
+			local t = i / steps
+			local px = x + math.sin(phase + t * 5) * 0.045 + drift * t
+			local py = y - length * t
+			local z = headSurface(px, py, 0.025)
+			if z then
+				lastZ = z
+			else
+				lastZ -= 0.01 -- 턱 아래로는 살짝 앞으로 떨어져요
+			end
+			table.insert(points, Vector3.new(px, py, lastZ))
+		end
+		curvyLine(headGroup, "Blood", points, function(t)
+			return 0.09 - 0.03 * t
+		end, 0.05, BLOOD, function(mid, dir)
+			local normal = headSurface(mid.X, mid.Y) and mid.Unit or Vector3.new(0, 0, -1)
+			local right = dir:Cross(normal).Unit
+			return headCF * CFrame.fromMatrix(mid, right, dir)
+		end)
+		local tip = points[#points]
+		ellipsoid(headGroup, "Blood", V(0.13, 0.16, 0.09), headCF * CFrame.new(tip.X, tip.Y - 0.05, tip.Z), BLOOD)
 	end
 
 	if anomaly == "teeth" then
@@ -432,13 +526,13 @@ function Animals.build(data, anomaly)
 			fang(headGroup, at(x + 0.06, mouthY - 0.6, mouthZ - 0.16), i % 3 == 2 and 0.32 or 0.2, 0.11, false)
 		end
 		newPart(headGroup, "Tongue", "Part", V(0.3, 1.5, 0.1), at(0.12, mouthY - 1.1, mouthZ - 0.2) * CFrame.Angles(math.rad(-10), 0, 0.15), rgb(120, 20, 35))
-		bloodDrip(-0.3, 0.7)
-		bloodDrip(0.3, 1.0)
+		bloodDrip(-0.3, 0.55, mouthY - 0.75)
+		bloodDrip(0.3, 0.8, mouthY - 0.75)
 	elseif anomaly == "mouth" then
 		-- 입이 귀밑까지 쭉 찢어져서 웃고 있어요. 가운데에서 양쪽 볼까지 끊김 없이 하나로 이어져요.
 		local function mouthPoint(x)
 			local y = mouthY + 0.42 * x * x
-			local sphereZ = -math.sqrt(math.max(0.05, 1.44 - x * x - y * y)) - 0.03
+			local sphereZ = headSurface(x, y, 0.03) or -0.2
 			local front = math.max(0, 1 - (math.abs(x) / 0.45) ^ 2)
 			local z = sphereZ + ((mouthZ - 0.02) - sphereZ) * front
 			return Vector3.new(x, y, z)
@@ -466,9 +560,9 @@ function Animals.build(data, anomaly)
 			fang(headGroup, toothBase * CFrame.new(0, h * 0.32, -0.07), 0.2 * scale, 0.11, true)
 			fang(headGroup, toothBase * CFrame.new(0, -h * 0.32, -0.07), 0.16 * scale, 0.1, false)
 		end
-		bloodDrip(-0.45, 0.7)
-		bloodDrip(0.05, 1.2)
-		bloodDrip(0.45, 0.5)
+		bloodDrip(-0.5, 0.6, mouthPoint(-0.5).Y - mouthHeight(-0.5) / 2)
+		bloodDrip(0.05, 0.75, mouthPoint(0.05).Y - mouthHeight(0.05) / 2)
+		bloodDrip(0.55, 0.45, mouthPoint(0.55).Y - mouthHeight(0.55) / 2)
 	else
 		-- 살짝 웃는 w 모양 입
 		for _, side in ipairs({ -1, 1 }) do
