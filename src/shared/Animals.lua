@@ -141,7 +141,7 @@ function Animals.build(data, anomaly)
 			-- 가는 원기둥 모양의 늘씬한 다리, 두 다리 사이를 넉넉히 띄워요.
 			local x = side * 0.72
 			ellipsoid(model, "Shoe", V(0.78, 0.5, 1.05), CFrame.new(x, 0.25, -0.12), shoeColor)
-			vcyl(model, "Leg", 1.9, 0.44, CFrame.new(x, 1.3, 0), pants)
+			vcyl(model, "Leg", 1.9, 0.56, CFrame.new(x, 1.3, 0), pants)
 		end
 	end
 	if weirdBody then
@@ -153,17 +153,35 @@ function Animals.build(data, anomaly)
 	-- 몸통: 머리 바로 밑에 붙은 넓고 둥근 덩어리 (머리와 이어져서 서양배·베개 모양이 돼요)
 	-- 몸이 이상한 도플갱어만 가늘고 길쭉해요.
 	local torsoCF = weirdBody and CFrame.new(0, 3.3, -0.2) * CFrame.Angles(math.rad(-14), 0, 0) or CFrame.new(0, 3.7, 0)
-	local torsoSize = weirdBody and V(1.4, 2.9, 1.1) or V(3.3, 3.2, 2.6)
+	local torsoSize = weirdBody and V(1.4, 2.9, 1.1) or V(2.9, 3.2, 2.9)
 	-- 셔츠, 넥타이, 단추 높이 (몸통 가운데 기준, 머리에 가려지지 않는 곳)
 	local Y = weirdBody and { collar = 1.05, knot = 0.98, tie = 0.45, shirt = 0.75, button = -0.25, pocket = 0.5, pocketX = -0.5 }
 		or { collar = 0.42, knot = 0.38, tie = -0.12, shirt = 0.1, button = -0.68, pocket = -0.15, pocketX = -0.75 }
-	ellipsoid(model, "Torso", torsoSize, torsoCF, cloth)
 	local tw, th, td = torsoSize.X / 2, torsoSize.Y / 2, torsoSize.Z / 2
+	local edge = 0.5 -- 둥근 모서리의 반지름
+	if weirdBody then
+		ellipsoid(model, "Torso", torsoSize, torsoCF, cloth)
+	else
+		-- 모서리가 둥근 원통: 가운데 원통 + 위아래 납작한 타원으로 모서리를 둥글게 이어요.
+		vcyl(model, "Torso", torsoSize.Y - edge * 2, torsoSize.X, torsoCF, cloth)
+		ellipsoid(model, "TorsoTop", V(torsoSize.X, edge * 2, torsoSize.Z), torsoCF * CFrame.new(0, th - edge, 0), cloth)
+		ellipsoid(model, "TorsoBottom", V(torsoSize.X, edge * 2, torsoSize.Z), torsoCF * CFrame.new(0, -(th - edge), 0), cloth)
+	end
 	-- 몸통 앞면의 (x, y) 자리에 딱 붙는 위치 (곡면을 따라 기울어져요)
 	local function onTorso(x, y, lift)
-		local k = math.max(0.03, 1 - (x / tw) ^ 2 - (y / th) ^ 2)
+		if weirdBody then
+			local k = math.max(0.03, 1 - (x / tw) ^ 2 - (y / th) ^ 2)
+			local z = -td * math.sqrt(k) - (lift or 0.01)
+			local pitch = math.atan(td * (y / (th * th)) / math.sqrt(k))
+			local yaw = -math.atan(td * (x / (tw * tw)) / math.sqrt(k))
+			return torsoCF * CFrame.new(x, y, z) * CFrame.Angles(pitch, yaw, 0)
+		end
+		-- 원통 옆면 (둥근 모서리 부분은 타원 면을 따라요)
+		local straight = th - edge
+		local over = math.max(0, math.abs(y) - straight)
+		local k = math.max(0.03, 1 - (x / tw) ^ 2 - (over / edge) ^ 2)
 		local z = -td * math.sqrt(k) - (lift or 0.01)
-		local pitch = math.atan(td * (y / (th * th)) / math.sqrt(k))
+		local pitch = over > 0 and math.sign(y) * math.atan(td * (over / (edge * edge)) / math.sqrt(k)) or 0
 		local yaw = -math.atan(td * (x / (tw * tw)) / math.sqrt(k))
 		return torsoCF * CFrame.new(x, y, z) * CFrame.Angles(pitch, yaw, 0)
 	end
@@ -200,7 +218,7 @@ function Animals.build(data, anomaly)
 			end
 		else
 			-- 둥근 몸통 옆구리에 짧은 팔이 붙어요.
-			local armCF = CFrame.new(side * 1.62, 3.3, 0) * CFrame.Angles(0, 0, side * 0.3)
+			local armCF = CFrame.new(side * 1.55, 3.3, 0) * CFrame.Angles(0, 0, side * 0.25)
 			ellipsoid(model, "Sleeve", V(0.62, 1.75, 0.62), armCF, cloth)
 			ellipsoid(model, "Cuff", V(0.62, 0.16, 0.62), armCF * CFrame.new(0, -0.78, 0), WHITE)
 			ball(model, "Hand", 0.64, armCF * CFrame.new(0, -0.98, 0), light)
@@ -417,22 +435,36 @@ function Animals.build(data, anomaly)
 		bloodDrip(-0.3, 0.7)
 		bloodDrip(0.3, 1.0)
 	elseif anomaly == "mouth" then
-		-- 입이 귀밑까지 쭉 찢어져서 웃고 있어요.
-		newPart(headGroup, "Mouth", "Part", V(1.2, 0.45, 0.1), at(0, mouthY, mouthZ - 0.12), DARK_BLOOD)
-		for _, side in ipairs({ -1, 1 }) do
-			local cheek = at(side * 0.82, mouthY + 0.28, -0.85) * CFrame.Angles(0, side * 0.6, side * 0.5)
-			newPart(headGroup, "TornMouth", "Part", V(1.25, 0.32, 0.35), cheek, DARK_BLOOD)
-			newPart(headGroup, "TornEdge", "Part", V(1.25, 0.05, 0.37), cheek * CFrame.new(0, 0.17, 0), BLOOD)
-			newPart(headGroup, "TornEdge", "Part", V(1.25, 0.05, 0.37), cheek * CFrame.new(0, -0.17, 0), BLOOD)
-			for i = 0, 4 do
-				local toothCF = cheek * CFrame.new(-side * 0.45 + side * i * 0.22, 0, -0.18)
-				fang(headGroup, toothCF * CFrame.new(0, 0.08, 0), 0.18, 0.1, true)
-				fang(headGroup, toothCF * CFrame.new(0.05, -0.08, 0), 0.15, 0.09, false)
-			end
+		-- 입이 귀밑까지 쭉 찢어져서 웃고 있어요. 가운데에서 양쪽 볼까지 끊김 없이 하나로 이어져요.
+		local function mouthPoint(x)
+			local y = mouthY + 0.42 * x * x
+			local sphereZ = -math.sqrt(math.max(0.05, 1.44 - x * x - y * y)) - 0.03
+			local front = math.max(0, 1 - (math.abs(x) / 0.45) ^ 2)
+			local z = sphereZ + ((mouthZ - 0.02) - sphereZ) * front
+			return Vector3.new(x, y, z)
 		end
-		for i = 1, 8 do
-			fang(headGroup, at((i - 4.5) * 0.14, mouthY + 0.14, mouthZ - 0.17), 0.22, 0.12, true)
-			fang(headGroup, at((i - 4.5) * 0.14, mouthY - 0.15, mouthZ - 0.17), 0.18, 0.1, false)
+		local function mouthHeight(x)
+			return 0.1 + 0.26 * (1 - (math.abs(x) / 0.95) ^ 2)
+		end
+		local steps = 14
+		for i = 0, steps - 1 do
+			local x1 = -0.95 + 1.9 * i / steps
+			local x2 = -0.95 + 1.9 * (i + 1) / steps
+			local p1, p2 = mouthPoint(x1), mouthPoint(x2)
+			local mid = (p1 + p2) / 2
+			local normal = mid.Unit
+			local length = (p2 - p1).Magnitude + 0.03
+			local h = mouthHeight((x1 + x2) / 2)
+			local seg = headCF * CFrame.lookAt(mid, p2, normal)
+			newPart(headGroup, "Mouth", "Part", V(h, 0.12, length), seg, DARK_BLOOD)
+			newPart(headGroup, "MouthEdge", "Part", V(0.04, 0.13, length), seg * CFrame.new(h / 2, 0, 0), BLOOD)
+			newPart(headGroup, "MouthEdge", "Part", V(0.04, 0.13, length), seg * CFrame.new(-h / 2, 0, 0), BLOOD)
+			-- 위아래 이빨 (볼 쪽으로 갈수록 작아져요)
+			local slope = math.atan2(p2.Y - p1.Y, p2.X - p1.X)
+			local toothBase = headCF * CFrame.lookAt(mid, mid + normal) * CFrame.Angles(0, 0, -slope)
+			local scale = 0.5 + 0.5 * (1 - math.abs((x1 + x2) / 2) / 0.95)
+			fang(headGroup, toothBase * CFrame.new(0, h * 0.32, -0.07), 0.2 * scale, 0.11, true)
+			fang(headGroup, toothBase * CFrame.new(0, -h * 0.32, -0.07), 0.16 * scale, 0.1, false)
 		end
 		bloodDrip(-0.45, 0.7)
 		bloodDrip(0.05, 1.2)
