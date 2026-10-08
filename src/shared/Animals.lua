@@ -306,23 +306,24 @@ function Animals.build(data, anomaly)
 		ball(headGroup, "NoseShine", 0.05, nose.CFrame * CFrame.new(-0.03, 0.04, -0.06), WHITE)
 	end
 
-	-- 통통한 볼살: 공을 머리 속에 깊이 묻어서 조금만 튀어나오게 해요.
-	-- 공이 크고 깊을수록 얼굴과 만나는 경계가 완만해져서 부드럽게 이어져 보여요.
+	-- 통통한 볼살: 큰 공 → 중간 공 → 작은 공 순서로 조금씩 더 튀어나오게 겹쳐서
+	-- 머리에서 볼까지 계단처럼 부드럽게 솟아올라요.
 	local cheeks = {} -- 볼 공의 중심과 반지름 (찢어진 입이 볼 위로 이어지게 써요)
-	do
-		local size, bulge = 1.3, 0.2
-		for _, side in ipairs({ -1, 1 }) do
-			local dir = Vector3.new(side * 0.8, -0.42, -0.5).Unit
-			local center = dir * (1.2 + bulge - size / 2)
+	for _, side in ipairs({ -1, 1 }) do
+		local dir = Vector3.new(side * 0.66, -0.42, -0.62).Unit
+		local center, size
+		for _, layer in ipairs({ { 1.5, 0.05 }, { 1.1, 0.1 }, { 0.75, 0.14 } }) do
+			size = layer[1]
+			center = dir * (1.2 + layer[2] - size / 2)
 			ball(headGroup, "CheekFluff", size, headCF * CFrame.new(center), fur)
 			table.insert(cheeks, { center = center, radius = size / 2 })
-			if not isMonster then
-				-- 볼 공 앞쪽 면에 발그레한 볼터치
-				local face = (dir + Vector3.new(0, 0.1, -1.1)).Unit
-				local spot = center + face * (size / 2 + 0.005)
-				local blush = ellipsoid(headGroup, "Blush", V(0.42, 0.24, 0.06), headCF * CFrame.lookAt(spot, spot + face), rgb(255, 150, 170))
-				blush.Transparency = 0.15
-			end
+		end
+		if not isMonster then
+			-- 가장 작은 볼 공 앞쪽 면에 발그레한 볼터치
+			local face = (dir + Vector3.new(0, 0.1, -0.6)).Unit
+			local spot = center + face * (size / 2 + 0.005)
+			local blush = ellipsoid(headGroup, "Blush", V(0.4, 0.24, 0.06), headCF * CFrame.lookAt(spot, spot + face), rgb(255, 150, 170))
+			blush.Transparency = 0.15
 		end
 	end
 	-- 머리 앞면의 (x, y) 자리 (머리 곡면 위). 머리 밖이면 nil.
