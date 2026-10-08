@@ -309,7 +309,7 @@ function Animals.build(data, anomaly)
 	-- 통통한 볼살: 공을 머리 속에 깊이 묻어서 조금만 튀어나오게 해요.
 	-- 공이 크고 깊을수록 얼굴과 만나는 경계가 완만해져서 부드럽게 이어져 보여요.
 	local cheeks = {} -- 볼 공의 중심과 반지름 (찢어진 입이 볼 위로 이어지게 써요)
-	if data.animal ~= "pig" then
+	do
 		local size, bulge = 1.3, 0.2
 		for _, side in ipairs({ -1, 1 }) do
 			local dir = Vector3.new(side * 0.8, -0.42, -0.5).Unit
@@ -493,18 +493,21 @@ function Animals.build(data, anomaly)
 	-- 입
 	-- 입에서 흘러내리는 피: 얼굴 곡면을 따라 구불구불 흐르다가 끝에 동그란 핏방울이 맺혀요.
 	local dripRandom = Random.new((data.id or 1) + 7)
-	local function bloodDrip(x, length, startY)
+	local function bloodDrip(x, length, startY, startZ)
 		local y = startY or (mouthY - 0.15)
 		local phase = dripRandom:NextNumber(0, math.pi * 2)
 		local drift = dripRandom:NextNumber(-0.08, 0.08)
 		local steps = math.max(6, math.floor(length / 0.05))
-		local lastZ = headSurface(x, y, 0.02) or (mouthZ - 0.2)
+		local lastZ = startZ or headSurface(x, y, 0.02) or (mouthZ - 0.2)
 		local points = {}
 		for i = 0, steps do
 			local t = i / steps
 			local px = x + math.sin(phase + t * 5) * 0.045 + drift * t
 			local py = y - length * t
 			local z = headSurface(px, py, 0.025)
+			if z and startZ and z > lastZ + 0.05 then
+				z = nil -- 얼굴보다 앞에 떠서 떨어지는 피는 얼굴 쪽으로 휘지 않아요
+			end
 			if z then
 				lastZ = z
 			else
@@ -524,18 +527,49 @@ function Animals.build(data, anomaly)
 	end
 
 	if anomaly == "teeth" then
-		-- 턱이 빠진 듯 쩍 벌어진 입, 빽빽한 송곳니, 길게 늘어진 혀
-		newPart(headGroup, "Mouth", "Part", V(0.95, 0.95, 0.08), at(0, mouthY - 0.28, mouthZ - 0.12), DARK_BLOOD)
-		newPart(headGroup, "Gum", "Part", V(0.95, 0.08, 0.09), at(0, mouthY + 0.18, mouthZ - 0.13), BLOOD)
-		newPart(headGroup, "Gum", "Part", V(0.95, 0.08, 0.09), at(0, mouthY - 0.74, mouthZ - 0.13), BLOOD)
-		for i = 1, 7 do
-			local x = (i - 4) * 0.13
-			fang(headGroup, at(x, mouthY + 0.02, mouthZ - 0.16), i % 3 == 1 and 0.36 or 0.24, 0.12, true)
-			fang(headGroup, at(x + 0.06, mouthY - 0.6, mouthZ - 0.16), i % 3 == 2 and 0.32 or 0.2, 0.11, false)
+		-- 턱이 빠진 듯 쩍 벌어진 동그란 입: 검붉은 구멍 + 피 묻은 입술 테두리,
+		-- 테두리를 따라 안쪽을 향한 송곳니, 구불구불 늘어진 혀
+		local mouthCenterY = mouthY - 0.28
+		local surfaceZ = headSurface(0, mouthCenterY, 0) or mouthZ
+		local sp = Vector3.new(0, mouthCenterY, surfaceZ)
+		local normal = (sp.Unit + Vector3.new(0, 0, -1.4)).Unit
+		local mouthLocal = CFrame.lookAt(sp - normal * 0.06, sp - normal * 0.06 + normal)
+		local mouthCF = headCF * mouthLocal
+		local mw, mh = 0.9, 0.62 -- 입 너비, 높이
+		ellipsoid(headGroup, "Gum", V(mw + 0.14, mh + 0.14, 0.26), mouthCF, BLOOD)
+		ellipsoid(headGroup, "Mouth", V(mw, mh, 0.3), mouthCF * CFrame.new(0, 0, -0.02), DARK_BLOOD)
+		local teeth = 11
+		for i = 0, teeth - 1 do
+			for _, upper in ipairs({ true, false }) do
+				local t = (i + 0.5) / teeth
+				local theta = upper and (math.rad(15) + t * math.rad(150)) or (math.rad(195) + t * math.rad(150))
+				local rimPoint = Vector3.new(math.cos(theta) * mw / 2 * 0.95, math.sin(theta) * mh / 2 * 0.95, 0)
+				local inward = -rimPoint.Unit
+				local middle = math.abs(math.cos(theta)) < 0.5
+				local h = (upper and 0.26 or 0.2) * (middle and 1 or 0.7) * (i % 2 == 0 and 1 or 0.75)
+				local cf = mouthCF * CFrame.new(rimPoint + inward * (h / 2) + Vector3.new(0, 0, -0.17)) * CFrame.Angles(0, 0, theta - math.pi / 2)
+				fang(headGroup, cf, h, 0.1, true)
+			end
 		end
-		newPart(headGroup, "Tongue", "Part", V(0.3, 1.5, 0.1), at(0.12, mouthY - 1.1, mouthZ - 0.2) * CFrame.Angles(math.rad(-10), 0, 0.15), rgb(120, 20, 35))
-		bloodDrip(-0.3, 0.55, mouthY - 0.75)
-		bloodDrip(0.3, 0.8, mouthY - 0.75)
+		-- 혀: 입 아래쪽에서 나와 구불구불 늘어져요
+		local tongue = {}
+		local start = mouthLocal * Vector3.new(0.06, -mh * 0.25, -0.12)
+		for i = 0, 8 do
+			table.insert(tongue, start + Vector3.new(math.sin(i * 0.8) * 0.06, -i * 0.11, -0.03 * i))
+		end
+		curvyLine(headGroup, "Tongue", tongue, function(t)
+			return 0.3 - 0.06 * t
+		end, 0.1, rgb(150, 40, 60), function(mid, dir)
+			local right = dir:Cross(Vector3.new(0, 0, -1)).Unit
+			return headCF * CFrame.fromMatrix(mid, right, dir)
+		end)
+		local tip = tongue[#tongue]
+		ellipsoid(headGroup, "Tongue", V(0.27, 0.2, 0.1), headCF * CFrame.new(tip + Vector3.new(0, -0.04, 0)), rgb(150, 40, 60))
+		-- 아랫입술에서 흘러내리는 피
+		for _, drip in ipairs({ { -0.3, 0.55 }, { 0.32, 0.8 } }) do
+			local lip = mouthLocal * Vector3.new(drip[1], -math.sqrt(1 - (drip[1] / (mw / 2)) ^ 2) * mh / 2, -0.12)
+			bloodDrip(lip.X, drip[2], lip.Y, lip.Z)
+		end
 	elseif anomaly == "mouth" then
 		-- 입이 귀밑까지 쭉 찢어져서 웃고 있어요. 가운데에서 양쪽 볼까지 끊김 없이 하나로 이어져요.
 		local function mouthPoint(x)
