@@ -482,8 +482,10 @@ function Patrol.run(s)
 		missed = 0,
 		falseReports = 0,
 		spawned = 0,
-		-- 첫날(연습)은 복도가 안전해요. 둘째 날부터 이상한 일이 생겨요.
-		spawnMax = s.day <= ctx.Config.PracticeDays and 0 or math.min(2 + math.floor(s.day / 3), 4),
+		-- 첫날(연습)은 복도가 안전해요. 둘째 날부터도 멀쩡한 밤이 꽤 있어요.
+		-- (10번 중 4번은 아무 일 없는 밤, 나머지는 1~2개 층만 바뀌어요. 날이 갈수록 조금씩 늘어요)
+		spawnMax = (s.day <= ctx.Config.PracticeDays or math.random() < 0.4) and 0
+			or math.random(1, math.min(1 + math.floor(s.day / 4), 3)),
 		canLeave = false,
 		leave = false,
 		deadline = os.clock() + Config.PatrolTime,

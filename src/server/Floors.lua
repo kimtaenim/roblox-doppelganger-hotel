@@ -210,57 +210,18 @@ local function drawPortrait(p, kind)
 	local plaque = P(model, "Plaque", V(1.2, 0.3, 0.05), cf * CFrame.new(0, -2.15, -0.05), BRASS, Mat.Metal)
 	Props.text(plaque, Enum.NormalId.Front, p.title, rgb(40, 25, 15), Enum.Font.Garamond)
 
-	-- 캔버스 위의 그림: 액자 안에 납작한 그림으로 그려져요. (SurfaceGui + ViewportFrame)
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 80
-	gui.LightInfluence = 1 -- 어두운 복도에서는 그림도 어둡게
-	gui.Parent = canvas
-	local view = Instance.new("ViewportFrame")
-	view.Size = UDim2.fromScale(1, 1)
-	view.BackgroundColor3 = p.bg
-	view.BorderSizePixel = 0
-	view.Ambient = rgb(120, 105, 95)
-	view.LightColor = rgb(255, 220, 180)
-	view.LightDirection = Vector3.new(-0.6, -0.5, 1)
-	view.ImageColor3 = kind == "red" and rgb(255, 110, 100) or rgb(235, 220, 195) -- 오래된 유화처럼 누렇게 (이상하면 붉게)
-	view.Parent = gui
-	local camera = Instance.new("Camera")
-	camera.FieldOfView = 30
-	local distance = kind == "closer" and 7 or (kind == "twins" and 18 or 13) -- "closer": 그림 속 얼굴이 성큼 다가와 있어요
-	camera.CFrame = CFrame.lookAt(Vector3.new(0, 5.7, -distance), Vector3.new(0, 5.5, 0))
-	camera.Parent = view
-	view.CurrentCamera = camera
-	if kind ~= "gone" then
-		local data = kind == "swap" and p.swapData or p.data -- "swap": 같은 옷을 입은 다른 동물
-		local subject = Animals.build(data, kind == "doppel" and p.doppelFace or nil)
-		if kind == "away" then
-			subject:PivotTo(CFrame.Angles(0, math.pi, 0)) -- 뒤돌아섬
-		elseif kind == "side" then
-			subject:PivotTo(CFrame.Angles(0, math.rad(55) * p.tiltSide, 0)) -- 고개를 돌려 옆을 봄
-		elseif kind == "twins" then
-			subject:PivotTo(CFrame.new(-1.7, 0, 0)) -- 그림 속에 똑같은 사람이 둘
-			local twin = Animals.build(data, nil)
-			twin:PivotTo(CFrame.new(1.7, 0, 0))
-			twin.Parent = view
-		end
-		subject.Parent = view
-	end
-	-- 가장자리가 어두운 유화 느낌
-	local shade = Instance.new("Frame")
-	shade.Size = UDim2.fromScale(1, 1)
-	shade.BackgroundColor3 = rgb(0, 0, 0)
-	shade.BorderSizePixel = 0
-	shade.ZIndex = 2
-	shade.Parent = gui
-	local gradient = Instance.new("UIGradient")
-	gradient.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.35),
-		NumberSequenceKeypoint.new(0.5, 1),
-		NumberSequenceKeypoint.new(1, 0.35),
-	})
-	gradient.Parent = shade
+	-- 캔버스 위의 그림은 각 플레이어 화면에서 그려요. (Portraits.client.lua)
+	-- 어떤 그림인지만 캔버스에 적어 둬요.
+	local data = kind == "swap" and p.swapData or p.data
+	canvas:SetAttribute("Portrait", true)
+	canvas:SetAttribute("Animal", data.animal)
+	canvas:SetAttribute("Fur", data.fur)
+	canvas:SetAttribute("Cloth", data.cloth)
+	canvas:SetAttribute("DataId", data.id)
+	canvas:SetAttribute("Background", p.bg)
+	canvas:SetAttribute("Kind", kind)
+	canvas:SetAttribute("Doppel", kind == "doppel" and p.doppelFace or "")
+	canvas:SetAttribute("Side", p.tiltSide)
 
 	if kind == "blood" then
 		-- 액자 위에서 피가 흘러내려 벽까지 번져요.
@@ -784,6 +745,34 @@ function Floors.build(hotel)
 		return list
 	end
 
+	-- 피 묻은 손자국: 손바닥 + 손가락 다섯 개, 아래로 흘러내린 핏줄기 (cf 는 벽 위의 한 점, -Z 가 복도 쪽)
+	local function bloodyHand(parent, cf, scale, random, drips)
+		local color = rgb(120, 2, 6)
+		local palm = P(parent, "BloodHand", V(0.75 * scale, 0.85 * scale, 0.04), cf, color, Mat.SmoothPlastic, { Reflectance = 0.1 })
+		Instance.new("SpecialMesh", palm).MeshType = Enum.MeshType.Sphere
+		for f = -2, 2 do
+			local fingerLength = (f == -2 and 0.34 or 0.48 - math.abs(f) * 0.05) * scale
+			local fingerCF = f == -2 and cf * CFrame.new(-0.4 * scale, 0.05 * scale, 0) * CFrame.Angles(0, 0, 0.9)
+				or cf * CFrame.new(f * 0.14 * scale, 0.36 * scale + fingerLength / 2, 0) * CFrame.Angles(0, 0, f * 0.08)
+			local finger = P(parent, "BloodHand", V(0.13 * scale, fingerLength, 0.04), fingerCF, color)
+			Instance.new("SpecialMesh", finger).MeshType = Enum.MeshType.Sphere
+		end
+		if drips then
+			-- 손바닥 아래로 흘러내린 피 (중력 방향, 벽을 따라)
+			for _ = 1, random:NextInteger(1, 3) do
+				local dx = random:NextNumber(-0.25, 0.25) * scale
+				local length = random:NextNumber(0.6, 2.2)
+				local start = (cf * CFrame.new(dx, -0.3 * scale, 0)).Position
+				local mid = start - Vector3.new(0, length / 2, 0)
+				local facing = cf.LookVector * Vector3.new(1, 0, 1)
+				local upright = CFrame.lookAt(mid, mid + facing) -- 손자국이 기울어도 피는 똑바로 아래로 흘러요
+				P(parent, "BloodHandDrip", V(0.06 * scale, length, 0.03), upright, color)
+				local bead = P(parent, "BloodHandDrip", V(0.12 * scale, 0.15 * scale, 0.04), upright * CFrame.new(0, -length / 2, 0), rgb(70, 0, 3))
+				Instance.new("SpecialMesh", bead).MeshType = Enum.MeshType.Sphere
+			end
+		end
+	end
+
 	local function applyEvent(ev, kind, on)
 		local floor = ev.floor
 		local y = floorY(floor)
@@ -841,7 +830,15 @@ function Floors.build(hotel)
 				for i = 0, 10 do
 					blot("BloodDrag", V(-20 + i * 0.9, floorTop, -2.8 + math.sin(i * 0.6) * 0.3), 1.3, 0.5, 0.05, MID, 0.012, 0.1).Transparency = i / 14
 				end
-				-- 6) 벽: 피 얼룩에서 핏줄기가 흘러내려 끝에 방울이 맺혀요
+				-- 6) 벽을 짚은 피 묻은 손자국
+				for _ = 1, 18 do
+					local side = random:NextNumber() < 0.5 and -1 or 1
+					local hx = random:NextNumber(-26, 19)
+					local hy = y + random:NextNumber(1, 5)
+					local cf = CFrame.lookAt(V(hx, hy, side * (HALF - 0.42)), V(hx, hy, 0)) * CFrame.Angles(0, 0, random:NextNumber(-0.6, 0.6))
+					bloodyHand(ev.folder, cf, random:NextNumber(1, 1.3), random, true)
+				end
+				-- 7) 벽: 피 얼룩에서 핏줄기가 흘러내려 끝에 방울이 맺혀요
 				for wx = -24, 18, 5.5 do
 					for _, side in ipairs({ -1, 1 }) do
 						local wz = side * (HALF - 0.43)
@@ -892,17 +889,14 @@ function Floors.build(hotel)
 			end
 		elseif kind == "hands" then
 			if on then
+				-- 누군가 벽을 짚으며 끌려간 듯, 양쪽 벽과 문이 피 묻은 손자국으로 뒤덮여요.
 				local random = Random.new(floor * 71)
-				for _ = 1, 140 do
+				for _ = 1, 110 do
 					local side = random:NextNumber() < 0.5 and -1 or 1
 					local x = random:NextNumber(-27, 20)
-					local cf = CFrame.lookAt(V(x, y + random:NextNumber(1.5, 9), side * (HALF - 0.42)), V(x, y + 5, 0)) * CFrame.Angles(0, 0, random:NextNumber(-0.6, 0.6))
-					local palm = P(ev.folder, "BloodHand", V(0.9, 1.05, 0.04), cf, rgb(125, 0, 0))
-					Instance.new("SpecialMesh", palm).MeshType = Enum.MeshType.Sphere
-					for f = -2, 2 do
-						local finger = P(ev.folder, "BloodHand", V(0.18, 0.62, 0.04), cf * CFrame.new(f * 0.19, 0.78 - math.abs(f) * 0.07, 0) * CFrame.Angles(0, 0, f * 0.15), rgb(125, 0, 0))
-						Instance.new("SpecialMesh", finger).MeshType = Enum.MeshType.Sphere
-					end
+					local hy = y + random:NextNumber(1.2, 8.5)
+					local cf = CFrame.lookAt(V(x, hy, side * (HALF - 0.42)), V(x, hy, 0)) * CFrame.Angles(0, 0, random:NextNumber(-0.7, 0.7))
+					bloodyHand(ev.folder, cf, random:NextNumber(1, 1.5), random, random:NextNumber() < 0.6)
 				end
 			else
 				ev.folder:ClearAllChildren()
