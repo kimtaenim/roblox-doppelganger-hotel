@@ -28,7 +28,7 @@ local ORDER_LINES = {
 	"여보세요? %d호인데요... %s 부탁해요.",
 	"%d호예요. 늦은 시간에 죄송하지만 %s 좀...",
 }
-local SIGN_KINDS = { "ajar", "blood", "scratch", "hands", "sign", "redeyes", "grin" }
+local SIGN_KINDS = { "ajar", "blood", "scratch", "sign", "redeyes", "grin" }
 
 -- 문을 연 손님의 말. 진짜 손님은 평범하게, 도플갱어는 어딘가 이상하게 말해요.
 local GENUINE_LINES = {
@@ -207,17 +207,6 @@ local function decorateDoppel(state, room, guest)
 		end
 		room.strip.Color = rgb(20, 16, 14)
 		room.strip.Material = Enum.Material.SmoothPlastic
-	elseif kind == "hands" then
-		-- 피 묻은 손바닥 자국
-		for i = 1, 3 do
-			local cf = floors.onDoor(room, -0.8 + i * 0.45, 1.6 - i * 0.9 + math.random() * 0.4) * CFrame.Angles(0, 0, (math.random() - 0.5) * 0.8)
-			local palm = newPart(room.extras, "HandPrint", V(0.42, 0.5, 0.03), cf, rgb(120, 0, 0))
-			Instance.new("SpecialMesh", palm).MeshType = Enum.MeshType.Sphere
-			for f = -2, 2 do
-				local finger = newPart(room.extras, "HandPrint", V(0.08, 0.3, 0.03), cf * CFrame.new(f * 0.09, 0.36 - math.abs(f) * 0.04, 0) * CFrame.Angles(0, 0, f * 0.15), rgb(120, 0, 0))
-				Instance.new("SpecialMesh", finger).MeshType = Enum.MeshType.Sphere
-			end
-		end
 	elseif kind == "redeyes" or kind == "grin" then
 		-- 살짝 열린 문틈 어둠 속에서 빨간 눈이 빛나거나, 피 묻은 입이 히죽 웃어요.
 		floors.openDoor(room, 22)
