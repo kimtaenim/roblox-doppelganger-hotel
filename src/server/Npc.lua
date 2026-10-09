@@ -123,9 +123,9 @@ function Npc.spawnBelongings(data, position, parent)
 	end
 	local pools = {
 		-- 가방 앞쪽으로 절반 넘게 흘러나온 웅덩이 (어느 쪽에서 봐도 보이게 뒤쪽에도 조금)
-		{ Vector2.new(2.4, 1.8), Vector3.new(0.4, 0, 1.4) },
-		{ Vector2.new(1, 0.8), Vector3.new(1.6, 0, 1.9) },
-		{ Vector2.new(1.1, 0.85), Vector3.new(-0.4, 0, -1.2) },
+		{ Vector2.new(1.9, 1.4), Vector3.new(0.4, 0, 1.25) },
+		{ Vector2.new(0.75, 0.6), Vector3.new(1.35, 0, 1.6) },
+		{ Vector2.new(0.8, 0.6), Vector3.new(-0.4, 0, -1.05) },
 	}
 	for _, pool in ipairs(pools) do
 		local size, offset = pool[1], pool[2]
@@ -134,12 +134,12 @@ function Npc.spawnBelongings(data, position, parent)
 		blot("BloodShine", size * 0.35, offset + Vector3.new(0.3, 0, -0.2), rgb(145, 10, 14), 0.02, 0.5)
 	end
 	-- 튄 핏방울: 큰 웅덩이에서 한쪽 방향(앞쪽)으로만 부채꼴로 튀어요. 멀어질수록 작고 길쭉해요.
-	local center = Vector3.new(0.4, 0, 1.4)
-	for i = 1, 12 do
+	local center = Vector3.new(0.4, 0, 1.25)
+	for i = 1, 7 do
 		local angle = math.pi / 2 + (math.random() - 0.5) * math.rad(60) -- 앞쪽(+Z) 기준 좌우 30도 안
-		local distance = 1.1 + math.random() * 1.3
+		local distance = 0.9 + math.random() * 0.9
 		local away = Vector3.new(math.cos(angle), 0, math.sin(angle))
-		local size = 0.28 - (distance - 1.1) * 0.12 + math.random() * 0.06
+		local size = 0.22 - (distance - 0.9) * 0.1 + math.random() * 0.05
 		local pos = center + away * distance
 		local drop = part("BloodDrop", Vector3.new(size, 0.04, size * (1.4 + math.random())), base * CFrame.new(pos + Vector3.new(0, 0.006, 0)) * CFrame.Angles(0, -angle + math.pi / 2, 0), (i % 2 == 0) and rgb(90, 0, 3) or rgb(115, 4, 8))
 		drop.Reflectance = 0.15
@@ -147,7 +147,7 @@ function Npc.spawnBelongings(data, position, parent)
 		mesh.MeshType = Enum.MeshType.Sphere
 		mesh.Parent = drop
 		-- 큰 방울 몇 개는 바깥쪽에 작은 방울 꼬리가 붙어요
-		if i % 3 == 0 then
+		if i % 4 == 0 then
 			local tail = part("BloodDrop", Vector3.new(size * 0.45, 0.04, size * 0.45), base * CFrame.new(pos + away * (size * 1.6) + Vector3.new(0, 0.006, 0)), rgb(90, 0, 3))
 			local tailMesh = Instance.new("SpecialMesh")
 			tailMesh.MeshType = Enum.MeshType.Sphere
