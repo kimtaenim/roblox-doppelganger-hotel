@@ -699,8 +699,8 @@ function Floors.build(hotel)
 	---------------------------------------------------------------- 층 전체가 확 바뀌는 이상 (아주 뚜렷한 것만)
 	-- blood: 복도 바닥에 피가 강물처럼 흘러요 / eyes: 꽃병마다 꽃 대신 커다란 눈알 /
 	-- flip: 천장과 바닥이 뒤집혀요 (가구가 천장에 거꾸로 매달려요) / red: 조명이 전부 새빨개요 / doors: 모든 객실 문이 활짝 열려요
-	-- crowd: 새까만 형체들이 빨간 눈을 빛내며 천장에 거꾸로 매달려 있어요 (움직이지 않아요) / hands: 양쪽 벽이 피 묻은 손자국으로 뒤덮여요
-	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "hands" }
+	-- crowd: 새까만 형체들이 빨간 눈을 빛내며 천장에 거꾸로 매달려 있어요 (움직이지 않아요)
+	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd" }
 	for _, floor in ipairs(FLOOR_LIST) do
 		local eventFolder = Instance.new("Folder")
 		eventFolder.Name = "Event"
@@ -743,34 +743,6 @@ function Floors.build(hotel)
 			table.insert(list, bulb)
 		end
 		return list
-	end
-
-	-- 피 묻은 손자국: 손바닥 + 손가락 다섯 개, 아래로 흘러내린 핏줄기 (cf 는 벽 위의 한 점, -Z 가 복도 쪽)
-	local function bloodyHand(parent, cf, scale, random, drips)
-		local color = rgb(120, 2, 6)
-		local palm = P(parent, "BloodHand", V(0.75 * scale, 0.85 * scale, 0.04), cf, color, Mat.SmoothPlastic, { Reflectance = 0.1 })
-		Instance.new("SpecialMesh", palm).MeshType = Enum.MeshType.Sphere
-		for f = -2, 2 do
-			local fingerLength = (f == -2 and 0.34 or 0.48 - math.abs(f) * 0.05) * scale
-			local fingerCF = f == -2 and cf * CFrame.new(-0.4 * scale, 0.05 * scale, 0) * CFrame.Angles(0, 0, 0.9)
-				or cf * CFrame.new(f * 0.14 * scale, 0.36 * scale + fingerLength / 2, 0) * CFrame.Angles(0, 0, f * 0.08)
-			local finger = P(parent, "BloodHand", V(0.13 * scale, fingerLength, 0.04), fingerCF, color)
-			Instance.new("SpecialMesh", finger).MeshType = Enum.MeshType.Sphere
-		end
-		if drips then
-			-- 손바닥 아래로 흘러내린 피 (중력 방향, 벽을 따라)
-			for _ = 1, random:NextInteger(1, 3) do
-				local dx = random:NextNumber(-0.25, 0.25) * scale
-				local length = random:NextNumber(0.6, 2.2)
-				local start = (cf * CFrame.new(dx, -0.3 * scale, 0)).Position
-				local mid = start - Vector3.new(0, length / 2, 0)
-				local facing = cf.LookVector * Vector3.new(1, 0, 1)
-				local upright = CFrame.lookAt(mid, mid + facing) -- 손자국이 기울어도 피는 똑바로 아래로 흘러요
-				P(parent, "BloodHandDrip", V(0.06 * scale, length, 0.03), upright, color)
-				local bead = P(parent, "BloodHandDrip", V(0.12 * scale, 0.15 * scale, 0.04), upright * CFrame.new(0, -length / 2, 0), rgb(70, 0, 3))
-				Instance.new("SpecialMesh", bead).MeshType = Enum.MeshType.Sphere
-			end
-		end
 	end
 
 	local function applyEvent(ev, kind, on)
@@ -830,15 +802,7 @@ function Floors.build(hotel)
 				for i = 0, 10 do
 					blot("BloodDrag", V(-20 + i * 0.9, floorTop, -2.8 + math.sin(i * 0.6) * 0.3), 1.3, 0.5, 0.05, MID, 0.012, 0.1).Transparency = i / 14
 				end
-				-- 6) 벽을 짚은 피 묻은 손자국
-				for _ = 1, 18 do
-					local side = random:NextNumber() < 0.5 and -1 or 1
-					local hx = random:NextNumber(-26, 19)
-					local hy = y + random:NextNumber(1, 5)
-					local cf = CFrame.lookAt(V(hx, hy, side * (HALF - 0.42)), V(hx, hy, 0)) * CFrame.Angles(0, 0, random:NextNumber(-0.6, 0.6))
-					bloodyHand(ev.folder, cf, random:NextNumber(1, 1.3), random, true)
-				end
-				-- 7) 벽: 피 얼룩에서 핏줄기가 흘러내려 끝에 방울이 맺혀요
+				-- 6) 벽: 피 얼룩에서 핏줄기가 흘러내려 끝에 방울이 맺혀요
 				for wx = -24, 18, 5.5 do
 					for _, side in ipairs({ -1, 1 }) do
 						local wz = side * (HALF - 0.43)
@@ -883,20 +847,6 @@ function Floors.build(hotel)
 					local ceiling = y + WALL_H
 					figure:PivotTo(CFrame.lookAt(V(x, ceiling, z), V(30, ceiling, z)) * CFrame.Angles(0, 0, math.pi))
 					figure.Parent = ev.folder
-				end
-			else
-				ev.folder:ClearAllChildren()
-			end
-		elseif kind == "hands" then
-			if on then
-				-- 누군가 벽을 짚으며 끌려간 듯, 양쪽 벽과 문이 피 묻은 손자국으로 뒤덮여요.
-				local random = Random.new(floor * 71)
-				for _ = 1, 110 do
-					local side = random:NextNumber() < 0.5 and -1 or 1
-					local x = random:NextNumber(-27, 20)
-					local hy = y + random:NextNumber(1.2, 8.5)
-					local cf = CFrame.lookAt(V(x, hy, side * (HALF - 0.42)), V(x, hy, 0)) * CFrame.Angles(0, 0, random:NextNumber(-0.7, 0.7))
-					bloodyHand(ev.folder, cf, random:NextNumber(1, 1.5), random, random:NextNumber() < 0.6)
 				end
 			else
 				ev.folder:ClearAllChildren()
