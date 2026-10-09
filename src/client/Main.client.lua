@@ -156,7 +156,7 @@ label(lobbyFrame, {
 		.. "몸이 이상하거나, 사진이 움직이면... 셔터를 닫아요!\n"
 		.. "• 첫날은 연습이에요. 둘째 날부터 도플갱어가 와요\n"
 		.. "• 정신력이 다 떨어지면 쓰러져요. 직원 공간의 음료 기계로 채우세요\n"
-		.. "• 희생자가 3명이 되면 해고돼요",
+		.. "• 실종자가 3명이 되면 해고돼요",
 	Font = Enum.Font.Gotham,
 	TextColor3 = CREAM,
 	TextXAlignment = Enum.TextXAlignment.Left,
@@ -1181,15 +1181,15 @@ local function showNight(report)
 		table.insert(lines, ("🛎 룸서비스: 팁 +%d · 놓친 전화 %d"):format(patrol.tips, patrol.missed))
 	end
 	if #report.victims > 0 then
-		table.insert(lines, "💀 희생된 손님: " .. table.concat(report.victims, ", "))
-		table.insert(lines, "로비에 쓰러진 손님들이 있어요... 도플갱어에게 속았어요.")
+		table.insert(lines, "👤 실종된 손님: " .. table.concat(report.victims, ", "))
+		table.insert(lines, "로비에 소지품만 덩그러니 남아 있어요... 도플갱어에게 속았어요.")
 	else
 		table.insert(lines, "✨ 로비가 깨끗해요. 오늘은 무사히 지나갔어요!")
 	end
-	table.insert(lines, ("\n총 돈: %d · 희생자 %d/%d"):format(report.money, report.deaths, report.maxDeaths))
+	table.insert(lines, ("\n총 돈: %d · 실종자 %d/%d"):format(report.money, report.deaths, report.maxDeaths))
 
 	if report.gameOver then
-		table.insert(lines, "\n❌ 희생자가 너무 많아서 해고됐어요...")
+		table.insert(lines, "\n❌ 실종자가 너무 많아서 해고됐어요...")
 		for _, guest in ipairs(report.refused or {}) do
 			table.insert(lines, ("• 오늘 돌려보낸 %s(%s): %s"):format(
 				guest.name,
@@ -1281,11 +1281,11 @@ local function showMorning(report)
 
 	local lines = { "1. 야간 사고" }
 	if #report.victims > 0 then
-		table.insert(lines, ("   - 투숙객 사망 %d건"):format(#report.victims))
+		table.insert(lines, ("   - 투숙객 실종 %d건"):format(#report.victims))
 		for _, name in ipairs(report.victims) do
 			table.insert(lines, "     " .. name)
 		end
-		table.insert(lines, "   - 시신 수습 및 로비 청소 완료")
+		table.insert(lines, "   - 남은 소지품 보관 및 로비 청소 완료")
 	else
 		table.insert(lines, "   - 해당 없음")
 	end
@@ -1319,7 +1319,7 @@ local function showMorning(report)
 	end
 	table.insert(lines, "")
 	table.insert(lines, ("4. 전일 수입 %d / 누적 %d"):format(report.earned, report.money))
-	table.insert(lines, ("5. 누적 사망 %d / %d"):format(report.deaths, report.maxDeaths))
+	table.insert(lines, ("5. 누적 실종 %d / %d"):format(report.deaths, report.maxDeaths))
 	table.insert(lines, "")
 	local note = "없음."
 	if doppels > 0 then
@@ -2120,7 +2120,7 @@ Remotes.State.OnClientEvent:Connect(function(state)
 	if state.phase == "Day" and state.guestIndex > 0 then
 		guests = ("   ·   손님 %d/%d"):format(state.guestIndex, state.guestsTotal)
 	end
-	hudText.Text = ("%d일차   ·   %s   ·   💰 %d   ·   💀 %d/%d%s"):format(
+	hudText.Text = ("%d일차   ·   %s   ·   💰 %d   ·   👤 실종 %d/%d%s"):format(
 		state.day,
 		state.phase == "Day" and "🌙 밤 근무" or state.phase == "Patrol" and "🔦 야간 순찰" or "🌑 근무 끝",
 		state.money,

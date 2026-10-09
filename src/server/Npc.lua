@@ -1,8 +1,5 @@
--- 손님 NPC를 걷게 하고, 밤에 사체를 놓는 기능이에요.
+-- 손님 NPC를 걷게 하고, 밤에 실종된 손님의 소지품을 놓는 기능이에요.
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local Animals = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Animals"))
 
 local Npc = {}
 
@@ -88,44 +85,64 @@ function Npc.say(model, text, duration)
 	end)
 end
 
--- 도플갱어에게 당한 손님의 사체를 바닥에 눕혀 놓아요.
-function Npc.spawnCorpse(data, position, parent)
-	local body = Animals.build(data, nil)
-	body.Name = "Corpse_" .. (data.name or "Guest")
+-- 도플갱어에게 당한 손님은 사라지고, 바닥에 소지품만 덩그러니 남아요. (그 아래에 작은 핏자국)
+function Npc.spawnBelongings(data, position, parent)
+	local rgb = Color3.fromRGB
+	local group = Instance.new("Model")
+	group.Name = "Missing_" .. (data.name or "Guest")
 
-	for _, part in ipairs(body:GetDescendants()) do
-		if part:IsA("BasePart") then
-			part.Color = part.Color:Lerp(Color3.fromRGB(120, 120, 125), 0.45)
+	local function part(name, size, cf, color, material, shape)
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.CFrame = cf
+		p.Color = color
+		p.Material = material or Enum.Material.SmoothPlastic
+		p.Anchored = true
+		p.CanCollide = false
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		if shape then
+			p.Shape = shape
 		end
+		p.Parent = group
+		return p
 	end
 
-	-- 등을 대고 누운 모습
-	local yaw = CFrame.Angles(0, math.random() * math.pi * 2, 0)
-	body:PivotTo(CFrame.new(position + Vector3.new(0, 1.2, 0)) * yaw * CFrame.Angles(math.rad(90), 0, 0))
+	local floorY = position.Y + 0.02
+	local base = CFrame.new(position.X, floorY, position.Z) * CFrame.Angles(0, math.random() * math.pi * 2, 0)
+	local cloth = data.cloth or rgb(160, 120, 90)
 
-	-- 핏자국
-	local center = position + yaw:VectorToWorldSpace(Vector3.new(0, 0, 3))
+	-- 작은 핏자국 (소지품 아래로 살짝 번져 나와요)
 	local function puddle(size, offset)
-		local part = Instance.new("Part")
-		part.Name = "Blood"
-		part.Shape = Enum.PartType.Cylinder
-		part.Size = Vector3.new(0.05, size, size)
-		part.CFrame = CFrame.new(center.X + offset.X, position.Y + 0.03, center.Z + offset.Z)
-			* CFrame.Angles(0, 0, math.rad(90))
-		part.Color = Color3.fromRGB(100, 0, 0)
-		part.Material = Enum.Material.SmoothPlastic
-		part.Reflectance = 0.1
-		part.Anchored = true
-		part.CanCollide = false
-		part.Parent = body
+		part("Blood", Vector3.new(0.04, size, size * 0.8), base * CFrame.new(offset) * CFrame.Angles(0, 0, math.rad(90)), rgb(95, 0, 0), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder).Reflectance = 0.15
 	end
-	puddle(7, Vector3.zero)
-	for _ = 1, 3 do
-		puddle(1 + math.random() * 1.5, Vector3.new(math.random(-5, 5), 0, math.random(-5, 5)))
+	puddle(2.6, Vector3.new(0.6, 0, 0.9)) -- 가방 아래에서 앞으로 번져 나와요
+	puddle(1.1, Vector3.new(1.7, 0, 1.6))
+	puddle(0.45, Vector3.new(2.4, 0, 0.6))
+	puddle(0.3, Vector3.new(-0.4, 0, 2))
+
+	-- 쓰러진 여행 가방 (손님 옷 색)
+	local bag = base * CFrame.new(0.2, 0.42, 0) * CFrame.Angles(0, 0.3, 0)
+	part("Suitcase", Vector3.new(2, 0.8, 1.4), bag, cloth:Lerp(rgb(60, 45, 35), 0.35), Enum.Material.Leather)
+	part("SuitcaseStrap", Vector3.new(2.02, 0.82, 0.18), bag, rgb(90, 60, 40), Enum.Material.Leather)
+	part("SuitcaseHandle", Vector3.new(0.7, 0.12, 0.12), bag * CFrame.new(0, 0.1, -0.76), rgb(40, 30, 25))
+	for _, x in ipairs({ -0.75, 0.75 }) do
+		part("SuitcaseLatch", Vector3.new(0.2, 0.15, 0.05), bag * CFrame.new(x, 0.25, -0.72), rgb(196, 156, 84), Enum.Material.Metal)
 	end
 
-	body.Parent = parent
-	return body
+	-- 바닥에 떨어진 모자 (옆으로 누워 있어요)
+	local hat = base * CFrame.new(-1.4, 0.46, -0.5) * CFrame.Angles(0, 0.6, 0) -- 원기둥이 옆으로 누운 채
+	part("HatCrown", Vector3.new(1, 0.9, 0.9), hat, rgb(35, 30, 32), Enum.Material.Fabric, Enum.PartType.Cylinder)
+	part("HatBrim", Vector3.new(0.1, 1.5, 1.5), hat * CFrame.new(-0.5, 0, 0), rgb(35, 30, 32), Enum.Material.Fabric, Enum.PartType.Cylinder)
+
+	-- 객실 열쇠 (놋쇠 꼬리표에 방 번호)
+	local key = base * CFrame.new(0.9, 0.05, 1.1) * CFrame.Angles(0, 0.8, 0)
+	part("KeyTag", Vector3.new(0.5, 0.06, 0.28), key, rgb(196, 156, 84), Enum.Material.Metal)
+	part("Key", Vector3.new(0.5, 0.05, 0.08), key * CFrame.new(0.45, 0, 0), rgb(170, 170, 160), Enum.Material.Metal)
+
+	group.Parent = parent
+	return group
 end
 
 return Npc

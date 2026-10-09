@@ -26,7 +26,7 @@ local function remote(name)
 	event.Parent = remotes
 	return event
 end
-local StateEvent = remote("State") -- 서버 → 화면: 몇 일차, 근무 중/근무 끝, 돈, 희생자
+local StateEvent = remote("State") -- 서버 → 화면: 몇 일차, 근무 중/근무 끝, 돈, 실종자
 local GuestArrived = remote("GuestArrived") -- 서버 → 화면: 손님이 프론트에 도착
 local Toast = remote("Toast") -- 서버 → 화면: 안내 메시지
 local NightReport = remote("NightReport") -- 서버 → 화면: 밤 결과
@@ -462,9 +462,9 @@ local function runGuest(s, data)
 	s.currentGuest = nil
 
 	if choice == "accept" and data.demo then
-		-- 첫날 연습용 도플갱어: 받아도 희생자는 없지만, 바로 정체를 보여줘요.
+		-- 첫날 연습용 도플갱어: 받아도 실종자는 없지만, 바로 정체를 보여줘요.
 		Npc.say(model, "데자뷔! 히히히히...", 3)
-		fire(s, Toast, { text = "😱 그건 도플갱어였어요! 오늘은 연습이라 괜찮지만, 내일부터는 희생자가 생겨요.", kind = "warn", shake = true })
+		fire(s, Toast, { text = "😱 그건 도플갱어였어요! 오늘은 연습이라 괜찮지만, 내일부터는 손님이 실종돼요.", kind = "warn", shake = true })
 		task.wait(1.5)
 		Npc.walkTo(model, markers.Door.Position, Config.WalkSpeed * 1.5)
 	elseif choice == "accept" then
@@ -731,7 +731,7 @@ local function runDay(s)
 	end
 end
 
--- 손님을 다 받은 뒤: 야간 순찰 + 룸서비스. 찾아낸 도플갱어 방은 봉쇄돼서 희생자가 생기지 않아요.
+-- 손님을 다 받은 뒤: 야간 순찰 + 룸서비스. 찾아낸 도플갱어 방은 잠겨서 실종자가 생기지 않아요.
 local function runPatrol(s)
 	s.phase = "Patrol"
 	setDaylight(false)
@@ -757,7 +757,7 @@ local function runPatrol(s)
 	moveShutter(false)
 end
 
--- 밤: 직원이 퇴근하고, 도플갱어가 있었다면 사체가 남아요. 게임 오버면 true.
+-- 밤: 직원이 퇴근하고, 도플갱어가 있었다면 손님이 실종되고 소지품만 남아요. 게임 오버면 true.
 local function runNight(s)
 	s.phase = "Night"
 	s.money += s.earned
@@ -767,7 +767,7 @@ local function runNight(s)
 	local area = markers.CorpseArea
 	local victimNames = {}
 	for _, victim in ipairs(s.victims) do
-		Npc.spawnCorpse(victim, randomPointIn(area), corpseFolder)
+		Npc.spawnBelongings(victim, randomPointIn(area), corpseFolder)
 		table.insert(victimNames, ("%s(%s)"):format(victim.name, victim.animalName))
 	end
 

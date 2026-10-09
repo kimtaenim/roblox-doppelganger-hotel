@@ -14,7 +14,7 @@ local Config = {
 	DoppelChanceMax = 0.6,
 
 	RoomPrice = 100, -- 평범한 손님을 받으면 버는 돈
-	MaxDeaths = 3, -- 희생자가 이만큼 되면 해고 (게임 오버)
+	MaxDeaths = 3, -- 실종자가 이만큼 되면 해고 (게임 오버)
 
 	WalkSpeed = 10, -- 손님이 걷는 속도
 
@@ -25,7 +25,7 @@ local Config = {
 	SanityDrainPatrol = 0.06, -- 야간 순찰 중 1초에 줄어드는 양
 	SanityDrainNight = 0.04, -- 근무가 끝난 뒤 1초에 줄어드는 양
 	SanityScareLoss = 6, -- 도플갱어에게 놀랐을 때 줄어드는 양
-	SanityCorpseLoss = 8, -- 밤에 사체를 봤을 때 줄어드는 양 (한 구마다)
+	SanityCorpseLoss = 8, -- 밤에 실종된 손님의 소지품을 봤을 때 줄어드는 양 (한 명마다)
 
 	-- 음료 기계: 마시면 정신력이 채워져요. 기계마다 하룻밤에 몇 잔씩 나와요.
 	DrinkRestore = 40,
