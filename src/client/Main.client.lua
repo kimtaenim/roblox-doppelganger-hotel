@@ -1596,8 +1596,8 @@ local slit = make("ViewportFrame", {
 	Position = UDim2.fromScale(0.5, 0),
 	Size = UDim2.fromScale(0.72, 1),
 	BackgroundColor3 = rgb(8, 7, 8),
-	Ambient = rgb(95, 85, 80),
-	LightColor = rgb(200, 170, 140),
+	Ambient = rgb(150, 140, 130),
+	LightColor = rgb(240, 220, 190),
 	LightDirection = Vector3.new(0.6, -0.4, 1),
 	ZIndex = 22,
 }, doorFrame)
@@ -1658,73 +1658,32 @@ for i, x in ipairs({ 0.36, 0.64 }) do
 	}, eye)
 	darkEyes[i] = eye
 end
--- 손전등으로 비춰 보기: 누르고 있는 동안 문틈이 환해져요.
-local lightButton = button(doorFrame, "🔦 비춰 보기", rgb(60, 50, 35), {
-	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -6),
-	Size = UDim2.new(0.7, 0, 0, 28),
-	ZIndex = 27,
-}, 16)
 -- 숙박부 사진과 문틈을 똑같은 구도로 보여줘서 비교하기 쉬워요. (머리부터 가슴까지)
 local PEEP_CAMERA = CFrame.lookAt(Vector3.new(0, 6, -12), Vector3.new(0, 5.3, 0))
 local peepCallId = nil
 local peepToken = 0
 local peepInfo = nil
-local peepLit = false
 
--- 문틈 속 손님을 그려요. 도플갱어의 진짜 얼굴은 손전등으로 비출 때만 드러나요.
-local function drawSlit(reveal)
+-- 문틈 속 손님을 그려요. 도플갱어는 얼굴이 이상하게 보여요.
+local function drawSlit()
 	local info = peepInfo
 	if not info or info.empty then
 		return
 	end
 	local token = peepToken
-	local model = fillViewport(slit, info.visual, reveal and info.hiddenKind or nil, PEEP_CAMERA, 40, false)
+	local model = fillViewport(slit, info.visual, info.visualKind, PEEP_CAMERA, 40, false)
 	local headGroup = model:FindFirstChild("HeadGroup")
 	if headGroup then
 		local base = headGroup:GetPivot()
-		local twitch = reveal and info.hiddenKind == "moving"
 		task.spawn(function()
 			local t = 0
 			while peepToken == token and model.Parent do
 				t += RunService.RenderStepped:Wait()
-				local roll = math.sin(t * 0.5) * 0.12
-				if twitch and t % 1.8 < 0.2 then
-					roll = math.rad(70) -- 뚝! 고개가 꺾여요
-				end
-				headGroup:PivotTo(base * CFrame.Angles(0, math.sin(t * 0.7) * 0.08, roll))
+				headGroup:PivotTo(base * CFrame.Angles(0, math.sin(t * 0.7) * 0.08, math.sin(t * 0.5) * 0.12))
 			end
 		end)
 	end
 end
-
-local function setPeepLight(on)
-	slit.Ambient = on and rgb(200, 195, 185) or rgb(95, 85, 80)
-	slit.LightColor = on and rgb(255, 250, 235) or rgb(200, 170, 140)
-	slit.BackgroundColor3 = on and rgb(40, 34, 30) or rgb(8, 7, 8)
-	if peepLit ~= on then
-		peepLit = on
-		if peepInfo and peepInfo.hiddenKind then
-			drawSlit(on)
-		end
-	end
-end
-lightButton.MouseButton1Down:Connect(function()
-	setPeepLight(true)
-end)
-lightButton.MouseButton1Up:Connect(function()
-	setPeepLight(false)
-end)
-lightButton.MouseLeave:Connect(function()
-	setPeepLight(false)
-end)
-lightButton.TouchTap:Connect(function()
-	-- 터치 화면: 한 번 누르면 2초 동안 환해져요.
-	setPeepLight(true)
-	task.delay(2, function()
-		setPeepLight(false)
-	end)
-end)
 
 -- 손님의 말 (말투가 이상한지도 잘 들어 봐요)
 local peepLine = label(peep, {
@@ -1752,8 +1711,6 @@ local function closePeep()
 	peepToken += 1
 	registerView:ClearAllChildren()
 	slit:ClearAllChildren()
-	peepLit = true
-	setPeepLight(false)
 end
 
 local function choosePeep(choice)
@@ -1800,7 +1757,7 @@ local function showPeep(info)
 			end
 		end)
 	else
-		drawSlit(false)
+		drawSlit()
 	end
 	peep.Visible = true
 end

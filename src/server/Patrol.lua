@@ -10,8 +10,8 @@
 --     - 아무 이상 없는데 "있다" → 헛보고 벌금
 --
 -- [룸서비스] 순찰 중에 프런트 전화가 울려요. 받으면 주문한 방으로 쟁반을 들고 가서 노크(F)해요.
---   손님이 체인을 건 채 문을 열면, 문틈으로 보이는 모습(손전등으로 비추면 더 잘 보여요)과
---   손님의 말을 보고 판단해요.
+--   손님이 체인을 건 채 문을 열면, 문틈으로 보이는 얼굴과 손님의 말을 보고 판단해요.
+--   도플갱어는 얼굴이 확 이상하고(검은 눈, 이빨, 찢어진 입) 말도 이상해요.
 --     - 방에 들어가서 건네기: 진짜 손님이면 팁! 도플갱어면 정신력 크게 떨어져요.
 --     - 팁을 포기하고 문 앞에 두기: 안전하지만 팁은 없어요.
 --
@@ -381,13 +381,10 @@ local function makeCall(s, state)
 		call.room = guest.room
 		call.guest = guest
 		call.visual = guest
-		-- 단서: 겉모습(손전등으로 비추면 보여요) / 말 / 둘 다
-		call.clue = pick({ "look", "speech", "look", "speech", "both" })
-		local kinds = { "eyes", "teeth", "mouth", "moving" }
-		call.visualKind = guest.anomaly and guest.anomaly.kind or pick(kinds)
-		if call.visualKind == "body" then
-			call.visualKind = "eyes" -- 문틈으로는 몸이 다 안 보여서 얼굴로 보여줘요
-		end
+		-- 도플갱어는 문틈으로 보면 얼굴이 바로 이상하고, 말도 이상해요.
+		local kinds = { "eyes", "teeth", "mouth" }
+		local guestKind = guest.anomaly and guest.anomaly.kind
+		call.visualKind = table.find(kinds, guestKind) and guestKind or pick(kinds)
 	else
 		local guest = pick(normals)
 		call.room = guest.room
@@ -798,7 +795,7 @@ local function onKnock(room, player)
 			local line
 			if call.kind == "empty" then
 				line = pick(EMPTY_LINES)
-			elseif call.kind == "doppel" and call.clue ~= "look" then
+			elseif call.kind == "doppel" then
 				line = pick(DOPPEL_LINES)(call, player)
 			else
 				line = pick(GENUINE_LINES):format(call.item)
@@ -824,8 +821,8 @@ local function onKnock(room, player)
 					fur = call.visual.fur,
 					cloth = call.visual.cloth,
 				},
-				-- 겉모습 단서: 어두울 땐 멀쩡해 보이고, 손전등으로 비추면 드러나요.
-				hiddenKind = (call.kind == "doppel" and call.clue ~= "speech") and call.visualKind or nil,
+				-- 도플갱어의 이상한 얼굴 (진짜 손님이면 없어요)
+				visualKind = call.kind == "doppel" and call.visualKind or nil,
 				empty = call.kind == "empty",
 			})
 			return

@@ -192,7 +192,7 @@ local PORTRAIT_BG = { rgb(30, 40, 34), rgb(48, 26, 26), rgb(28, 30, 44), rgb(44,
 local PORTRAIT_CLOTH = { rgb(40, 30, 30), rgb(30, 35, 50), rgb(55, 25, 30), rgb(35, 45, 38), rgb(60, 50, 40) }
 local DOPPEL_FACES = { "teeth", "mouth", "eyes" }
 -- 눈에 확 띄는 것(뒤집힘, 피)부터 자세히 봐야 아는 것(옆을 봄, 다른 동물, 가까워짐)까지
-Floors.PortraitKinds = { "flip", "doppel", "away", "gone", "blood", "tilt", "swap", "closer", "side", "red", "twins" }
+Floors.PortraitKinds = { "flip", "doppel", "away", "gone", "blood", "tilt", "red", "twins" }
 
 local portraitRandom = Random.new(2024)
 
@@ -344,7 +344,7 @@ end
 
 ---------------------------------------------------------------- 꽃병
 -- 탁자 위의 꽃병. 밤에 몰래 시들거나, 피를 흘리거나, 쓰러지거나, 꽃이 눈알로 바뀌거나, 사라지거나, 떠올라요.
-Floors.VaseKinds = { "wilt", "blood", "tipped", "eyes", "gone", "float", "color", "single", "moved" }
+Floors.VaseKinds = { "wilt", "blood", "tipped", "eyes", "gone", "float" }
 local FLOWER_COLORS = { rgb(235, 235, 225), rgb(240, 170, 190), rgb(250, 215, 120), rgb(200, 170, 230), rgb(170, 30, 40) }
 
 local function drawVase(v, kind)
@@ -726,7 +726,7 @@ function Floors.build(hotel)
 
 	-- 빈방의 문: 번호가 바뀌거나, 거꾸로 붙거나, 문이 열려 있거나, 빨간 불빛, 젖은 발자국, 작은 손자국
 	-- (손님이 묵는 방은 바뀌지 않아요. 문 앞의 "이상 보고" 버튼을 같이 써요.)
-	local DOOR_KINDS = { "plate", "plateflip", "ajar", "redlight", "footprints", "hand" }
+	local DOOR_KINDS = { "ajar", "redlight", "footprints", "hand" }
 	local function drawDoor(o, kind)
 		local room = o.room
 		room.extras:ClearAllChildren()
@@ -755,13 +755,15 @@ function Floors.build(hotel)
 				Instance.new("SpecialMesh", footprint).MeshType = Enum.MeshType.Sphere
 			end
 		elseif kind == "hand" then
-			-- 문 아래쪽, 아이 키 높이의 작은 손자국
-			local cf = api.onDoor(room, 0.4, -2.2)
-			local palm = P(room.extras, "SmallHand", V(0.26, 0.3, 0.03), cf, rgb(110, 0, 0))
-			Instance.new("SpecialMesh", palm).MeshType = Enum.MeshType.Sphere
-			for f = -2, 2 do
-				local finger = P(room.extras, "SmallHand", V(0.05, 0.18, 0.03), cf * CFrame.new(f * 0.055, 0.22 - math.abs(f) * 0.03, 0) * CFrame.Angles(0, 0, f * 0.15), rgb(110, 0, 0))
-				Instance.new("SpecialMesh", finger).MeshType = Enum.MeshType.Sphere
+			-- 문 가득 찍힌 피 묻은 손자국
+			for i = 1, 4 do
+				local cf = api.onDoor(room, -1 + i * 0.45, 1.8 - i * 0.9) * CFrame.Angles(0, 0, (i % 2 == 0 and 0.3 or -0.3))
+				local palm = P(room.extras, "BloodHand", V(0.45, 0.55, 0.03), cf, rgb(120, 0, 0))
+				Instance.new("SpecialMesh", palm).MeshType = Enum.MeshType.Sphere
+				for f = -2, 2 do
+					local finger = P(room.extras, "BloodHand", V(0.09, 0.32, 0.03), cf * CFrame.new(f * 0.1, 0.4 - math.abs(f) * 0.04, 0) * CFrame.Angles(0, 0, f * 0.15), rgb(120, 0, 0))
+					Instance.new("SpecialMesh", finger).MeshType = Enum.MeshType.Sphere
+				end
 			end
 		end
 		o.kind = kind
@@ -825,7 +827,7 @@ function Floors.build(hotel)
 	end
 
 	-- 엘리베이터 층 표시판: 없는 층(13F, B4)을 가리키거나 거꾸로 돼요.
-	local SIGN_KINDS = { "thirteen", "b4", "flip", "wrong" }
+	local SIGN_KINDS = { "thirteen", "b4" }
 	local function drawSign(o, kind)
 		local label = o.label
 		label.Rotation = kind == "flip" and 180 or 0
