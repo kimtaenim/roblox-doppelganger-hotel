@@ -128,6 +128,22 @@ local STATIC_MIN, STATIC_MAX = 0.06, 0.18 -- 지직 소리 크기가 오르내�
 
 local marimba = loadSound("MarimbaNote", SoundService, { Volume = MELODY_VOLUME })
 local radioStatic = loadSound("RadioStatic", SoundService, { Looped = true, Volume = STATIC_MIN })
+-- 기본 소리를 쓸 때는 음 높이와 소리를 조금 다듬어요.
+local NOTE_BASE = 1
+if marimba and marimba.SoundId:find("rbxasset://") then
+	NOTE_BASE = 0.6 -- 기본 "땡" 소리는 높아서 조금 낮춰요
+end
+if radioStatic and radioStatic.SoundId:find("rbxasset://") then
+	radioStatic.PlaybackSpeed = 2.2 -- 바람 소리를 빠르게 돌려서 "치이익" 하게
+	local crackle = Instance.new("DistortionSoundEffect")
+	crackle.Level = 0.85
+	crackle.Parent = radioStatic
+	local tinny = Instance.new("EqualizerSoundEffect")
+	tinny.LowGain = -30
+	tinny.MidGain = 0
+	tinny.HighGain = 4
+	tinny.Parent = radioStatic
+end
 if marimba then
 	-- 텅 빈 복도에 울리는 느낌
 	local echo = Instance.new("ReverbSoundEffect")
@@ -141,7 +157,7 @@ local patrolling = false
 -- 마림바 한 음을 volume 크기로 친다. (겹쳐 울리도록 매번 복사해서 재생하고, 끝나면 지워요)
 local function playNote(semitones, volume)
 	local note = marimba:Clone()
-	note.PlaybackSpeed = 2 ^ (semitones / 12)
+	note.PlaybackSpeed = NOTE_BASE * 2 ^ (semitones / 12)
 	note.Volume = volume
 	note.Parent = SoundService
 	note:Play()
