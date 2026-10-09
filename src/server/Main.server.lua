@@ -49,6 +49,7 @@ local Peephole = remote("Peephole") -- 서버 → 화면: 노크했더니 손님
 local PeepholeChoice = remote("PeepholeChoice") -- 화면 → 서버: 건네주기 / 문 앞에 두고 가기
 local Inventory = remote("Inventory") -- 서버 → 화면: 가방 속 음료 개수
 local UseDrink = remote("UseDrink") -- 화면 → 서버: 가방의 음료 마시기
+local AnswerRadio = remote("AnswerRadio") -- 화면 → 서버: 무전기로 프런트 전화 받기
 local AskFloor = remote("AskFloor") -- 서버 → 화면: 엘리베이터에서 "이 층에 이상한 게 있었나요?"
 local AskFloorAnswer = remote("AskFloorAnswer") -- 화면 → 서버: 있었다 / 없었다
 local NightFx = remote("NightFx") -- 서버 → 화면: 순찰 중 공포 효과 (깜짝 놀람, 속삭임, 엘리베이터 암전)
@@ -328,6 +329,7 @@ Patrol.init({
 		NightFx = NightFx,
 		AskFloor = AskFloor,
 		AskFloorAnswer = AskFloorAnswer,
+		AnswerRadio = AnswerRadio,
 	},
 	fire = function(s, event, payload)
 		fire(s, event, payload)
@@ -469,7 +471,11 @@ local function runGuest(s, data)
 		task.wait(0.8)
 		moveShutter(true)
 		fire(s, Toast, { text = "🛑 셔터를 내렸어요. 누구였는지는 내일 아침에 알 수 있어요.", kind = "info" })
-		task.wait(2.5)
+		task.wait(1.2)
+		-- 셔터가 내려가 있는 동안 손님은 떠나요. 셔터를 올리면 아무도 없어요.
+		model:Destroy()
+		s.guestModel = nil
+		task.wait(1.3)
 		if s.active then
 			moveShutter(false)
 		end

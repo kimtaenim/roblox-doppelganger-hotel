@@ -18,7 +18,7 @@ local FH = 14 -- 층 높이 (HotelBuilder 와 같아요)
 local FLOOR_LIST = { 2, 3, 4 }
 local DOOR_XS = { -22, -14, -6, 2, 10, 18 }
 local PORTRAIT_XS = { -26.3, -18, -10, -2, 6, 14 } -- 문과 문 사이
-local HALF = 3.5 -- 복도 폭의 절반
+local HALF = 5 -- 복도 폭의 절반 (넉넉하게 10칸)
 local LOUNGE_X = 21 -- 여기서부터 동쪽은 층 로비
 local LOUNGE_HALF = 7
 local WALL_H = 12.5
@@ -292,7 +292,7 @@ local function newPortrait(parent, floor, cf, api)
 	local animal = Animals.List[portraitRandom:NextInteger(1, #Animals.List)]
 	local def = Animals.Types[animal]
 	local p = {
-		id = #api.oddities + 1,
+		id = #api.portraits + 1,
 		floor = floor,
 		cf = cf,
 		bg = PORTRAIT_BG[portraitRandom:NextInteger(1, #PORTRAIT_BG)],
@@ -329,16 +329,8 @@ local function newPortrait(parent, floor, cf, api)
 	model.Name = "Portrait" .. p.id
 	model.Parent = parent
 	p.model = model
-	-- 초상화 앞의 보이지 않는 지점: 여기에 "이상 보고" 버튼이 떠요.
-	local spot = P(parent, "PortraitSpot", V(1, 1, 1), (cf * CFrame.new(0, -3.2, -1.2)).Position, rgb(255, 0, 255), nil, {
-		Transparency = 1,
-		CanQuery = false,
-		CanTouch = false,
-	})
-	p.spot = spot
-	p.reportPrompt = prompt(spot, "이상 보고", "초상화 · " .. p.title, Enum.KeyCode.R, 6)
 	drawPortrait(p, "normal")
-	table.insert(api.oddities, p)
+	table.insert(api.portraits, p)
 	return p
 end
 
@@ -394,10 +386,10 @@ local function drawVase(v, kind)
 			-- 꽃 대신 눈알이 복도를 쳐다봐요.
 			local eyePos = tip.Position
 			local look = CFrame.lookAt(eyePos, eyePos + (base * CFrame.new(0, 0, -5)).LookVector * 5 + V(0, -0.3, 0))
-			Props.ball(model, "EyeFlower", 0.36, eyePos, rgb(240, 235, 225))
-			local iris = P(model, "EyeIris", V(0.03, 0.2, 0.2), look * CFrame.new(0, 0, -0.17) * CFrame.Angles(0, math.rad(90), 0), rgb(110, 70, 40))
+			Props.ball(model, "EyeFlower", 0.6, eyePos, rgb(240, 235, 225))
+			local iris = P(model, "EyeIris", V(0.03, 0.34, 0.34), look * CFrame.new(0, 0, -0.29) * CFrame.Angles(0, math.rad(90), 0), rgb(110, 70, 40))
 			iris.Shape = Enum.PartType.Cylinder
-			local pupil = P(model, "EyePupil", V(0.03, 0.09, 0.09), look * CFrame.new(0, 0, -0.185) * CFrame.Angles(0, math.rad(90), 0), rgb(10, 8, 8))
+			local pupil = P(model, "EyePupil", V(0.03, 0.15, 0.15), look * CFrame.new(0, 0, -0.31) * CFrame.Angles(0, math.rad(90), 0), rgb(10, 8, 8))
 			pupil.Shape = Enum.PartType.Cylinder
 		else
 			Props.ball(model, "FlowerHead", 0.38, tip.Position, headColor)
@@ -431,7 +423,7 @@ end
 
 local function newVase(parent, floor, base, api)
 	local v = {
-		id = #api.oddities + 1,
+		id = #api.vases + 1,
 		floor = floor,
 		base = base,
 		color = FLOWER_COLORS[portraitRandom:NextInteger(1, #FLOWER_COLORS)],
@@ -450,15 +442,8 @@ local function newVase(parent, floor, base, api)
 	model.Name = "Vase" .. v.id
 	model.Parent = parent
 	v.model = model
-	local spot = P(parent, "VaseSpot", V(1, 1, 1), (base * CFrame.new(0, 0, -1.3)).Position, rgb(255, 0, 255), nil, {
-		Transparency = 1,
-		CanQuery = false,
-		CanTouch = false,
-	})
-	v.spot = spot
-	v.reportPrompt = prompt(spot, "이상 보고", "꽃병", Enum.KeyCode.R, 6)
 	drawVase(v, "normal")
-	table.insert(api.oddities, v)
+	table.insert(api.vases, v)
 	return v
 end
 
@@ -533,6 +518,7 @@ local function buildLounge(parent, lights, floor, api)
 	local center = P(lights, "LoungeChandelier", V(0.5, 0.5, 0.5), V(25, cy - 0.2, 0), WARM, Mat.Neon)
 	center.Shape = Enum.PartType.Ball
 	glow(center, 18, 0.9)
+	api.chandeliers[floor] = center
 
 	-- 엘리베이터 (동쪽 벽)
 	P(parent, "ElevatorFrame", V(0.5, 9.5, 6.4), V(28.6, y + 4.75, 0), rgb(120, 90, 50), Mat.Metal)
@@ -577,7 +563,7 @@ function Floors.build(hotel)
 	folder.Parent = hotel
 	local lights = hotel:FindFirstChild("Lights") or folder
 
-	local api = { elevatorLamps = {}, List = FLOOR_LIST, rooms = {}, exits = {}, elevatorPrompts = {}, figures = {}, oddities = {}, lamps = {}, signs = {}, chairs = {} }
+	local api = { elevatorLamps = {}, List = FLOOR_LIST, rooms = {}, exits = {}, elevatorPrompts = {}, figures = {}, portraits = {}, vases = {}, events = {}, levels = {}, lamps = {}, signs = {}, chairs = {}, chandeliers = {} }
 	api.exits[1] = CFrame.lookAt(V(24.5, 3.5, -2), V(18, 3.5, -2))
 
 	for _, floor in ipairs(FLOOR_LIST) do
@@ -585,6 +571,7 @@ function Floors.build(hotel)
 		local level = Instance.new("Model")
 		level.Name = "Floor" .. floor
 		level.Parent = folder
+		api.levels[floor] = level
 
 		-- 바닥: 대리석 + 어두운 테두리 + 빨간 러너 (1층 로비와 같아요)
 		local length = LOUNGE_X + 28.9
@@ -716,11 +703,8 @@ function Floors.build(hotel)
 		for _, entry in ipairs(api.elevatorPrompts) do
 			entry.prompt.Enabled = false
 		end
-		for _, o in ipairs(api.oddities) do
-			if o.kind ~= "normal" then
-				o.draw(o, "normal")
-			end
-			o.reportPrompt.Enabled = false
+		for _, floor in ipairs(FLOOR_LIST) do
+			api.setEvent(floor, "normal")
 		end
 	end
 
@@ -751,190 +735,141 @@ function Floors.build(hotel)
 		end
 	end
 
-	-- 초상화·꽃병을 바꿔요. ("normal" 이면 원래대로)
-	function api.setOddity(o, kind)
-		o.draw(o, kind)
+	---------------------------------------------------------------- 층 전체가 확 바뀌는 이상 (아주 뚜렷한 것만)
+	-- blood: 복도 바닥에 피가 강물처럼 흘러요 / eyes: 꽃병마다 꽃 대신 커다란 눈알 /
+	-- flip: 천장과 바닥이 뒤집혀요 (가구가 천장에 거꾸로 매달려요) / red: 조명이 전부 새빨개요 / doors: 모든 객실 문이 활짝 열려요
+	api.EventKinds = { "blood", "eyes", "flip", "red", "doors" }
+	for _, floor in ipairs(FLOOR_LIST) do
+		local eventFolder = Instance.new("Folder")
+		eventFolder.Name = "Event"
+		eventFolder.Parent = api.levels[floor]
+		api.events[floor] = { floor = floor, kind = "normal", folder = eventFolder }
 	end
 
-	---------------------------------------------------------------- 그 밖의 이상해지는 것들
-	local function hiddenSpot(parent, pos)
-		return P(parent, "OdditySpot", V(1, 1, 1), pos, rgb(255, 0, 255), nil, {
-			Transparency = 1,
-			CanQuery = false,
-			CanTouch = false,
-		})
-	end
-	local function addOddity(o)
-		o.id = #api.oddities + 1
-		o.kind = "normal"
-		table.insert(api.oddities, o)
-		return o
-	end
-
-	-- 빈방의 문: 번호가 바뀌거나, 거꾸로 붙거나, 문이 열려 있거나, 빨간 불빛, 젖은 발자국, 작은 손자국
-	-- (손님이 묵는 방은 바뀌지 않아요. 문 앞의 "이상 보고" 버튼을 같이 써요.)
-	local DOOR_KINDS = { "ajar", "redlight", "footprints", "hand" }
-	local function drawDoor(o, kind)
-		local room = o.room
-		room.extras:ClearAllChildren()
-		api.closeDoor(room)
-		room.plateLabel.Text = tostring(room.number)
-		room.plateLabel.Rotation = 0
-		room.strip.Color = rgb(20, 16, 14)
-		room.strip.Material = Mat.SmoothPlastic
-		if kind == "plate" then
-			-- 옆방과 같은 번호 (같은 번호가 둘!)
-			room.plateLabel.Text = tostring(room.number + (room.number % 100 <= 2 and 2 or -2))
-		elseif kind == "plateflip" then
-			room.plateLabel.Rotation = 180
-		elseif kind == "ajar" then
-			api.openDoor(room, 25)
-		elseif kind == "redlight" then
-			room.strip.Color = rgb(200, 20, 20)
-			room.strip.Material = Mat.Neon
-		elseif kind == "footprints" then
-			-- 복도에서 빈방 안으로 이어지는 젖은 발자국
-			local start = room.spot.Position - V(0, 2.97, 0)
-			local inward = V(0, 0, room.side)
-			for i = 0, 5 do
-				local foot = start - inward * (2.4 - i * 0.55) + V((i % 2 == 0) and -0.25 or 0.25, 0, 0)
-				local footprint = P(room.extras, "WetFootprint", V(0.35, 0.02, 0.6), CFrame.new(foot), rgb(40, 50, 55), Mat.Glass, { Transparency = 0.3 })
-				Instance.new("SpecialMesh", footprint).MeshType = Enum.MeshType.Sphere
+	local function lampsOn(floor)
+		local list = {}
+		for _, lamp in ipairs(api.lamps) do
+			if lamp.floor == floor then
+				table.insert(list, lamp.bulb)
 			end
-		elseif kind == "hand" then
-			-- 문 가득 찍힌 피 묻은 손자국
-			for i = 1, 4 do
-				local cf = api.onDoor(room, -1 + i * 0.45, 1.8 - i * 0.9) * CFrame.Angles(0, 0, (i % 2 == 0 and 0.3 or -0.3))
-				local palm = P(room.extras, "BloodHand", V(0.45, 0.55, 0.03), cf, rgb(120, 0, 0))
-				Instance.new("SpecialMesh", palm).MeshType = Enum.MeshType.Sphere
-				for f = -2, 2 do
-					local finger = P(room.extras, "BloodHand", V(0.09, 0.32, 0.03), cf * CFrame.new(f * 0.1, 0.4 - math.abs(f) * 0.04, 0) * CFrame.Angles(0, 0, f * 0.15), rgb(120, 0, 0))
-					Instance.new("SpecialMesh", finger).MeshType = Enum.MeshType.Sphere
+		end
+		table.insert(list, api.chandeliers[floor])
+		return list
+	end
+
+	-- 뒤집을 파트: 객실 문(방 번호, 노크 자리)과 엘리베이터 버튼은 그대로 두고 나머지 전부
+	local function flipParts(floor)
+		local level = api.levels[floor]
+		local list = {}
+		for _, d in ipairs(level:GetDescendants()) do
+			if d:IsA("BasePart") then
+				local inRoom = false
+				local node = d.Parent
+				while node and node ~= level do
+					if node.Name:match("^Room%d") then
+						inRoom = true
+						break
+					end
+					node = node.Parent
+				end
+				if not inRoom and d.Name ~= "ButtonPanel" and d.Name ~= "FloorButton" then
+					table.insert(list, d)
 				end
 			end
 		end
-		o.kind = kind
-	end
-	for _, room in pairs(api.rooms) do
-		room.oddity = addOddity({
-			floor = room.floor,
-			room = room,
-			kinds = DOOR_KINDS,
-			draw = drawDoor,
-			reportPrompt = room.reportPrompt,
-			shared = true, -- 문 앞 버튼은 순찰 쪽에서 따로 처리해요
-			what = "방문",
-			whatObj = "방문을",
-			whatIs = "방문이에요",
-		})
+		for _, bulb in ipairs(lampsOn(floor)) do
+			table.insert(list, bulb)
+		end
+		return list
 	end
 
-	-- 천장 조명: 빨개지거나, 꺼지거나, 축 처지거나, 비스듬히 기울어요.
-	local LAMP_KINDS = { "red", "off", "low", "swing" }
-	local function drawLamp(o, kind)
-		local lamp = o.lamp
-		local top = CFrame.new(lamp.x, lamp.y + WALL_H, 0)
-		local drop, tilt = 0, 0
-		if kind == "low" then
-			drop = 3
-		elseif kind == "swing" then
-			tilt = math.rad(28)
+	local function applyEvent(ev, kind, on)
+		local floor = ev.floor
+		local y = floorY(floor)
+		if kind == "blood" then
+			if on then
+				-- 복도를 따라 굽이굽이 흐르는 피의 강
+				local random = Random.new(floor * 31)
+				local prevX, prevZ = -27, 0
+				for x = -25, 22, 2 do
+					local z = math.sin(x * 0.35) * 1.4 + random:NextNumber(-0.3, 0.3)
+					local from, to = Vector3.new(prevX, y + 0.12, prevZ), Vector3.new(x, y + 0.12, z)
+					local width = random:NextNumber(1.6, 2.6)
+					P(ev.folder, "BloodRiver", V(width, 0.06, (to - from).Magnitude + 0.8), CFrame.lookAt((from + to) / 2, to), rgb(105, 0, 0), Mat.SmoothPlastic, { Reflectance = 0.2 })
+					prevX, prevZ = x, z
+				end
+				for _ = 1, 10 do
+					local puddle = P(ev.folder, "BloodPool", V(0.06, random:NextNumber(1.5, 3.2), random:NextNumber(1.5, 3.2)), CFrame.new(random:NextNumber(-26, 20), y + 0.13, random:NextNumber(-HALF + 1, HALF - 1)) * CFrame.Angles(0, 0, math.rad(90)), rgb(95, 0, 0), Mat.SmoothPlastic, { Reflectance = 0.2 })
+					puddle.Shape = Enum.PartType.Cylinder
+				end
+				-- 벽을 타고 흘러내린 피
+				for x = -24, 18, 7 do
+					for _, side in ipairs({ -1, 1 }) do
+						P(ev.folder, "BloodDrip", V(1.2, random:NextNumber(3, 7), 0.05), CFrame.new(x + random:NextNumber(-1, 1), y + 6, side * (HALF - 0.45)), rgb(110, 0, 0))
+					end
+				end
+			else
+				ev.folder:ClearAllChildren()
+			end
+		elseif kind == "eyes" then
+			for _, v in ipairs(api.vases) do
+				if v.floor == floor then
+					drawVase(v, on and "eyes" or "normal")
+				end
+			end
+		elseif kind == "red" then
+			for _, bulb in ipairs(lampsOn(floor)) do
+				bulb.Color = on and rgb(230, 20, 20) or WARM
+				local light = bulb:FindFirstChildWhichIsA("Light")
+				if light then
+					light.Color = on and rgb(255, 20, 20) or WARM
+					light.Brightness = on and 1.4 or (bulb.Name == "LoungeChandelier" and 0.9 or 0.7)
+				end
+			end
+		elseif kind == "doors" then
+			if on then
+				ev.doorPivots = {}
+				for _, room in pairs(api.rooms) do
+					if room.floor == floor then
+						ev.doorPivots[room] = room.door:GetPivot()
+						api.openDoor(room, 80)
+					end
+				end
+			else
+				for room, pivot in pairs(ev.doorPivots or {}) do
+					room.door:PivotTo(pivot)
+				end
+				ev.doorPivots = nil
+			end
+		elseif kind == "flip" then
+			-- 복도 한가운데 높이를 축으로 180도 돌려요. (두 번 돌리면 제자리)
+			local mid = CFrame.new(0, y + WALL_H / 2, 0)
+			local turn = mid * CFrame.Angles(math.pi, 0, 0) * mid:Inverse()
+			if on then
+				ev.flipped = flipParts(floor)
+			end
+			for _, part in ipairs(ev.flipped or {}) do
+				part.CFrame = turn * part.CFrame
+			end
+			if not on then
+				ev.flipped = nil
+			end
 		end
-		local hang = top * CFrame.Angles(tilt, 0, tilt * 0.5) * CFrame.new(0, -drop, 0)
-		lamp.shade.CFrame = hang * CFrame.new(0, -0.45, 0)
-		lamp.bulb.CFrame = hang * CFrame.new(0, -0.7, 0)
-		if o.chain then
-			o.chain:Destroy()
-			o.chain = nil
-		end
-		if drop > 0 then
-			o.chain = P(lamp.parent, "LampChain", V(0.08, drop, 0.08), top * CFrame.new(0, -drop / 2, 0), BRASS, Mat.Metal)
-		end
-		local light = lamp.bulb:FindFirstChildWhichIsA("Light")
-		lamp.bulb.Color = kind == "red" and rgb(220, 30, 30) or (kind == "off" and rgb(50, 45, 40) or WARM)
-		lamp.bulb.Material = kind == "off" and Mat.SmoothPlastic or Mat.Neon
-		if light then
-			light.Enabled = kind ~= "off"
-			light.Color = kind == "red" and rgb(255, 40, 30) or WARM
-		end
-		o.kind = kind
-	end
-	for _, lamp in ipairs(api.lamps) do
-		local spot = hiddenSpot(lamp.parent, V(lamp.x, lamp.y + 3, 0))
-		addOddity({
-			floor = lamp.floor,
-			lamp = lamp,
-			kinds = LAMP_KINDS,
-			draw = drawLamp,
-			reportPrompt = prompt(spot, "이상 보고", "천장 조명", Enum.KeyCode.R, 4.5),
-			what = "조명",
-			whatObj = "조명을",
-			whatIs = "조명이에요",
-		})
 	end
 
-	-- 엘리베이터 층 표시판: 없는 층(13F, B4)을 가리키거나 거꾸로 돼요.
-	local SIGN_KINDS = { "thirteen", "b4" }
-	local function drawSign(o, kind)
-		local label = o.label
-		label.Rotation = kind == "flip" and 180 or 0
-		label.TextColor3 = (kind == "b4" or kind == "thirteen") and rgb(255, 60, 40) or rgb(255, 200, 120)
-		if kind == "thirteen" then
-			label.Text = "13F"
-		elseif kind == "b4" then
-			label.Text = "B4"
-		elseif kind == "wrong" then
-			label.Text = (o.floor == 4 and 2 or o.floor + 1) .. "F"
-		else
-			label.Text = o.floor .. "F"
+	-- 층 전체 이상을 바꿔요. ("normal" 이면 원래대로)
+	function api.setEvent(floor, kind)
+		local ev = api.events[floor]
+		if not ev or ev.kind == kind then
+			return
 		end
-		o.kind = kind
-	end
-	for _, floor in ipairs(FLOOR_LIST) do
-		local spot = hiddenSpot(folder, V(25.5, floorY(floor) + 3, 2.6))
-		addOddity({
-			floor = floor,
-			label = api.signs[floor],
-			kinds = SIGN_KINDS,
-			draw = drawSign,
-			reportPrompt = prompt(spot, "이상 보고", "층 표시판", Enum.KeyCode.R, 5),
-			what = "층 표시판",
-			whatObj = "층 표시판을",
-			whatIs = "층 표시판이에요",
-		})
-	end
-
-	-- 층 로비 의자: 벽을 보고 돌아앉거나, 엘리베이터 앞으로 나와 있거나, 사라져요.
-	local CHAIR_KINDS = { "turned", "middle", "gone" }
-	local function drawChair(o, kind)
-		local chair = o.chair
-		if kind == "gone" then
-			chair.model.Parent = nil
-		else
-			chair.model.Parent = chair.parent
+		if ev.kind ~= "normal" then
+			applyEvent(ev, ev.kind, false)
 		end
-		if kind == "turned" then
-			chair.model:PivotTo(chair.home * CFrame.Angles(0, math.pi, 0))
-		elseif kind == "middle" then
-			local floorY0 = chair.home.Position.Y
-			chair.model:PivotTo(CFrame.lookAt(V(25.5, floorY0, -0.5), V(28, floorY0, -0.5)))
-		else
-			chair.model:PivotTo(chair.home)
+		if kind ~= "normal" then
+			applyEvent(ev, kind, true)
 		end
-		o.kind = kind
-	end
-	for _, floor in ipairs(FLOOR_LIST) do
-		local spot = hiddenSpot(folder, V(23.5, floorY(floor) + 3, -3.4))
-		addOddity({
-			floor = floor,
-			chair = api.chairs[floor],
-			kinds = CHAIR_KINDS,
-			draw = drawChair,
-			reportPrompt = prompt(spot, "이상 보고", "의자", Enum.KeyCode.R, 5),
-			what = "의자",
-			whatObj = "의자를",
-			whatIs = "의자예요",
-		})
+		ev.kind = kind
 	end
 
 	api.resetAll()

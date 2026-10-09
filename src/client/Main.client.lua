@@ -954,43 +954,38 @@ local function pick(list)
 end
 
 -- 사진: 이상한 점이 있는 사진은 강한 효과, 평범한 사진도 가끔 약한 효과가 있어요.
+-- 예약 사진·CCTV 효과는 진짜 도플갱어일 때만 나와요. (멀쩡한 손님에게는 아무 효과도 없어요)
+-- 피가 흐르거나 글씨가 나타나는 것처럼 헷갈리는 효과는 쓰지 않아요.
 local function photoEffects(data, token)
 	local strong = data.photoAnomaly and data.photoAnomaly ~= "moving"
-	local chance = strong and 0.75 or 0.25
-	if math.random() > chance then
+	if not strong or math.random() > 0.6 then
 		return
 	end
 	task.wait(2 + math.random() * 3)
 	if not alive(token) then
 		return
 	end
-	local choices = strong and { "lunge", "flicker", "turn", "drip" } or { "drip", "crack", "write", "flicker" }
-	PHOTO_FX[pick(choices)](token, data)
+	PHOTO_FX[pick({ "lunge", "turn" })](token, data)
 end
 
--- CCTV: 처음 열었을 때 한 번. 이상한 점이 있으면 강한 효과, 없어도 가끔 약한 효과가 있어요.
+-- CCTV: 처음 열었을 때 한 번, 도플갱어일 때만
 local function cctvEffects(data, token)
 	if cctvFxUsed then
 		return
 	end
 	cctvFxUsed = true
-	local strong = data.cctvAnomaly ~= nil
-	if math.random() > (strong and 0.8 or 0.3) then
+	if data.cctvAnomaly == nil or math.random() > 0.7 then
 		return
 	end
 	task.wait(1 + math.random() * 1.5)
 	if not alive(token, true) then
 		return
 	end
-	if strong then
-		local choice = pick({ "lunge", "stare", "vanish", "duplicate", "noSignal", "zoom" })
-		if choice == "lunge" then
-			jumpScare(data, data.cctvAnomaly)
-		else
-			CCTV_FX[choice](token, data, true)
-		end
+	local choice = pick({ "lunge", "stare", "zoom" })
+	if choice == "lunge" then
+		jumpScare(data, data.cctvAnomaly)
 	else
-		CCTV_FX[pick({ "shadow", "noSignal", "message", "zoom" })](token, data, false)
+		CCTV_FX[choice](token, data, true)
 	end
 end
 
@@ -1406,7 +1401,7 @@ local UserInputService = game:GetService("UserInputService")
 local bag = make("Frame", {
 	AnchorPoint = Vector2.new(1, 1),
 	Position = UDim2.new(1, -16, 1, -16),
-	Size = UDim2.new(0, 330, 0, 64),
+	Size = UDim2.new(0, 490, 0, 64),
 	BackgroundColor3 = ESPRESSO,
 	BackgroundTransparency = 0.15,
 	Visible = false,
@@ -1424,6 +1419,11 @@ local drinkSlot = button(bag, "🥤 0", rgb(60, 48, 34), {
 	Size = UDim2.new(0, 150, 0, 50),
 	ZIndex = 7,
 }, 20)
+-- 무전기: 순찰 중에 프런트 전화가 오면 어디서든 받아요. (2번 키)
+local radioSlot = button(bag, "📻 무전기 [2]", rgb(45, 52, 48), {
+	Size = UDim2.new(0, 150, 0, 50),
+	ZIndex = 7,
+}, 16)
 local traySlot = label(bag, {
 	Text = "",
 	Font = Enum.Font.GothamBold,
@@ -1436,7 +1436,12 @@ local traySlot = label(bag, {
 round(traySlot, 10)
 local drinkCount, drinkMax = 0, 3
 local trayText = nil
+local radioRinging = false
+local inPatrol = false
 local function refreshBag()
+	radioSlot.Visible = inPatrol
+	radioSlot.Text = radioRinging and "📻 무전 왔어요! [2]" or "📻 무전기 [2]"
+	radioSlot.BackgroundColor3 = radioRinging and rgb(150, 60, 30) or rgb(45, 52, 48)
 	drinkSlot.Text = ("🥤 음료 %d/%d  [1]"):format(drinkCount, drinkMax)
 	drinkSlot.TextTransparency = drinkCount > 0 and 0 or 0.5
 	traySlot.Text = trayText or "🛎 빈손"
@@ -1449,12 +1454,31 @@ local function drink()
 	end
 end
 drinkSlot.Activated:Connect(drink)
+local function answerRadio()
+	if radioRinging then
+		Remotes.AnswerRadio:FireServer()
+	end
+end
+radioSlot.Activated:Connect(answerRadio)
+-- 무전이 오면 무전기 칸이 깜빡여요.
+task.spawn(function()
+	local blink = false
+	while true do
+		task.wait(0.35)
+		if radioRinging then
+			blink = not blink
+			radioSlot.BackgroundColor3 = blink and rgb(200, 90, 40) or rgb(110, 40, 20)
+		end
+	end
+end)
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.One and bag.Visible then
 		drink()
+	elseif input.KeyCode == Enum.KeyCode.Two and bag.Visible then
+		answerRadio()
 	end
 end)
 Remotes.Inventory.OnClientEvent:Connect(function(info)
@@ -1494,9 +1518,13 @@ local patrolBody = label(patrolFrame, {
 
 local function showPatrol(info)
 	trayText = nil
+	inPatrol = info.active == true
+	radioRinging = false
 	for _, call in ipairs(info.calls or {}) do
 		if call.state == "carrying" and call.who == player.DisplayName then
 			trayText = ("🛎 %s → %d호"):format(call.item or "", call.room or 0)
+		elseif call.state == "ringing" then
+			radioRinging = info.active == true
 		end
 	end
 	refreshBag()
@@ -1526,7 +1554,7 @@ local function showPatrol(info)
 	table.insert(lines, "<b>룸서비스</b>")
 	for _, call in ipairs(info.calls or {}) do
 		if call.state == "ringing" then
-			table.insert(lines, '<font color="#F0A85A">📞 프런트 전화가 울려요! (전화기 앞에서 E)</font>')
+			table.insert(lines, '<font color="#F0A85A">📻 무전이 왔어요! (2번 키 / 가방의 무전기)</font>')
 		elseif call.state == "carrying" then
 			table.insert(lines, ("🛎 %d호  %s  —  %s 님 배달 중 (F 노크)"):format(call.room, call.item, call.who or "?"))
 		else
@@ -1649,7 +1677,7 @@ local function showAsk(info)
 	askSaw = nil
 	if info.askAnomaly then
 		askTitle.Text = ("🛗 %d층을 떠나기 전에... 이상한 게 있었나요?"):format(info.floor)
-		askSub.Text = "초상화, 꽃병, 문, 조명, 표시판, 의자... 처음과 달라진 게 있었나요?"
+		askSub.Text = "피가 흐르는 바닥, 눈알 꽃, 뒤집힌 복도, 빨간 조명, 열린 문들, 도플갱어 방의 흔적..."
 		askYes.Visible = true
 		askNo.Visible = true
 		for _, b in ipairs(floorButtons) do
@@ -1704,11 +1732,12 @@ local GUIDES = {
 		body = table.concat({
 			"1. 프런트 오른쪽 STAFF ONLY 문으로 나가요.",
 			"2. 엘리베이터 옆 버튼 판에서 E → 2층, 3층, 4층을 골라 올라가요.",
-			"3. 복도를 걸으며 초상화, 꽃병, 객실 문, 조명, 층 표시판, 의자를 잘 봐 두세요.",
-			"    (피, 뒤집힌 그림, 열린 문, 꺼진 불... 이상한 게 생겨요)",
+			"3. 복도를 걸으며 둘러봐요. 아무도 없는 사이에 층 전체가 확 바뀌어요.",
+			"    (바닥에 피가 흐름, 꽃 대신 눈알, 천장과 바닥이 뒤집힘, 빨간 조명, 활짝 열린 문들)",
+			"    도플갱어가 묵는 방 문에도 섬뜩한 흔적이 있어요. (첫날 밤은 안전해요)",
 			"4. 그 층을 떠나려고 엘리베이터를 타면 \"이상한 게 있었나요?\" 하고 물어봐요.",
 			"    맞히면 수당 + 도플갱어 방 봉쇄! 놓치면 정신력이 떨어져요.",
-			"5. 프런트 전화가 울리면 받아서 룸서비스를 배달해요.",
+			"5. 📻 무전이 오면(2번 키) 받아서 룸서비스를 배달해요. 쟁반은 바로 손에 들려요.",
 			"6. 2~4층을 다 둘러보고 배달도 끝나면, 프런트 종 앞에서 Q로 퇴근!",
 			"",
 			"🥤 정신력이 떨어지면 가방(화면 오른쪽 아래)의 음료를 마셔요. (1번 키)",
@@ -1729,7 +1758,7 @@ local function showGuide(fx)
 		guideBody.Text = table.concat({
 			("주문: %s"):format(fx.line or ""),
 			"",
-			("1. 쟁반을 들고 엘리베이터로 %d층에 가요."):format(math.floor((fx.room or 200) / 100)),
+			("1. 쟁반을 들고 엘리베이터로 %d층에 가요. (주문은 오른쪽 목록과 가방에도 보여요)"):format(math.floor((fx.room or 200) / 100)),
 			("2. %d호 문 앞에서 F를 눌러 노크해요."):format(fx.room or 0),
 			"3. 손님이 체인을 건 채 문을 열면 얼굴과 말을 잘 봐요.",
 			"    · 얼굴이 이상하거나(검은 눈, 이빨, 찢어진 입) 말이 이상하면 도플갱어!",

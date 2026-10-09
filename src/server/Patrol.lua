@@ -28,7 +28,7 @@ local ORDER_LINES = {
 	"여보세요? %d호인데요... %s 부탁해요.",
 	"%d호예요. 늦은 시간에 죄송하지만 %s 좀...",
 }
-local SIGN_KINDS = { "ajar", "blood", "scratch", "hands", "sign" }
+local SIGN_KINDS = { "ajar", "blood", "scratch", "hands", "sign", "redeyes", "grin" }
 
 -- 문을 연 손님의 말. 진짜 손님은 평범하게, 도플갱어는 어딘가 이상하게 말해요.
 local GENUINE_LINES = {
@@ -39,6 +39,12 @@ local GENUINE_LINES = {
 	"앗, 잠옷 바람이라... %s 고마워요!",
 }
 local DOPPEL_LINES = {
+	function()
+		return "데자뷔! 데자뷔! 우리 전에 만난 적 있죠? 히히히."
+	end,
+	function(call)
+		return ("데자뷔... %s 아까도 가져왔잖아요. 아까도. 아까도."):format(call.item)
+	end,
 	function(call)
 		return ("...%s? 난 고기를 시켰는데. 날고기."):format(call.item)
 	end,
@@ -212,6 +218,34 @@ local function decorateDoppel(state, room, guest)
 				Instance.new("SpecialMesh", finger).MeshType = Enum.MeshType.Sphere
 			end
 		end
+	elseif kind == "redeyes" or kind == "grin" then
+		-- 살짝 열린 문틈 어둠 속에서 빨간 눈이 빛나거나, 피 묻은 입이 히죽 웃어요.
+		floors.openDoor(room, 22)
+		local gap = room.closedPivot * CFrame.new(-room.swing * 1.1, 1.6, 1.4) -- 문틈 바로 안쪽, 얼굴 높이
+		if kind == "redeyes" then
+			for _, dx in ipairs({ -0.28, 0.28 }) do
+				local eye = newPart(room.extras, "RedEye", V(0.22, 0.14, 0.05), gap * CFrame.new(dx, 0, 0), rgb(255, 20, 20), Enum.Material.Neon)
+				Instance.new("SpecialMesh", eye).MeshType = Enum.MeshType.Sphere
+			end
+			local glow = newPart(room.extras, "EyeGlow", V(0.2, 0.2, 0.2), gap * CFrame.new(0, 0, 0.3), rgb(255, 0, 0), Enum.Material.Neon, { Transparency = 1 })
+			local light = Instance.new("PointLight")
+			light.Color = rgb(255, 30, 20)
+			light.Range = 5
+			light.Brightness = 1.5
+			light.Parent = glow
+		else
+			local mouth = newPart(room.extras, "Grin", V(0.9, 0.35, 0.05), gap * CFrame.new(0, -0.5, 0), rgb(40, 0, 0))
+			Instance.new("SpecialMesh", mouth).MeshType = Enum.MeshType.Sphere
+			for i = -3, 3 do
+				local tooth = newPart(room.extras, "GrinTooth", V(0.03, 0.12, 0.08), gap * CFrame.new(i * 0.11, -0.4, -0.03) * CFrame.Angles(0, math.rad(90), math.pi), rgb(235, 230, 200))
+				tooth.Shape = Enum.PartType.Block
+			end
+			for _, dx in ipairs({ -0.25, 0.1, 0.3 }) do
+				newPart(room.extras, "GrinBlood", V(0.06, 0.6, 0.04), gap * CFrame.new(dx, -0.95, -0.02), rgb(130, 0, 0))
+			end
+		end
+		room.strip.Color = rgb(10, 8, 8)
+		room.strip.Material = Enum.Material.SmoothPlastic
 	else -- sign
 		-- 삐뚤빼뚤한 빨간 글씨 문고리 걸이
 		doorHanger(room, "들어와", rgb(30, 20, 20), rgb(200, 20, 20))
@@ -296,10 +330,8 @@ end
 ---------------------------------------------------------------- 층마다 이상한 것 세기
 local function anomaliesOn(state, floor)
 	local count = 0
-	for _, oddity in ipairs(ctx.floors.oddities) do
-		if oddity.floor == floor and oddity.kind ~= "normal" then
-			count += 1
-		end
+	if ctx.floors.events[floor].kind ~= "normal" then
+		count += 1
 	end
 	for _, entry in ipairs(state.doppelRooms) do
 		if entry.room.floor == floor and not entry.sealed then
@@ -311,11 +343,7 @@ end
 
 -- 경비팀이 그 층을 정리해요: 이상해진 물건은 원래대로, 도플갱어 방은 봉쇄.
 local function cleanFloor(state, floor)
-	for _, oddity in ipairs(ctx.floors.oddities) do
-		if oddity.floor == floor and oddity.kind ~= "normal" then
-			ctx.floors.setOddity(oddity, "normal")
-		end
-	end
+	ctx.floors.setEvent(floor, "normal")
 	local sealed = 0
 	for _, entry in ipairs(state.doppelRooms) do
 		local room = entry.room
@@ -404,7 +432,7 @@ local function makeCall(s, state)
 	if state.ringSound then
 		state.ringSound:Play()
 	end
-	ctx.fire(s, ctx.remotes.Toast, { text = "📞 따르릉... 프런트 전화가 울려요! 전화기 앞에서 E", kind = "warn" })
+	ctx.fire(s, ctx.remotes.Toast, { text = "📻 치직... 무전이 왔어요! 2번 키나 가방의 무전기로 받아요.", kind = "warn" })
 	sendState(s, state)
 end
 
@@ -454,7 +482,8 @@ function Patrol.run(s)
 		missed = 0,
 		falseReports = 0,
 		spawned = 0,
-		spawnMax = math.min(3 + math.floor(s.day / 2), 7),
+		-- 첫날(연습)은 복도가 안전해요. 둘째 날부터 이상한 일이 생겨요.
+		spawnMax = s.day <= ctx.Config.PracticeDays and 0 or math.min(2 + math.floor(s.day / 3), 4),
 		canLeave = false,
 		leave = false,
 		deadline = os.clock() + Config.PatrolTime,
@@ -529,7 +558,7 @@ function Patrol.run(s)
 	sendState(s, state)
 
 	local nextCallAt = os.clock() + 20 -- 전화: 20초 뒤부터, 50초마다
-	local nextOddityAt = os.clock() + 20 -- 몰래 바뀌기: 20초 뒤부터, 25~40초마다
+	local nextOddityAt = os.clock() + 15 -- 몰래 바뀌기: 15초 뒤부터, 30~45초마다
 	local lastSend = 0
 	local finished = false
 	while s.active and not finished do
@@ -561,7 +590,7 @@ function Patrol.run(s)
 			end
 		end
 
-		-- 아무도 없는 층의 물건이 몰래 이상하게 바뀌어요.
+		-- 아무도 없는 층 전체가 몰래 확 바뀌어요. (피의 강, 눈알 꽃, 뒤집힌 복도, 빨간 조명, 활짝 열린 문)
 		if state.spawned < state.spawnMax and now >= nextOddityAt and state.deadline - now > 30 then
 			local occupiedFloors = {}
 			for _, player in ipairs(s.players) do
@@ -571,17 +600,15 @@ function Patrol.run(s)
 				end
 			end
 			local candidates = {}
-			for _, oddity in ipairs(floors.oddities) do
-				local guestRoom = oddity.room and state.occupied[oddity.room.number]
-				if oddity.kind == "normal" and not occupiedFloors[oddity.floor] and not guestRoom then
-					table.insert(candidates, oddity)
+			for _, floor in ipairs(floors.List) do
+				if floors.events[floor].kind == "normal" and not occupiedFloors[floor] then
+					table.insert(candidates, floor)
 				end
 			end
 			if #candidates > 0 then
-				local chosen = pick(candidates)
-				floors.setOddity(chosen, pick(chosen.kinds))
+				floors.setEvent(pick(candidates), pick(floors.EventKinds))
 				state.spawned += 1
-				nextOddityAt = now + math.random(25, 40)
+				nextOddityAt = now + math.random(30, 45)
 			else
 				nextOddityAt = now + 5
 			end
@@ -596,6 +623,7 @@ function Patrol.run(s)
 						lurker.turned = true
 						lurker.model:PivotTo(lurker.model:GetPivot() * CFrame.Angles(0, math.pi, 0))
 						ctx.fireTo(player, ctx.remotes.NightFx, { kind = "sting" })
+						ctx.fireTo(player, ctx.remotes.Toast, { text = "🗣 \"데자뷔!!\"", kind = "warn", shake = true })
 						ctx.changeSanity(s, player, -4)
 						break
 					end
@@ -899,6 +927,8 @@ function Patrol.init(context)
 	ctx.leavePrompt.Triggered:Connect(onLeave)
 	ctx.phonePrompt.Triggered:Connect(onPhone)
 	ctx.remotes.PeepholeChoice.OnServerEvent:Connect(onPeepholeChoice)
+	-- 무전기: 어디서든 프런트 전화를 받을 수 있어요.
+	ctx.remotes.AnswerRadio.OnServerEvent:Connect(onPhone)
 
 	-- 엘리베이터: "엘리베이터 타기"를 누르면 화면에 층 고르기 창이 떠요.
 	-- 2~4층에서 떠날 때는 같은 창에서 "이 층에 이상한 게 있었나요?"도 함께 물어봐요.
