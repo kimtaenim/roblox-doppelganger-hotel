@@ -122,9 +122,10 @@ function Npc.spawnBelongings(data, position, parent)
 		mesh.Parent = p
 	end
 	local pools = {
-		{ Vector2.new(1.8, 1.4), Vector3.new(0.5, 0, 0.9) },
-		{ Vector2.new(0.8, 0.6), Vector3.new(1.4, 0, 1.3) },
-		{ Vector2.new(0.5, 0.4), Vector3.new(-0.3, 0, 1.5) },
+		-- 가방 앞쪽으로 절반 넘게 흘러나온 웅덩이 (어느 쪽에서 봐도 보이게 뒤쪽에도 조금)
+		{ Vector2.new(2.4, 1.8), Vector3.new(0.4, 0, 1.4) },
+		{ Vector2.new(1, 0.8), Vector3.new(1.6, 0, 1.9) },
+		{ Vector2.new(1.1, 0.85), Vector3.new(-0.4, 0, -1.2) },
 	}
 	for _, pool in ipairs(pools) do
 		local size, offset = pool[1], pool[2]
@@ -135,7 +136,7 @@ function Npc.spawnBelongings(data, position, parent)
 	-- 주변에 튄 핏방울
 	for _ = 1, 3 do
 		local d = math.random() * 0.15 + 0.1
-		blot("BloodDrop", Vector2.new(d, d * 1.2), Vector3.new(math.random() * 2.5 - 0.5, 0, math.random() * 1.5 + 1), rgb(80, 0, 3), 0.005, 0.1)
+		blot("BloodDrop", Vector2.new(d, d * 1.2), Vector3.new(math.random() * 3 - 1, 0, math.random() * 1.2 + 2.3), rgb(80, 0, 3), 0.005, 0.1)
 	end
 
 	-- 바닥에 눕혀진 낡은 가죽 여행 가방: 모서리 놋쇠 장식, 가죽 끈 두 줄, 둥근 손잡이, 손님 옷 색 꼬리표
