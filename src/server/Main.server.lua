@@ -606,6 +606,23 @@ local function runDay(s)
 	s.victims = {}
 	s.accepted = {}
 	s.usedRooms = {}
+	-- 며칠째 묵고 있는 다른 투숙객들: 몇 명은 체크아웃하고, 새 손님이 들어와 방을 채워요.
+	-- (오늘 내가 받는 손님은 남은 빈방에 들어가요)
+	s.residents = s.residents or {}
+	local staying = {}
+	for _, resident in ipairs(s.residents) do
+		if math.random() < 0.7 then
+			table.insert(staying, resident)
+			s.usedRooms[resident.room] = true
+		end
+	end
+	local target = math.random(12, 16)
+	while #staying < target do
+		local resident = makeGuestData(false, s.usedRooms)
+		resident.resident = true
+		table.insert(staying, resident)
+	end
+	s.residents = staying
 	s.guestsTotal = Config.GuestsPerDay
 	s.guestIndex = 0
 

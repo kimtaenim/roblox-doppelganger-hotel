@@ -259,8 +259,13 @@ local function sendState(s, state)
 		table.insert(floors, { floor = floor, inspected = state.inspected[floor] == true })
 	end
 	local guests = {}
+	local residents = 0
 	for _, guest in ipairs(state.guests) do
-		table.insert(guests, { room = guest.room, label = ("%s (%s)"):format(guest.name, guest.animalName) })
+		if guest.resident then
+			residents += 1
+		else
+			table.insert(guests, { room = guest.room, label = ("%s (%s)"):format(guest.name, guest.animalName) })
+		end
 	end
 	table.sort(guests, function(a, b)
 		return a.room < b.room
@@ -280,6 +285,7 @@ local function sendState(s, state)
 		timeLeft = math.max(0, math.floor(state.deadline - os.clock())),
 		floors = floors,
 		guests = guests,
+		residents = residents,
 		calls = calls,
 		callsLeft = state.callsTotal - #state.calls,
 		found = state.found,
@@ -461,7 +467,12 @@ function Patrol.run(s)
 	current = state
 
 	-- 오늘 받은 손님들의 방: 문 밑 불빛, 도플갱어 방의 흔적
+	-- 묵고 있는 모든 손님: 며칠째 묵는 투숙객 + 오늘 체크인한 손님
+	local occupants = table.clone(s.residents or {})
 	for _, guest in ipairs(s.accepted) do
+		table.insert(occupants, guest)
+	end
+	for _, guest in ipairs(occupants) do
 		local room = floors.rooms[guest.room]
 		if room and not state.occupied[guest.room] then
 			state.occupied[guest.room] = true

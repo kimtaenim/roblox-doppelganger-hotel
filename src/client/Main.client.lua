@@ -1445,13 +1445,14 @@ local function showPatrol(info)
 	table.insert(lines, table.concat(floorMarks, "   "))
 	table.insert(lines, ('<font color="#A8A39A">찾아낸 이상 %d개</font>'):format(info.found or 0))
 	table.insert(lines, "")
-	table.insert(lines, "<b>오늘의 숙박부</b>")
+	table.insert(lines, "<b>오늘 체크인한 손님</b>")
 	if #(info.guests or {}) == 0 then
-		table.insert(lines, '<font color="#A8A39A">묵는 손님이 없어요.</font>')
+		table.insert(lines, '<font color="#A8A39A">오늘 받은 손님이 없어요.</font>')
 	end
 	for _, guest in ipairs(info.guests or {}) do
 		table.insert(lines, ("%d호  %s"):format(guest.room, guest.label))
 	end
+	table.insert(lines, ('<font color="#A8A39A">그 밖에 며칠째 묵고 있는 손님 %d명 (문 밑 불빛이 켜진 방)</font>'):format(info.residents or 0))
 	table.insert(lines, "")
 	table.insert(lines, "<b>룸서비스</b>")
 	for _, call in ipairs(info.calls or {}) do
