@@ -176,8 +176,9 @@ local function buildRoom(parent, floor, index, side, x)
 		strip = strip,
 		spot = spot,
 		extras = extras,
-		-- 문을 열면 방 안쪽, 문에서 2.5칸 떨어진 곳 (방 안을 바라봐요)
-		insideCF = CFrame.lookAt(V(x, y, wallZ + side * 2.6), V(x, y, wallZ + side * 8)),
+		-- 방 안쪽 깊숙한 곳, 문이 열리는 쪽 반대편(문틈이 보이는 쪽) (방 안을 바라봐요)
+		-- 문이 열려도, 뒤돌아서도 문과 겹치지 않을 만큼 떨어져 있어요.
+		insideCF = CFrame.lookAt(V(x + 0.6, y, wallZ + side * 4.8), V(x + 0.6, y, wallZ + side * 10)),
 		okPrompt = prompt(spot, "이상 없음", number .. "호", Enum.KeyCode.E),
 		reportPrompt = prompt(spot, "이상 보고", number .. "호", Enum.KeyCode.R),
 		knockPrompt = prompt(spot, "노크하기", number .. "호 룸서비스", Enum.KeyCode.F),
@@ -200,7 +201,8 @@ local function drawPortrait(p, kind)
 	P(model, "PortraitFrame", V(3, 3.7, 0.25), cf * CFrame.new(0, 0, 0.05), GOLD, Mat.Metal)
 	P(model, "PortraitBevel", V(2.7, 3.4, 0.3), cf, rgb(120, 88, 38), Mat.Metal)
 	for _, corner in ipairs({ V(-1.4, 1.75, 0), V(1.4, 1.75, 0), V(-1.4, -1.75, 0), V(1.4, -1.75, 0) }) do
-		Props.ball(model, "FrameKnot", 0.35, (cf * CFrame.new(corner + V(0, 0, -0.12))).Position, GOLD, Mat.Metal)
+		-- 납작한 모서리 장식 (액자 밖으로 튀어나오지 않아요)
+		P(model, "FrameKnot", V(0.4, 0.4, 0.06), cf * CFrame.new(corner + V(0, 0, -0.15)) * CFrame.Angles(0, 0, math.rad(45)), GOLD, Mat.Metal)
 	end
 	local canvas = P(model, "Canvas", V(2.4, 3.1, 0.3), cf * CFrame.new(0, 0, -0.02), p.bg, Mat.Fabric)
 	local plaque = P(model, "Plaque", V(1.2, 0.3, 0.05), cf * CFrame.new(0, -2.15, -0.05), BRASS, Mat.Metal)
@@ -254,8 +256,9 @@ local function drawPortrait(p, kind)
 		for i = 1, 6 do
 			local x = -1.1 + i * 0.32 + portraitRandom:NextNumber(-0.08, 0.08)
 			local length = portraitRandom:NextNumber(1.2, 4.2)
-			P(model, "Blood", V(0.09, length, 0.04), cf * CFrame.new(x, 1.6 - length / 2, -0.3), rgb(110, 0, 0))
-			Props.ball(model, "BloodDrop", 0.14, (cf * CFrame.new(x, 1.6 - length - 0.05, -0.3)).Position, rgb(110, 0, 0))
+			P(model, "Blood", V(0.09, length, 0.03), cf * CFrame.new(x, 1.6 - length / 2, -0.3), rgb(110, 0, 0))
+			local drop = P(model, "BloodDrop", V(0.16, 0.2, 0.04), cf * CFrame.new(x, 1.6 - length - 0.05, -0.3), rgb(110, 0, 0))
+			Instance.new("SpecialMesh", drop).MeshType = Enum.MeshType.Sphere
 		end
 	end
 
