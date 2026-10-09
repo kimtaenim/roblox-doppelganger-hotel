@@ -42,6 +42,9 @@ local Config = {
 	RoomServiceTip = 30, -- 진짜 손님에게 배달하면 받는 팁
 	RoomServiceScareLoss = 12, -- 가짜 손님·빈방에 건네줬을 때 줄어드는 정신력
 	CallRingTime = 40, -- 전화가 울리는 시간 (안 받으면 끊겨요)
+	PortraitBonus = 20, -- 이상해진 초상화를 찾으면 받는 관리 수당
+	PortraitWrongPenalty = 10, -- 멀쩡한 초상화를 보고했을 때 벌금
+	PortraitMissLoss = 6, -- 못 찾은 초상화 하나마다 순찰이 끝날 때 줄어드는 정신력
 }
 
 return Config

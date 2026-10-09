@@ -286,7 +286,20 @@ ringSound.PlaybackSpeed = 1.3
 ringSound.RollOffMaxDistance = 120
 ringSound.Parent = phone or markers.DeskSpawn
 
+-- 프런트 종: 순찰 일을 다 마치면 여기서 퇴근해요.
+local bell = hotel:FindFirstChild("Bell", true)
+local leavePrompt = Instance.new("ProximityPrompt")
+leavePrompt.ActionText = "퇴근하기"
+leavePrompt.ObjectText = "프런트 종"
+leavePrompt.KeyboardKeyCode = Enum.KeyCode.Q
+leavePrompt.HoldDuration = 0.5
+leavePrompt.MaxActivationDistance = 8
+leavePrompt.RequiresLineOfSight = false
+leavePrompt.Enabled = false
+leavePrompt.Parent = bell or markers.DeskSpawn
+
 Patrol.init({
+	leavePrompt = leavePrompt,
 	floors = floors,
 	Animals = Animals,
 	Config = Config,
@@ -672,7 +685,7 @@ local function runPatrol(s)
 		end
 	end
 	s.victims = remaining
-	s.earned += result.tips - result.penalty
+	s.earned += result.tips + result.bonus - result.penalty
 	for i, player in ipairs(s.players) do
 		teleport(player, deskCFrame(i))
 	end

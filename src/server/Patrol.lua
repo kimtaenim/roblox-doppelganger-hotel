@@ -10,6 +10,12 @@
 --   손님이 체인을 건 채 문을 빼꼼 열면, 숙박부 사진과 비교해서 건네줄지 문 앞에 두고 갈지 골라요.
 --   진짜 손님이면 팁, 가짜(도플갱어)거나 아무도 묵지 않는 빈방이면 깜짝 놀라요.
 --
+-- [초상화] 복도마다 오래된 초상화가 걸려 있어요. 순찰하는 동안 아무도 없는 층의 초상화가 몰래 바뀌어요.
+--   뒤집히거나, 기울어지거나, 얼굴이 이상해지거나, 뒤돌아서거나, 사라지거나, 피를 흘려요.
+--   알아차리고 "이상 보고"(R)하면 관리 수당, 멀쩡한 그림을 보고하면 벌금,
+--   끝까지 못 찾으면 그림 속 무언가가 빠져나와 정신력이 떨어져요.
+--
+-- 할 일을 다 하면 프런트의 종 앞에서 "퇴근하기". 시간이 다 돼도 끝나요.
 -- 도플갱어는 겁만 주고 쫓아오지는 않아요.
 local Patrol = {}
 
@@ -216,6 +222,8 @@ local function sendState(s, state)
 		checks = checks,
 		calls = calls,
 		callsLeft = state.callsTotal - #state.calls,
+		portraitsFound = state.portraitsFound,
+		canLeave = state.canLeave,
 	})
 end
 
@@ -373,14 +381,22 @@ function Patrol.run(s)
 		occupied = {},
 		isolated = {},
 		tips = 0,
+		bonus = 0,
 		penalty = 0,
 		served = 0,
 		missed = 0,
 		falseReports = 0,
 		saved = 0,
+		portraitsFound = 0,
+		portraitsWrong = 0,
+		portraitsSpawned = 0,
+		portraitsMax = math.min(2 + math.floor(s.day / 2), 5),
+		canLeave = false,
+		leave = false,
 		deadline = os.clock() + Config.PatrolTime,
 		callsTotal = s.day <= 1 and 1 or (s.day <= 3 and 2 or 3),
 		phonePrompt = ctx.phonePrompt,
+		leavePrompt = ctx.leavePrompt,
 		ringSound = ctx.ringSound,
 		s = s,
 	}
@@ -401,6 +417,11 @@ function Patrol.run(s)
 				decorateNormal(room)
 			end
 		end
+	end
+
+	-- 초상화: 모두 원래대로 걸고, "이상 보고" 버튼을 켜요.
+	for _, portrait in ipairs(floors.portraits) do
+		portrait.reportPrompt.Enabled = true
 	end
 
 	-- 복도 끝에 서 있는 그림자 (다가가면 사라져요)
@@ -445,6 +466,8 @@ function Patrol.run(s)
 
 	-- 전화 시간표: 순찰 시작 20초 뒤부터, 50초마다
 	local nextCallAt = os.clock() + 20
+	-- 초상화 바뀌는 시간표: 25초 뒤부터, 30~45초마다 (끝나기 30초 전부터는 안 바뀌어요)
+	local nextPortraitAt = os.clock() + 25
 	local lastSend = 0
 	local finished = false
 	while s.active and not finished do
@@ -474,6 +497,30 @@ function Patrol.run(s)
 			if call.state == "carrying" and not table.find(s.players, call.player) then
 				state.missed += 1
 				finishCall(s, state, call, "missed")
+			end
+		end
+
+		-- 아무도 없는 층의 초상화가 몰래 바뀌어요.
+		if state.portraitsSpawned < state.portraitsMax and now >= nextPortraitAt and state.deadline - now > 30 then
+			local occupiedFloors = {}
+			for _, player in ipairs(s.players) do
+				local root = rootOf(player)
+				if root then
+					occupiedFloors[math.floor(root.Position.Y / 14) + 1] = true
+				end
+			end
+			local candidates = {}
+			for _, portrait in ipairs(floors.portraits) do
+				if portrait.kind == "normal" and not occupiedFloors[portrait.floor] then
+					table.insert(candidates, portrait)
+				end
+			end
+			if #candidates > 0 then
+				floors.setPortrait(pick(candidates), pick(floors.PortraitKinds))
+				state.portraitsSpawned += 1
+				nextPortraitAt = now + math.random(30, 45)
+			else
+				nextPortraitAt = now + 5
 			end
 		end
 
@@ -517,9 +564,18 @@ function Patrol.run(s)
 		for _, call in ipairs(state.calls) do
 			callsDone = callsDone and (call.state == "done" or call.state == "missed")
 		end
-		if allChecked and callsDone then
-			ctx.fire(s, ctx.remotes.Toast, { text = "✅ 순찰 완료! 수고했어요. 프런트로 돌아가요...", kind = "accept" })
-			task.wait(3)
+		if allChecked and callsDone and not state.canLeave then
+			state.canLeave = true
+			state.leavePrompt.Enabled = true
+			ctx.fire(s, ctx.remotes.Toast, {
+				text = "✅ 방 확인과 배달 끝! 초상화를 한 번 더 둘러보고, 프런트 종 앞에서 퇴근하세요.",
+				kind = "accept",
+			})
+			sendState(s, state)
+		end
+		if state.leave then
+			ctx.fire(s, ctx.remotes.Toast, { text = "🛎 퇴근! 수고했어요. 프런트로 돌아가요...", kind = "accept" })
+			task.wait(2)
 			finished = true
 		elseif now >= state.deadline then
 			ctx.fire(s, ctx.remotes.Toast, { text = "⏰ 순찰 시간이 끝났어요. 확인하지 못한 방은 그대로 밤을 맞아요...", kind = "warn" })
@@ -537,8 +593,28 @@ function Patrol.run(s)
 		end
 	end
 
+	-- 끝까지 못 찾은 초상화: 그림 속 무언가가 빠져나와요...
+	local portraitsMissed = 0
+	for _, portrait in ipairs(floors.portraits) do
+		if portrait.kind ~= "normal" then
+			portraitsMissed += 1
+		end
+	end
+	if s.active and portraitsMissed > 0 then
+		ctx.fire(s, ctx.remotes.Toast, {
+			text = ("🖼 이상해진 초상화 %d개를 놓쳤어요... 그림 속 무언가가 빠져나왔어요."):format(portraitsMissed),
+			kind = "warn",
+		})
+		for _, player in ipairs(table.clone(s.players)) do
+			ctx.fireTo(player, ctx.remotes.NightFx, { kind = "whisper" })
+			ctx.changeSanity(s, player, -Config.PortraitMissLoss * portraitsMissed)
+		end
+		task.wait(2)
+	end
+
 	-- 정리
 	current = nil
+	state.leavePrompt.Enabled = false
 	if state.ringSound then
 		state.ringSound:Stop()
 	end
@@ -567,10 +643,14 @@ function Patrol.run(s)
 		isolated = state.isolated,
 		saved = state.saved,
 		tips = state.tips,
+		bonus = state.bonus,
 		penalty = state.penalty,
 		served = state.served,
 		missed = state.missed,
 		falseReports = state.falseReports,
+		portraitsFound = state.portraitsFound,
+		portraitsMissed = portraitsMissed,
+		portraitsWrong = state.portraitsWrong,
 	}
 end
 
@@ -761,9 +841,52 @@ local function onPeepholeChoice(player, callId, choice)
 	finishCall(s, state, call, "done")
 end
 
+local reportCooldown = {}
+local function onPortrait(portrait, player)
+	local state = current
+	if not state or not isMember(state, player) then
+		return
+	end
+	if reportCooldown[player] and os.clock() - reportCooldown[player] < 2 then
+		return
+	end
+	reportCooldown[player] = os.clock()
+	local s = state.s
+	if portrait.kind ~= "normal" then
+		state.portraitsFound += 1
+		state.bonus += ctx.Config.PortraitBonus
+		ctx.floors.setPortrait(portrait, "normal")
+		ctx.fire(s, ctx.remotes.Toast, {
+			text = ("🖼 %s 님이 이상해진 초상화를 찾았어요! 관리팀이 바로잡았어요. (수당 +%d)"):format(player.DisplayName, ctx.Config.PortraitBonus),
+			kind = "accept",
+		})
+	else
+		state.portraitsWrong += 1
+		state.penalty += ctx.Config.PortraitWrongPenalty
+		ctx.fireTo(player, ctx.remotes.Toast, {
+			text = ("...아무 이상 없는 초상화예요. (헛보고 -%d)"):format(ctx.Config.PortraitWrongPenalty),
+			kind = "warn",
+		})
+	end
+	sendState(s, state)
+end
+
+local function onLeave(player)
+	local state = current
+	if state and isMember(state, player) and state.canLeave then
+		state.leave = true
+	end
+end
+
 -- 서버가 처음 켜질 때 한 번 불러요.
 function Patrol.init(context)
 	ctx = context
+	for _, portrait in ipairs(ctx.floors.portraits) do
+		portrait.reportPrompt.Triggered:Connect(function(player)
+			onPortrait(portrait, player)
+		end)
+	end
+	ctx.leavePrompt.Triggered:Connect(onLeave)
 	for _, room in pairs(ctx.floors.rooms) do
 		room.okPrompt.Triggered:Connect(function(player)
 			onCheck(room, player, false)
