@@ -789,24 +789,74 @@ function Floors.build(hotel)
 		local y = floorY(floor)
 		if kind == "blood" then
 			if on then
-				-- 복도를 따라 굽이굽이 흐르는 피의 강
+				-- 진짜 피처럼: 둥근 웅덩이를 겹겹이 이어 붙인 구불구불한 피의 강.
+				-- 가장자리는 굳어서 검붉고, 가운데는 번들번들 윤이 나요. 주변엔 튄 방울, 발자국, 끌린 자국.
 				local random = Random.new(floor * 31)
-				local prevX, prevZ = -27, 0
-				for x = -25, 22, 2 do
-					local z = math.sin(x * 0.35) * 1.4 + random:NextNumber(-0.3, 0.3)
-					local from, to = Vector3.new(prevX, y + 0.12, prevZ), Vector3.new(x, y + 0.12, z)
-					local width = random:NextNumber(1.6, 2.6)
-					P(ev.folder, "BloodRiver", V(width, 0.06, (to - from).Magnitude + 0.8), CFrame.lookAt((from + to) / 2, to), rgb(105, 0, 0), Mat.SmoothPlastic, { Reflectance = 0.2 })
-					prevX, prevZ = x, z
+				local DARK = rgb(55, 0, 2)
+				local MID = rgb(95, 2, 6)
+				local WET = rgb(140, 8, 12)
+				local function blot(name, pos, w, l, yaw, color, lift, gloss)
+					local part = P(ev.folder, name, V(w, 0.04, l), CFrame.new(pos + V(0, lift, 0)) * CFrame.Angles(0, yaw, 0), color, Mat.SmoothPlastic, { Reflectance = gloss or 0.05 })
+					Instance.new("SpecialMesh", part).MeshType = Enum.MeshType.Sphere
+					return part
 				end
-				for _ = 1, 10 do
-					local puddle = P(ev.folder, "BloodPool", V(0.06, random:NextNumber(1.5, 3.2), random:NextNumber(1.5, 3.2)), CFrame.new(random:NextNumber(-26, 20), y + 0.13, random:NextNumber(-HALF + 1, HALF - 1)) * CFrame.Angles(0, 0, math.rad(90)), rgb(95, 0, 0), Mat.SmoothPlastic, { Reflectance = 0.2 })
-					puddle.Shape = Enum.PartType.Cylinder
+				local floorTop = y + 0.1
+				-- 1) 강줄기
+				local x = -27
+				while x < 22 do
+					local z = math.sin(x * 0.28) * 1.6 + math.sin(x * 0.9) * 0.4
+					local width = 1.8 + math.sin(x * 0.5) * 0.6 + random:NextNumber(-0.3, 0.3)
+					local pos = V(x, floorTop, z)
+					local yaw = math.atan2(math.cos(x * 0.28) * 0.45, 1)
+					blot("BloodEdge", pos, width + 0.7, 1.8, yaw, DARK, 0.0)
+					blot("BloodRiver", pos, width, 1.6, yaw, MID, 0.01, 0.15)
+					if random:NextNumber() < 0.5 then
+						blot("BloodShine", pos + V(random:NextNumber(-0.3, 0.3), 0, random:NextNumber(-0.3, 0.3)), width * 0.45, 0.7, yaw, WET, 0.02, 0.45)
+					end
+					x += 0.7
 				end
-				-- 벽을 타고 흘러내린 피
-				for x = -24, 18, 7 do
+				-- 2) 강에서 번진 웅덩이 (객실 문 쪽으로 흘러들어요)
+				for _ = 1, 9 do
+					local center = V(random:NextNumber(-25, 19), floorTop, random:NextNumber(-HALF + 1, HALF - 1))
+					local size = random:NextNumber(1.6, 3)
+					blot("BloodEdge", center, size + 0.6, size * random:NextNumber(0.6, 1), random:NextNumber(0, 3), DARK, 0.0)
+					blot("BloodPool", center, size, size * random:NextNumber(0.6, 0.9), random:NextNumber(0, 3), MID, 0.01, 0.2)
+					blot("BloodShine", center + V(0.2, 0, -0.1), size * 0.35, size * 0.2, random:NextNumber(0, 3), WET, 0.02, 0.5)
+				end
+				-- 3) 튄 핏방울
+				for _ = 1, 70 do
+					local pos = V(random:NextNumber(-27, 21), floorTop, random:NextNumber(-HALF + 0.4, HALF - 0.4))
+					local size = random:NextNumber(0.08, 0.35)
+					blot("BloodDrop", pos, size, size * random:NextNumber(0.6, 1.4), random:NextNumber(0, 3), random:NextNumber() < 0.5 and DARK or MID, 0.005, 0.1)
+				end
+				-- 4) 핏물을 밟고 지나간 발자국 (엘리베이터 쪽으로, 점점 옅어져요)
+				for i = 0, 13 do
+					local fx = -6 + i * 1.6
+					local fz = 2.6 + ((i % 2 == 0) and -0.35 or 0.35)
+					local fade = i / 13
+					local foot = blot("BloodFootprint", V(fx, floorTop, fz), 0.75, 0.38, 0, DARK:Lerp(rgb(150, 120, 100), fade * 0.55), 0.015)
+					foot.Transparency = fade * 0.6
+				end
+				-- 5) 무언가를 끌고 간 자국
+				for i = 0, 10 do
+					blot("BloodDrag", V(-20 + i * 0.9, floorTop, -2.8 + math.sin(i * 0.6) * 0.3), 1.3, 0.5, 0.05, MID, 0.012, 0.1).Transparency = i / 14
+				end
+				-- 6) 벽: 피 얼룩에서 핏줄기가 흘러내려 끝에 방울이 맺혀요
+				for wx = -24, 18, 5.5 do
 					for _, side in ipairs({ -1, 1 }) do
-						P(ev.folder, "BloodDrip", V(1.2, random:NextNumber(3, 7), 0.05), CFrame.new(x + random:NextNumber(-1, 1), y + 6, side * (HALF - 0.45)), rgb(110, 0, 0))
+						local wz = side * (HALF - 0.43)
+						local top = y + random:NextNumber(5.5, 9)
+						local cx = wx + random:NextNumber(-1, 1)
+						local smear = P(ev.folder, "WallSmear", V(random:NextNumber(0.9, 1.6), random:NextNumber(0.6, 1), 0.04), CFrame.new(cx, top, wz), MID, Mat.SmoothPlastic, { Reflectance = 0.1 })
+						Instance.new("SpecialMesh", smear).MeshType = Enum.MeshType.Sphere
+						for _ = 1, random:NextInteger(3, 5) do
+							local dx = random:NextNumber(-0.6, 0.6)
+							local length = random:NextNumber(1, 4.5)
+							local width = random:NextNumber(0.05, 0.13)
+							P(ev.folder, "WallDrip", V(width, length, 0.03), CFrame.new(cx + dx, top - length / 2, wz), MID)
+							local bead = P(ev.folder, "WallDripBead", V(width * 1.9, width * 2.4, 0.05), CFrame.new(cx + dx, top - length, wz), DARK)
+							Instance.new("SpecialMesh", bead).MeshType = Enum.MeshType.Sphere
+						end
 					end
 				end
 			else
