@@ -265,8 +265,19 @@ function Animals.build(data, anomaly)
 		if def.ears == "pointy" or def.ears == "small" then
 			local s = def.ears == "small" and 0.65 or 1
 			local earCF = at(side * 0.68, 1.02, 0.05) * CFrame.Angles(0, 0, -side * 0.32)
-			ellipsoid(headGroup, "Ear", V(0.75 * s, 1.15 * s, 0.32), earCF, fur)
-			ellipsoid(headGroup, "EarInner", V(0.42 * s, 0.75 * s, 0.12), earCF * CFrame.new(0, -0.05 * s, -0.12), PINK)
+			if def.ears == "pointy" then
+				-- 고양이·여우: 끝이 뾰족한 세모 귀 (쐐기 두 개를 맞붙여 이등변 삼각형을 만들어요)
+				local function triangle(name, cf, w, h, thick, color)
+					for _, half in ipairs({ -1, 1 }) do
+						newPart(headGroup, name, "WedgePart", V(thick, h, w / 2), cf * CFrame.new(half * w / 4, 0, 0) * CFrame.Angles(0, -half * math.pi / 2, 0), color)
+					end
+				end
+				triangle("Ear", earCF, 1.0 * s, 1.2 * s, 0.28, fur)
+				triangle("EarInner", earCF * CFrame.new(0, -0.12 * s, -0.15), 0.6 * s, 0.75 * s, 0.04, PINK)
+			else
+				ellipsoid(headGroup, "Ear", V(0.75 * s, 1.15 * s, 0.32), earCF, fur)
+				ellipsoid(headGroup, "EarInner", V(0.42 * s, 0.75 * s, 0.12), earCF * CFrame.new(0, -0.05 * s, -0.12), PINK)
+			end
 			ball(headGroup, "EarFluff", 0.3 * s, earCF * CFrame.new(0, -0.32 * s, -0.15), light)
 		elseif def.ears == "floppy" then
 			ellipsoid(headGroup, "Ear", V(0.5, 1.6, 0.85), at(side * 1.2, -0.15, 0.05) * CFrame.Angles(0, 0, side * 0.25), dark)
