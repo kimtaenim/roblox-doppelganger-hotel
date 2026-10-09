@@ -115,6 +115,73 @@ local function sometimes(sounds, minSeconds, maxSeconds, onPlay)
 	end)
 end
 
+---------------------------------------------------------------- 야간 순찰 배경음악
+-- 순찰하는 동안 느릿느릿한 마림바로 "도 라 도 솔#" 을 계속 되풀이하고,
+-- 낡은 무전기처럼 지직거리는 소리를 함께 깔아요. 순찰이 끝나면 멈춰요.
+-- 마림바 소리는 "도" 한 음뿐이에요. 재생 빠르기를 바꿔서 다른 음을 만들어요. (반음 하나 = 2의 12제곱근 배)
+local MELODY = { 0, -3, 0, -4 } -- 도에서 반음 몇 개 위(+)/아래(-)인지: 도, 라, 도, 솔#
+local BEAT = 0.9 -- 음과 음 사이 시간 (초). 크게 하면 더 느릿느릿해요.
+local STATIC_MIN, STATIC_MAX = 0.06, 0.18 -- 지직 소리 크기가 오르내리는 범위
+
+local marimba = loadSound("MarimbaNote", SoundService, { Volume = 0.35 })
+local radioStatic = loadSound("RadioStatic", SoundService, { Looped = true, Volume = STATIC_MIN })
+if marimba then
+	-- 텅 빈 복도에 울리는 느낌
+	local echo = Instance.new("ReverbSoundEffect")
+	echo.DecayTime = 2.5
+	echo.WetLevel = -4
+	echo.Parent = marimba
+end
+
+local patrolling = false
+
+-- 마림바 한 음을 친다. (겹쳐 울리도록 매번 복사해서 재생하고, 끝나면 지워요)
+local function playNote(semitones)
+	local note = marimba:Clone()
+	note.PlaybackSpeed = 2 ^ (semitones / 12)
+	note.Parent = SoundService
+	note:Play()
+	note.Ended:Connect(function()
+		note:Destroy()
+	end)
+end
+
+-- 순찰 배경음악을 켜거나 끈다.
+local function setPatrolMusic(on)
+	if on == patrolling then
+		return
+	end
+	patrolling = on
+	if radioStatic then
+		if on then
+			radioStatic:Play()
+		else
+			radioStatic:Stop()
+		end
+	end
+	if not on then
+		return
+	end
+	task.spawn(function()
+		local index = 0
+		while patrolling do
+			if marimba then
+				playNote(MELODY[index % #MELODY + 1])
+			end
+			if radioStatic then
+				-- 무전기 지직 소리가 커졌다 작아졌다 해요
+				radioStatic.Volume = STATIC_MIN + math.random() * (STATIC_MAX - STATIC_MIN)
+			end
+			index += 1
+			task.wait(BEAT)
+		end
+	end)
+end
+
+Remotes.State.OnClientEvent:Connect(function(state)
+	setPatrolMusic(state.phase == "Patrol")
+end)
+
 sometimes(owl, 35, 80)
 sometimes(bat, 50, 110)
 sometimes(ding, 45, 100)
