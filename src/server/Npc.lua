@@ -122,30 +122,46 @@ function Npc.spawnBelongings(data, position, parent)
 		mesh.Parent = p
 	end
 	local pools = {
-		{ Vector2.new(3, 2.4), Vector3.new(0.4, 0, 0.5) },
-		{ Vector2.new(1.6, 1.3), Vector3.new(1.6, 0, 1.2) },
-		{ Vector2.new(1.1, 0.9), Vector3.new(-1, 0, 1.1) },
+		{ Vector2.new(1.8, 1.4), Vector3.new(0.5, 0, 0.9) },
+		{ Vector2.new(0.8, 0.6), Vector3.new(1.4, 0, 1.3) },
+		{ Vector2.new(0.5, 0.4), Vector3.new(-0.3, 0, 1.5) },
 	}
 	for _, pool in ipairs(pools) do
 		local size, offset = pool[1], pool[2]
-		blot("BloodEdge", size + Vector2.new(0.3, 0.3), offset, rgb(55, 0, 2), 0, 0.05)
+		blot("BloodEdge", size + Vector2.new(0.2, 0.2), offset, rgb(55, 0, 2), 0, 0.05)
 		blot("BloodPool", size, offset, rgb(100, 2, 6), 0.01, 0.2)
 		blot("BloodShine", size * 0.35, offset + Vector3.new(0.3, 0, -0.2), rgb(145, 10, 14), 0.02, 0.5)
 	end
 	-- 주변에 튄 핏방울
-	for _ = 1, 5 do
-		local d = math.random() * 0.2 + 0.12
-		blot("BloodDrop", Vector2.new(d, d * 1.2), Vector3.new(math.random() * 4.5 - 2, 0, math.random() * 3.5 - 1), rgb(80, 0, 3), 0.005, 0.1)
+	for _ = 1, 3 do
+		local d = math.random() * 0.15 + 0.1
+		blot("BloodDrop", Vector2.new(d, d * 1.2), Vector3.new(math.random() * 2.5 - 0.5, 0, math.random() * 1.5 + 1), rgb(80, 0, 3), 0.005, 0.1)
 	end
 
-	-- 쓰러진 여행 가방 (손님 옷 색)
-	local bag = base * CFrame.new(0.2, 0.42, 0) * CFrame.Angles(0, 0.3, 0)
-	part("Suitcase", Vector3.new(2, 0.8, 1.4), bag, cloth:Lerp(rgb(60, 45, 35), 0.35), Enum.Material.Leather)
-	part("SuitcaseStrap", Vector3.new(2.02, 0.82, 0.18), bag, rgb(90, 60, 40), Enum.Material.Leather)
-	part("SuitcaseHandle", Vector3.new(0.7, 0.12, 0.12), bag * CFrame.new(0, 0.1, -0.76), rgb(40, 30, 25))
-	for _, x in ipairs({ -0.75, 0.75 }) do
-		part("SuitcaseLatch", Vector3.new(0.2, 0.15, 0.05), bag * CFrame.new(x, 0.25, -0.72), rgb(196, 156, 84), Enum.Material.Metal)
+	-- 바닥에 눕혀진 낡은 가죽 여행 가방: 모서리 놋쇠 장식, 가죽 끈 두 줄, 둥근 손잡이, 손님 옷 색 꼬리표
+	local leather = rgb(105, 62, 38)
+	local brass = rgb(196, 156, 84)
+	local bag = base * CFrame.new(0.2, 0.3, 0) * CFrame.Angles(0, 0.3, 0)
+	local L, H, W = 2.3, 0.55, 1.5
+	part("Suitcase", Vector3.new(L, H, W), bag, leather, Enum.Material.Leather)
+	part("SuitcaseSeam", Vector3.new(L + 0.02, 0.06, W + 0.02), bag, rgb(70, 40, 25), Enum.Material.Leather) -- 뚜껑과 몸통 사이 이음새
+	for _, x in ipairs({ -0.55, 0.55 }) do
+		part("SuitcaseStrap", Vector3.new(0.2, H + 0.04, W + 0.04), bag * CFrame.new(x, 0, 0), rgb(60, 36, 22), Enum.Material.Leather)
+		part("StrapBuckle", Vector3.new(0.24, 0.05, 0.18), bag * CFrame.new(x, H / 2 + 0.03, -0.3), brass, Enum.Material.Metal)
 	end
+	for _, cx in ipairs({ -1, 1 }) do
+		for _, cz in ipairs({ -1, 1 }) do
+			part("CornerCap", Vector3.new(0.22, H + 0.04, 0.22), bag * CFrame.new(cx * (L / 2 - 0.08), 0, cz * (W / 2 - 0.08)), brass, Enum.Material.Metal)
+		end
+	end
+	-- 앞쪽 긴 옆면의 둥근 손잡이
+	local front = bag * CFrame.new(0, 0, -W / 2 - 0.06)
+	part("HandleBar", Vector3.new(0.6, 0.12, 0.12), front * CFrame.new(0, 0.05, -0.12), rgb(50, 30, 18), Enum.Material.Leather)
+	for _, x in ipairs({ -0.3, 0.3 }) do
+		part("HandleFoot", Vector3.new(0.1, 0.1, 0.22), front * CFrame.new(x, 0.05, -0.02), brass, Enum.Material.Metal)
+	end
+	-- 손님 옷 색의 짐표 꼬리표
+	part("LuggageTag", Vector3.new(0.4, 0.04, 0.26), bag * CFrame.new(0.95, H / 2 + 0.03, 0.35) * CFrame.Angles(0, 0.4, 0), cloth)
 
 	-- 바닥에 떨어진 모자 (옆으로 누워 있어요)
 	local hat = base * CFrame.new(-1.4, 0.46, -0.5) * CFrame.Angles(0, 0.6, 0) -- 원기둥이 옆으로 누운 채
