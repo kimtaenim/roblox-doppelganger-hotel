@@ -561,8 +561,8 @@ function Animals.build(data, anomaly)
 
 	-- 입 밖으로 축 늘어진 혀: 구불구불 흔들리며 내려오고, 가운데 홈과 끝에 맺힌 핏방울이 있어요.
 	local TONGUE = rgb(150, 40, 60)
-	local function hangingTongue(start, count, width)
-		local points = {}
+	local function hangingTongue(start, count, width, lead)
+		local points = table.clone(lead or {})
 		for i = 0, count do
 			table.insert(points, start + Vector3.new(math.sin(i * 0.8) * 0.06, -i * 0.11, -0.03 * i))
 		end
@@ -575,7 +575,7 @@ function Animals.build(data, anomaly)
 		end, 0.1, TONGUE, toCF)
 		-- 가운데 홈 (조금 앞쪽에 어두운 선)
 		local groove = {}
-		for i = 1, count - 1 do
+		for i = 1, #points - 2 do
 			table.insert(groove, points[i] + Vector3.new(0, 0, -0.045))
 		end
 		curvyLine(headGroup, "TongueGroove", groove, 0.035, 0.02, TONGUE:Lerp(BLACK, 0.35), toCF)
@@ -610,7 +610,13 @@ function Animals.build(data, anomaly)
 			end
 		end
 		-- 혀: 입 아래쪽에서 나와 구불구불 늘어져요
-		hangingTongue(mouthLocal * Vector3.new(0.06, -mh * 0.25, -0.12), 8, 0.3)
+		-- 입 안쪽에서 시작해 아랫니와 입술 위로 넘어온 다음 아래로 늘어져서, 끊기지 않고 하나로 이어져요.
+		local lipOver = mouthLocal * Vector3.new(0.06, -mh / 2 - 0.04, -0.3)
+		hangingTongue(lipOver + Vector3.new(0, -0.1, -0.02), 7, 0.3, {
+			mouthLocal * Vector3.new(0.03, 0.02, -0.08),
+			mouthLocal * Vector3.new(0.05, -mh * 0.25, -0.2),
+			lipOver,
+		})
 		-- 아랫입술에서 흘러내리는 피
 		for _, drip in ipairs({ { -0.3, 0.55 }, { 0.32, 0.8 } }) do
 			local lip = mouthLocal * Vector3.new(drip[1], -math.sqrt(1 - (drip[1] / (mw / 2)) ^ 2) * mh / 2, -0.12)
