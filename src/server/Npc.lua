@@ -133,14 +133,13 @@ function Npc.spawnBelongings(data, position, parent)
 		blot("BloodPool", size, offset, rgb(100, 2, 6), 0.01, 0.2)
 		blot("BloodShine", size * 0.35, offset + Vector3.new(0.3, 0, -0.2), rgb(145, 10, 14), 0.02, 0.5)
 	end
-	-- 주변에 튄 핏방울: 웅덩이 둘레로 사방에 흩뿌려져요. 멀리 갈수록 작고, 바깥쪽으로 길쭉하게 튀어요.
-	local centers = { Vector3.new(0.4, 0, 1.4), Vector3.new(-0.4, 0, -1.2) }
-	for i = 1, 26 do
-		local center = centers[(i % 3 == 0) and 2 or 1]
-		local angle = math.random() * math.pi * 2
-		local distance = 1.2 + math.random() * 1.6
+	-- 튄 핏방울: 큰 웅덩이에서 한쪽 방향(앞쪽)으로만 부채꼴로 튀어요. 멀어질수록 작고 길쭉해요.
+	local center = Vector3.new(0.4, 0, 1.4)
+	for i = 1, 12 do
+		local angle = math.pi / 2 + (math.random() - 0.5) * math.rad(60) -- 앞쪽(+Z) 기준 좌우 30도 안
+		local distance = 1.1 + math.random() * 1.3
 		local away = Vector3.new(math.cos(angle), 0, math.sin(angle))
-		local size = 0.32 - (distance - 1.2) * 0.13 + math.random() * 0.08
+		local size = 0.28 - (distance - 1.1) * 0.12 + math.random() * 0.06
 		local pos = center + away * distance
 		local drop = part("BloodDrop", Vector3.new(size, 0.04, size * (1.4 + math.random())), base * CFrame.new(pos + Vector3.new(0, 0.006, 0)) * CFrame.Angles(0, -angle + math.pi / 2, 0), (i % 2 == 0) and rgb(90, 0, 3) or rgb(115, 4, 8))
 		drop.Reflectance = 0.15
@@ -148,7 +147,7 @@ function Npc.spawnBelongings(data, position, parent)
 		mesh.MeshType = Enum.MeshType.Sphere
 		mesh.Parent = drop
 		-- 큰 방울 몇 개는 바깥쪽에 작은 방울 꼬리가 붙어요
-		if i % 4 == 0 then
+		if i % 3 == 0 then
 			local tail = part("BloodDrop", Vector3.new(size * 0.45, 0.04, size * 0.45), base * CFrame.new(pos + away * (size * 1.6) + Vector3.new(0, 0.006, 0)), rgb(90, 0, 3))
 			local tailMesh = Instance.new("SpecialMesh")
 			tailMesh.MeshType = Enum.MeshType.Sphere
