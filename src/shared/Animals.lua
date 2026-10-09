@@ -146,8 +146,6 @@ function Animals.build(data, anomaly)
 	end
 	if weirdBody then
 		ellipsoid(model, "Hips", V(1.8, 1.0, 1.45), CFrame.new(0, 2.2, 0), pants)
-	else
-		ellipsoid(model, "Hips", V(2.2, 0.8, 1.9), CFrame.new(0, 2.4, 0), pants)
 	end
 
 	-- 몸통: 머리 바로 밑에 붙은 넓고 둥근 덩어리 (머리와 이어져서 서양배·베개 모양이 돼요)
@@ -156,16 +154,24 @@ function Animals.build(data, anomaly)
 	local torsoSize = weirdBody and V(1.4, 2.9, 1.1) or V(2.4, 2.7, 2.4)
 	-- 셔츠, 넥타이, 단추 높이 (몸통 가운데 기준, 머리에 가려지지 않는 곳)
 	local Y = weirdBody and { collar = 1.05, knot = 0.98, tie = 0.45, shirt = 0.75, button = -0.25, pocket = 0.5, pocketX = -0.5 }
-		or { collar = 0.42, knot = 0.38, tie = -0.1, shirt = 0.1, button = -0.6, pocket = -0.1, pocketX = -0.62 }
+		or { collar = 0.42, knot = 0.38, tie = -0.1, shirt = 0.1, button = -0.82, pocket = -0.1, pocketX = -0.62 }
 	local tw, th, td = torsoSize.X / 2, torsoSize.Y / 2, torsoSize.Z / 2
 	local edge = 0.5 -- 둥근 모서리의 반지름
+	local bodyBottom = 1.85 - torsoCF.Y -- 몸통 원통 바닥 (몸통 가운데 기준, 바지까지 포함)
 	if weirdBody then
 		ellipsoid(model, "Torso", torsoSize, torsoCF, cloth)
 	else
-		-- 모서리가 둥근 원통: 가운데 원통 + 위아래 납작한 타원으로 모서리를 둥글게 이어요.
-		vcyl(model, "Torso", torsoSize.Y - edge * 2, torsoSize.X, torsoCF, cloth)
-		ellipsoid(model, "TorsoTop", V(torsoSize.X, edge * 2, torsoSize.Z), torsoCF * CFrame.new(0, th - edge, 0), cloth)
-		ellipsoid(model, "TorsoBottom", V(torsoSize.X, edge * 2, torsoSize.Z), torsoCF * CFrame.new(0, -(th - edge), 0), cloth)
+		-- 상반신과 하반신이 하나로 이어진 모서리가 둥근 원통 (위는 윗옷, 아래는 바지 색).
+		-- 원통 아래에 다리가 바로 붙어요.
+		local topY, beltY, bottomY = th - edge, bodyBottom + edge + 0.2, bodyBottom + edge
+		ellipsoid(model, "TorsoTop", V(torsoSize.X, edge * 2, torsoSize.Z), torsoCF * CFrame.new(0, topY, 0), cloth)
+		vcyl(model, "Torso", topY - beltY, torsoSize.X, torsoCF * CFrame.new(0, (topY + beltY) / 2, 0), cloth)
+		vcyl(model, "Waist", beltY - bottomY, torsoSize.X, torsoCF * CFrame.new(0, (beltY + bottomY) / 2, 0), pants)
+		ellipsoid(model, "TorsoBottom", V(torsoSize.X, edge * 2, torsoSize.Z), torsoCF * CFrame.new(0, bottomY, 0), pants)
+		-- 허리띠와 버클
+		vcyl(model, "Belt", 0.16, torsoSize.X + 0.04, torsoCF * CFrame.new(0, beltY, 0), rgb(70, 50, 40))
+		newPart(model, "Buckle", "Part", V(0.3, 0.22, 0.06), torsoCF * CFrame.new(0, beltY, -td - 0.03), rgb(200, 165, 85))
+		newPart(model, "BuckleHole", "Part", V(0.18, 0.1, 0.02), torsoCF * CFrame.new(0, beltY, -td - 0.065), rgb(70, 50, 40))
 	end
 	-- 몸통 앞면의 (x, y) 자리에 딱 붙는 위치 (곡면을 따라 기울어져요)
 	local function onTorso(x, y, lift)
@@ -177,8 +183,7 @@ function Animals.build(data, anomaly)
 			return torsoCF * CFrame.new(x, y, z) * CFrame.Angles(pitch, yaw, 0)
 		end
 		-- 원통 옆면 (둥근 모서리 부분은 타원 면을 따라요)
-		local straight = th - edge
-		local over = math.max(0, math.abs(y) - straight)
+		local over = math.max(0, y - (th - edge), (bodyBottom + edge) - y)
 		local k = math.max(0.03, 1 - (x / tw) ^ 2 - (over / edge) ^ 2)
 		local z = -td * math.sqrt(k) - (lift or 0.01)
 		local pitch = over > 0 and math.sign(y) * math.atan(td * (over / (edge * edge)) / math.sqrt(k)) or 0
@@ -201,8 +206,15 @@ function Animals.build(data, anomaly)
 		ball(model, "TieKnot", 0.22, onTorso(0, Y.knot, 0.03), tieColor)
 		ellipsoid(model, "Tie", V(0.26, 1.0, 0.08), onTorso(0, Y.tie, 0.02), tieColor)
 	end
-	for i = 0, 1 do
-		ball(model, "Button", 0.13, onTorso(0.28, Y.button - i * 0.38, 0), rgb(190, 150, 70))
+	-- 단추: 테두리가 도톰한 동그란 금색 단추에 실 구멍 두 개
+	local buttons = weirdBody and { { 0.28, Y.button }, { 0.28, Y.button - 0.38 } } or { { 0, Y.button }, { 0, Y.button - 0.27 } }
+	for _, b in ipairs(buttons) do
+		local cf = onTorso(b[1], b[2], 0)
+		disc(model, "Button", 0.2, cf, rgb(200, 160, 75))
+		disc(model, "Button", 0.14, cf * CFrame.new(0, 0, -0.012), rgb(170, 130, 55))
+		for _, hx in ipairs({ -0.03, 0.03 }) do
+			ball(model, "ButtonHole", 0.035, cf * CFrame.new(hx, 0, -0.02), rgb(80, 60, 30))
+		end
 	end
 	ellipsoid(model, "PocketSquare", V(0.26, 0.15, 0.06), onTorso(Y.pocketX, Y.pocket, 0), tieColor:Lerp(WHITE, 0.4))
 
