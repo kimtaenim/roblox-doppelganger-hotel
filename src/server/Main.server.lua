@@ -47,6 +47,8 @@ local MorningOk = remote("MorningOk") -- 화면 → 서버: 아침 소식 확인
 local PatrolState = remote("PatrolState") -- 서버 → 화면: 순찰 목록, 남은 시간, 룸서비스 주문
 local Peephole = remote("Peephole") -- 서버 → 화면: 노크했더니 손님이 체인을 건 채 문을 빼꼼 열었어요
 local PeepholeChoice = remote("PeepholeChoice") -- 화면 → 서버: 건네주기 / 문 앞에 두고 가기
+local AskFloor = remote("AskFloor") -- 서버 → 화면: 엘리베이터에서 "이 층에 이상한 게 있었나요?"
+local AskFloorAnswer = remote("AskFloorAnswer") -- 화면 → 서버: 있었다 / 없었다
 local NightFx = remote("NightFx") -- 서버 → 화면: 순찰 중 공포 효과 (깜짝 놀람, 속삭임, 엘리베이터 암전)
 remotes.Parent = ReplicatedStorage
 
@@ -311,6 +313,8 @@ Patrol.init({
 		Peephole = Peephole,
 		PeepholeChoice = PeepholeChoice,
 		NightFx = NightFx,
+		AskFloor = AskFloor,
+		AskFloorAnswer = AskFloorAnswer,
 	},
 	fire = function(s, event, payload)
 		fire(s, event, payload)

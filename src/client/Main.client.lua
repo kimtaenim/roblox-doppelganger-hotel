@@ -1182,9 +1182,8 @@ local function showNight(report)
 	local lines = { ("💰 오늘 수입: %d"):format(report.earned) }
 	if report.patrol then
 		local patrol = report.patrol
-		table.insert(lines, ("🔦 순찰: 봉쇄한 방 %d · 헛보고 %d"):format(patrol.saved, patrol.falseReports))
+		table.insert(lines, ("🔦 순찰: 찾은 이상 %d · 놓친 이상 %d · 헛보고 %d · 봉쇄한 방 %d"):format(patrol.portraitsFound or 0, patrol.portraitsMissed or 0, patrol.falseReports, patrol.saved))
 		table.insert(lines, ("🛎 룸서비스: 팁 +%d · 놓친 전화 %d"):format(patrol.tips, patrol.missed))
-		table.insert(lines, ("🖼 초상화·꽃병: 찾음 %d · 놓침 %d"):format(patrol.portraitsFound or 0, patrol.portraitsMissed or 0))
 	end
 	if #report.victims > 0 then
 		table.insert(lines, "💀 희생된 손님: " .. table.concat(report.victims, ", "))
@@ -1317,9 +1316,9 @@ local function showMorning(report)
 	table.insert(lines, "3. 야간 순찰 및 객실 서비스")
 	local patrol = report.patrol
 	if patrol then
-		table.insert(lines, ("   - 이상 객실 봉쇄 %d건 / 오보 %d건"):format(patrol.saved, patrol.falseReports))
+		table.insert(lines, ("   - 복도 이상 발견 %d건 / 미발견 %d건 / 오보 %d건"):format(patrol.portraitsFound or 0, patrol.portraitsMissed or 0, patrol.falseReports))
+		table.insert(lines, ("   - 이상 객실 봉쇄 %d건"):format(patrol.saved))
 		table.insert(lines, ("   - 룸서비스 완료 %d건 / 미응답 %d건"):format(patrol.served, patrol.missed))
-		table.insert(lines, ("   - 초상화·꽃병 이상 발견 %d건 / 미발견 %d건"):format(patrol.portraitsFound or 0, patrol.portraitsMissed or 0))
 	else
 		table.insert(lines, "   - 기록 없음")
 	end
@@ -1431,14 +1430,6 @@ local patrolBody = label(patrolFrame, {
 	Size = UDim2.new(1, -24, 1, -46),
 }, 15)
 
-local CHECK_COLORS = {
-	pending = "#CFC3A8",
-	ok = "#9FD99F",
-	reported = "#F0A85A",
-	wrong = "#E07A6E",
-	scared = "#A8A39A",
-}
-
 local function showPatrol(info)
 	if not info.active then
 		patrolFrame.Visible = false
@@ -1446,21 +1437,24 @@ local function showPatrol(info)
 	end
 	local left = info.timeLeft or 0
 	patrolTitle.Text = ("🔦 야간 순찰  ·  %d:%02d"):format(math.floor(left / 60), left % 60)
-	local lines = { "<b>오늘의 숙박부</b>  (E 이상 없음 · R 이상 보고)" }
-	if #info.checks == 0 then
-		table.insert(lines, "확인할 방이 없어요.")
+	local lines = { "<b>복도 순찰</b>  (떠날 때 엘리베이터에서 물어봐요)" }
+	local floorMarks = {}
+	for _, f in ipairs(info.floors or {}) do
+		table.insert(floorMarks, f.inspected and ('<font color="#9FD99F">%d층 ✓</font>'):format(f.floor) or ('<font color="#CFC3A8">%d층 ·</font>'):format(f.floor))
 	end
-	for _, check in ipairs(info.checks) do
-		table.insert(lines, ('<font color="%s">%d호  %s  —  %s</font>'):format(
-			CHECK_COLORS[check.status] or "#FFFFFF",
-			check.room,
-			check.label,
-			check.statusText or ""
-		))
+	table.insert(lines, table.concat(floorMarks, "   "))
+	table.insert(lines, ('<font color="#A8A39A">찾아낸 이상 %d개</font>'):format(info.found or 0))
+	table.insert(lines, "")
+	table.insert(lines, "<b>오늘의 숙박부</b>")
+	if #(info.guests or {}) == 0 then
+		table.insert(lines, '<font color="#A8A39A">묵는 손님이 없어요.</font>')
+	end
+	for _, guest in ipairs(info.guests or {}) do
+		table.insert(lines, ("%d호  %s"):format(guest.room, guest.label))
 	end
 	table.insert(lines, "")
 	table.insert(lines, "<b>룸서비스</b>")
-	for _, call in ipairs(info.calls) do
+	for _, call in ipairs(info.calls or {}) do
 		if call.state == "ringing" then
 			table.insert(lines, '<font color="#F0A85A">📞 프런트 전화가 울려요! (전화기 앞에서 E)</font>')
 		elseif call.state == "carrying" then
@@ -1472,15 +1466,76 @@ local function showPatrol(info)
 	if (info.callsLeft or 0) > 0 then
 		table.insert(lines, '<font color="#A8A39A">...전화가 더 올지도 몰라요</font>')
 	end
-	table.insert(lines, "")
-	table.insert(lines, "<b>초상화 · 꽃병</b>  (이상해진 것 앞에서 R)")
-	table.insert(lines, ("찾은 것 %d개"):format(info.portraitsFound or 0))
 	if info.canLeave then
 		table.insert(lines, "")
 		table.insert(lines, '<font color="#9FD99F"><b>🛎 할 일 끝! 프런트 종 앞에서 Q로 퇴근</b></font>')
 	end
 	patrolBody.Text = table.concat(lines, "\n")
 	patrolFrame.Visible = true
+end
+
+---------------------------------------------------------------- 엘리베이터: "이 층에 이상한 게 있었나요?"
+local ask = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromScale(0.5, 0.3),
+	BackgroundColor3 = ESPRESSO,
+	BackgroundTransparency = 0.03,
+	Visible = false,
+	ZIndex = 30,
+}, gui)
+round(ask, 8)
+maxSize(ask, 460, 210)
+brassFrame(ask, 1.5)
+local askTitle = label(ask, {
+	Font = SERIF,
+	TextColor3 = rgb(255, 210, 120),
+	Position = UDim2.fromScale(0.06, 0.08),
+	Size = UDim2.fromScale(0.88, 0.22),
+	ZIndex = 31,
+}, 24)
+label(ask, {
+	Text = "초상화, 꽃병, 문, 조명... 처음과 달라진 게 있었나요?",
+	Font = Enum.Font.Gotham,
+	TextColor3 = CREAM,
+	Position = UDim2.fromScale(0.06, 0.34),
+	Size = UDim2.fromScale(0.88, 0.2),
+	ZIndex = 31,
+}, 16)
+local askYes = button(ask, "😨 이상 있었어요", OXBLOOD, {
+	Position = UDim2.fromScale(0.06, 0.62),
+	Size = UDim2.fromScale(0.42, 0.28),
+	ZIndex = 31,
+}, 18)
+local askNo = button(ask, "🙂 이상 없었어요", BOTTLE, {
+	Position = UDim2.fromScale(0.52, 0.62),
+	Size = UDim2.fromScale(0.42, 0.28),
+	ZIndex = 31,
+}, 18)
+local askId = nil
+local function answerAsk(saw)
+	if not askId then
+		return
+	end
+	Remotes.AskFloorAnswer:FireServer(askId, saw)
+	askId = nil
+	ask.Visible = false
+end
+askYes.Activated:Connect(function()
+	answerAsk(true)
+end)
+askNo.Activated:Connect(function()
+	answerAsk(false)
+end)
+local function showAsk(info)
+	if info.close then
+		askId = nil
+		ask.Visible = false
+		return
+	end
+	askId = info.id
+	askTitle.Text = ("🛗 %d층을 떠나기 전에... 이상한 게 있었나요?"):format(info.floor)
+	ask.Visible = true
 end
 
 ---------------------------------------------------------------- 룸서비스: 체인 건 문틈
@@ -1610,10 +1665,49 @@ local lightButton = button(doorFrame, "🔦 비춰 보기", rgb(60, 50, 35), {
 	Size = UDim2.new(0.7, 0, 0, 28),
 	ZIndex = 27,
 }, 16)
+-- 숙박부 사진과 문틈을 똑같은 구도로 보여줘서 비교하기 쉬워요. (머리부터 가슴까지)
+local PEEP_CAMERA = CFrame.lookAt(Vector3.new(0, 6, -12), Vector3.new(0, 5.3, 0))
+local peepCallId = nil
+local peepToken = 0
+local peepInfo = nil
+local peepLit = false
+
+-- 문틈 속 손님을 그려요. 도플갱어의 진짜 얼굴은 손전등으로 비출 때만 드러나요.
+local function drawSlit(reveal)
+	local info = peepInfo
+	if not info or info.empty then
+		return
+	end
+	local token = peepToken
+	local model = fillViewport(slit, info.visual, reveal and info.hiddenKind or nil, PEEP_CAMERA, 40, false)
+	local headGroup = model:FindFirstChild("HeadGroup")
+	if headGroup then
+		local base = headGroup:GetPivot()
+		local twitch = reveal and info.hiddenKind == "moving"
+		task.spawn(function()
+			local t = 0
+			while peepToken == token and model.Parent do
+				t += RunService.RenderStepped:Wait()
+				local roll = math.sin(t * 0.5) * 0.12
+				if twitch and t % 1.8 < 0.2 then
+					roll = math.rad(70) -- 뚝! 고개가 꺾여요
+				end
+				headGroup:PivotTo(base * CFrame.Angles(0, math.sin(t * 0.7) * 0.08, roll))
+			end
+		end)
+	end
+end
+
 local function setPeepLight(on)
 	slit.Ambient = on and rgb(200, 195, 185) or rgb(95, 85, 80)
 	slit.LightColor = on and rgb(255, 250, 235) or rgb(200, 170, 140)
 	slit.BackgroundColor3 = on and rgb(40, 34, 30) or rgb(8, 7, 8)
+	if peepLit ~= on then
+		peepLit = on
+		if peepInfo and peepInfo.hiddenKind then
+			drawSlit(on)
+		end
+	end
 end
 lightButton.MouseButton1Down:Connect(function()
 	setPeepLight(true)
@@ -1624,7 +1718,7 @@ end)
 lightButton.MouseLeave:Connect(function()
 	setPeepLight(false)
 end)
-lightButton.Activated:Connect(function()
+lightButton.TouchTap:Connect(function()
 	-- 터치 화면: 한 번 누르면 2초 동안 환해져요.
 	setPeepLight(true)
 	task.delay(2, function()
@@ -1632,34 +1726,33 @@ lightButton.Activated:Connect(function()
 	end)
 end)
 
-local peepHint = label(peep, {
-	Font = Enum.Font.Gotham,
-	TextColor3 = CREAM,
-	Position = UDim2.fromScale(0.05, 0.79),
-	Size = UDim2.fromScale(0.9, 0.07),
+-- 손님의 말 (말투가 이상한지도 잘 들어 봐요)
+local peepLine = label(peep, {
+	Font = Enum.Font.GothamBold,
+	TextColor3 = rgb(255, 235, 200),
+	Position = UDim2.fromScale(0.05, 0.785),
+	Size = UDim2.fromScale(0.9, 0.08),
 	ZIndex = 21,
-}, 16)
-local giveButton = button(peep, "🛎 건네주기", BOTTLE, {
-	Position = UDim2.fromScale(0.08, 0.88),
-	Size = UDim2.fromScale(0.39, 0.09),
+}, 18)
+local enterButton = button(peep, "🚪 방에 들어가 건네기 (팁)", BOTTLE, {
+	Position = UDim2.fromScale(0.05, 0.88),
+	Size = UDim2.fromScale(0.43, 0.09),
 	ZIndex = 21,
-}, 20)
-local leaveButton = button(peep, "문 앞에 두고 가기", OXBLOOD, {
-	Position = UDim2.fromScale(0.53, 0.88),
-	Size = UDim2.fromScale(0.39, 0.09),
+}, 18)
+local leaveButton = button(peep, "팁 포기, 문 앞에 두기", OXBLOOD, {
+	Position = UDim2.fromScale(0.52, 0.88),
+	Size = UDim2.fromScale(0.43, 0.09),
 	ZIndex = 21,
-}, 20)
+}, 18)
 
--- 숙박부 사진과 문틈을 똑같은 구도로 보여줘서 비교하기 쉬워요. (머리부터 가슴까지)
-local PEEP_CAMERA = CFrame.lookAt(Vector3.new(0, 6, -12), Vector3.new(0, 5.3, 0))
-local peepCallId = nil
-local peepToken = 0
 local function closePeep()
 	peep.Visible = false
 	peepCallId = nil
+	peepInfo = nil
 	peepToken += 1
 	registerView:ClearAllChildren()
 	slit:ClearAllChildren()
+	peepLit = true
 	setPeepLight(false)
 end
 
@@ -1670,8 +1763,8 @@ local function choosePeep(choice)
 	Remotes.PeepholeChoice:FireServer(peepCallId, choice)
 	closePeep()
 end
-giveButton.Activated:Connect(function()
-	choosePeep("give")
+enterButton.Activated:Connect(function()
+	choosePeep("enter")
 end)
 leaveButton.Activated:Connect(function()
 	choosePeep("leave")
@@ -1680,9 +1773,10 @@ end)
 local function showPeep(info)
 	closePeep()
 	peepCallId = info.callId
+	peepInfo = info
 	local token = peepToken
 	peepTitle.Text = ("🛎 %d호 · %s 배달"):format(info.room, info.item)
-	peepHint.Text = "똑똑... 체인을 건 채 문이 열렸어요. 숙박부 사진과 털 색, 옷, 소품, 얼굴까지 똑같나요?"
+	peepLine.Text = ("“%s”"):format(info.line or "...")
 
 	-- 숙박부 사진
 	if info.register then
@@ -1706,19 +1800,7 @@ local function showPeep(info)
 			end
 		end)
 	else
-		local model = fillViewport(slit, info.visual, info.visualKind, PEEP_CAMERA, 40, false)
-		-- 문틈 너머에서 고개를 아주 천천히 갸웃거려요.
-		local headGroup = model:FindFirstChild("HeadGroup")
-		if headGroup then
-			local base = headGroup:GetPivot()
-			task.spawn(function()
-				local t = 0
-				while peepToken == token do
-					t += RunService.RenderStepped:Wait()
-					headGroup:PivotTo(base * CFrame.Angles(0, math.sin(t * 0.7) * 0.08, math.sin(t * 0.5) * 0.12))
-				end
-			end)
-		end
+		drawSlit(false)
 	end
 	peep.Visible = true
 end
@@ -1799,11 +1881,13 @@ Remotes.State.OnClientEvent:Connect(function(state)
 		hideDesk()
 		patrolFrame.Visible = false
 		closePeep()
+		showAsk({ close = true })
 		return
 	end
 	if state.phase ~= "Patrol" then
 		patrolFrame.Visible = false
 		closePeep()
+		showAsk({ close = true })
 	end
 
 	lobbyFrame.Visible = false
@@ -1842,4 +1926,5 @@ Remotes.NightReport.OnClientEvent:Connect(showNight)
 Remotes.PatrolState.OnClientEvent:Connect(showPatrol)
 Remotes.Peephole.OnClientEvent:Connect(showPeep)
 Remotes.NightFx.OnClientEvent:Connect(onNightFx)
+Remotes.AskFloor.OnClientEvent:Connect(showAsk)
 Remotes.MorningReport.OnClientEvent:Connect(showMorning)

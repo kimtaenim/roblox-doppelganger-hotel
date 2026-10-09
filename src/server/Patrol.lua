@@ -1,20 +1,19 @@
 -- 손님을 다 받은 뒤의 밤 활동: 야간 순찰 + 룸서비스 배달
 --
--- [야간 순찰] 오늘 받은 손님들의 방을 층마다 돌며 문 앞에서 확인해요.
---   멀쩡한 방이면 "이상 없음"(E), 수상한 방이면 "이상 보고"(R).
---   낮에 실수로 받은 도플갱어의 방은 문이 살짝 열려 있거나, 피가 새어 나오거나, 긁힌 자국이 있어요.
---   제대로 보고하면 경비팀이 방을 봉쇄해서 그 밤의 희생을 막아요.
---   멀쩡한 방을 보고하면 손님이 화를 내요(벌금). 도플갱어 방에 "이상 없음"을 누르면 깜짝 놀라요.
+-- [야간 순찰] 엘리베이터로 2~4층 복도를 둘러봐요.
+--   복도에는 초상화, 꽃병, 객실 문, 천장 조명, 층 표시판, 의자가 있어요.
+--   아무도 없는 층의 것들이 몰래 이상하게 바뀌고, 도플갱어가 묵는 방 문에는 섬뜩한 흔적이 있어요.
+--   물건마다 보고할 필요는 없어요. 층을 떠나려고 엘리베이터 버튼을 누르면
+--   "이 층에 이상한 게 있었나요?" 하고 물어봐요. 있다 / 없다 로만 답해요.
+--     - 이상이 있는데 "있다" → 경비팀이 그 층을 정리해요. 도플갱어 방은 봉쇄돼서 오늘 밤 희생을 막아요. (수당)
+--     - 이상이 있는데 "없다" → 무언가를 놓쳤어요... 정신력이 떨어져요.
+--     - 아무 이상 없는데 "있다" → 헛보고 벌금
 --
 -- [룸서비스] 순찰 중에 프런트 전화가 울려요. 받으면 주문한 방으로 쟁반을 들고 가서 노크(F)해요.
---   손님이 체인을 건 채 문을 빼꼼 열면, 숙박부 사진과 비교해서 건네줄지 문 앞에 두고 갈지 골라요.
---   진짜 손님이면 팁, 가짜(도플갱어)거나 아무도 묵지 않는 빈방이면 깜짝 놀라요.
---
--- [초상화·꽃병] 복도마다 오래된 초상화와 꽃병이 있어요. 순찰하는 동안 아무도 없는 층의 것이 몰래 바뀌어요.
---   초상화: 뒤집히거나, 기울어지거나, 얼굴이 이상해지거나, 뒤돌아서거나, 사라지거나, 피를 흘려요.
---   꽃병: 시들거나, 피가 넘치거나, 쓰러지거나, 꽃이 눈알로 바뀌거나, 사라지거나, 공중에 떠 있어요.
---   알아차리고 "이상 보고"(R)하면 관리 수당, 멀쩡한 그림을 보고하면 벌금,
---   끝까지 못 찾으면 그림 속 무언가가 빠져나와 정신력이 떨어져요.
+--   손님이 체인을 건 채 문을 열면, 문틈으로 보이는 모습(손전등으로 비추면 더 잘 보여요)과
+--   손님의 말을 보고 판단해요.
+--     - 방에 들어가서 건네기: 진짜 손님이면 팁! 도플갱어면 정신력 크게 떨어져요.
+--     - 팁을 포기하고 문 앞에 두기: 안전하지만 팁은 없어요.
 --
 -- 할 일을 다 하면 프런트의 종 앞에서 "퇴근하기". 시간이 다 돼도 끝나요.
 -- 도플갱어는 겁만 주고 쫓아오지는 않아요.
@@ -30,6 +29,46 @@ local ORDER_LINES = {
 	"%d호예요. 늦은 시간에 죄송하지만 %s 좀...",
 }
 local SIGN_KINDS = { "ajar", "blood", "scratch", "hands", "sign" }
+
+-- 문을 연 손님의 말. 진짜 손님은 평범하게, 도플갱어는 어딘가 이상하게 말해요.
+local GENUINE_LINES = {
+	"아, %s! 기다렸어요. 고마워요~",
+	"늦은 시간에 죄송해요. %s 여기 주세요.",
+	"와, 빨리 왔네요! %s 맞죠? 고마워요.",
+	"%s 감사합니다. 이제 푹 잘 수 있겠어요.",
+	"앗, 잠옷 바람이라... %s 고마워요!",
+}
+local DOPPEL_LINES = {
+	function(call)
+		return ("...%s? 난 고기를 시켰는데. 날고기."):format(call.item)
+	end,
+	function()
+		return "들어와요... 안쪽 깊숙이 놓아 주세요. 더 안쪽에."
+	end,
+	function()
+		return "고마워요 고마워요 고마워요 고마워요 고마워요"
+	end,
+	function()
+		return "벌써 아침이에요? 해가... 왜 안 뜨죠?"
+	end,
+	function(call)
+		return ("저는 %s... 아니, 그 사람은 이제 여기 없어요."):format(call.guest and call.guest.name or "손님")
+	end,
+	function(call, player)
+		return ("%s 씨죠? 들어와서 같이 있어요. 오래오래."):format(player.DisplayName)
+	end,
+	function()
+		return "...요세주 어들 로으안" -- 거꾸로 말해요
+	end,
+	function(call)
+		return ("%d호? 여긴 원래 아무도 없는 방인데요. 히히."):format(call.room)
+	end,
+}
+local EMPTY_LINES = {
+	"......들어와.",
+	"(문 너머에서 숨소리만 들려요...)",
+	"쟁반은... 필요 없어. 너만 들어오면 돼.",
+}
 
 local ctx -- Patrol.init 에서 받아요
 local current = nil -- 지금 진행 중인 순찰 상태
@@ -179,54 +218,6 @@ local function decorateDoppel(state, room, guest)
 	end
 end
 
----------------------------------------------------------------- 상태 보내기
-local STATUS_TEXT = {
-	pending = "확인 전",
-	ok = "✓ 이상 없음",
-	reported = "🚨 보고함",
-	wrong = "😠 헛보고",
-	scared = "✓ 확인",
-}
-local CALL_TEXT = {
-	ringing = "📞 전화 울리는 중",
-	carrying = "🛎 배달 중",
-	done = "완료",
-	missed = "놓침",
-}
-
-local function sendState(s, state)
-	local checks = {}
-	for _, entry in ipairs(state.checks) do
-		table.insert(checks, {
-			room = entry.room.number,
-			label = ("%s (%s)"):format(entry.guest.name, entry.guest.animalName),
-			status = entry.status,
-			statusText = STATUS_TEXT[entry.status],
-		})
-	end
-	table.sort(checks, function(a, b)
-		return a.room < b.room
-	end)
-	local calls = {}
-	for _, call in ipairs(state.calls) do
-		table.insert(calls, {
-			room = call.state ~= "ringing" and call.room or nil,
-			item = call.state ~= "ringing" and call.item or nil,
-			state = call.state,
-			stateText = CALL_TEXT[call.state],
-			who = call.player and call.player.DisplayName or nil,
-		})
-	end
-	ctx.fire(s, ctx.remotes.PatrolState, {
-		active = true,
-		timeLeft = math.max(0, math.floor(state.deadline - os.clock())),
-		checks = checks,
-		calls = calls,
-		callsLeft = state.callsTotal - #state.calls,
-		portraitsFound = state.portraitsFound,
-		canLeave = state.canLeave,
-	})
-end
 
 ---------------------------------------------------------------- 쟁반 (배달하는 동안 손에 들어요)
 local function giveTray(player, item)
@@ -253,36 +244,123 @@ local function giveTray(player, item)
 	return tray
 end
 
+
+---------------------------------------------------------------- 상태 보내기
+local CALL_TEXT = {
+	ringing = "📞 전화 울리는 중",
+	carrying = "🛎 배달 중",
+	done = "완료",
+	missed = "놓침",
+}
+
+local function sendState(s, state)
+	local floors = {}
+	for _, floor in ipairs(ctx.floors.List) do
+		table.insert(floors, { floor = floor, inspected = state.inspected[floor] == true })
+	end
+	local guests = {}
+	for _, guest in ipairs(state.guests) do
+		table.insert(guests, { room = guest.room, label = ("%s (%s)"):format(guest.name, guest.animalName) })
+	end
+	table.sort(guests, function(a, b)
+		return a.room < b.room
+	end)
+	local calls = {}
+	for _, call in ipairs(state.calls) do
+		table.insert(calls, {
+			room = call.state ~= "ringing" and call.room or nil,
+			item = call.state ~= "ringing" and call.item or nil,
+			state = call.state,
+			stateText = CALL_TEXT[call.state],
+			who = call.player and call.player.DisplayName or nil,
+		})
+	end
+	ctx.fire(s, ctx.remotes.PatrolState, {
+		active = true,
+		timeLeft = math.max(0, math.floor(state.deadline - os.clock())),
+		floors = floors,
+		guests = guests,
+		calls = calls,
+		callsLeft = state.callsTotal - #state.calls,
+		found = state.found,
+		canLeave = state.canLeave,
+	})
+end
+
+---------------------------------------------------------------- 층마다 이상한 것 세기
+local function anomaliesOn(state, floor)
+	local count = 0
+	for _, oddity in ipairs(ctx.floors.oddities) do
+		if oddity.floor == floor and oddity.kind ~= "normal" then
+			count += 1
+		end
+	end
+	for _, entry in ipairs(state.doppelRooms) do
+		if entry.room.floor == floor and not entry.sealed then
+			count += 1
+		end
+	end
+	return count
+end
+
+-- 경비팀이 그 층을 정리해요: 이상해진 물건은 원래대로, 도플갱어 방은 봉쇄.
+local function cleanFloor(state, floor)
+	for _, oddity in ipairs(ctx.floors.oddities) do
+		if oddity.floor == floor and oddity.kind ~= "normal" then
+			ctx.floors.setOddity(oddity, "normal")
+		end
+	end
+	local sealed = 0
+	for _, entry in ipairs(state.doppelRooms) do
+		local room = entry.room
+		if room.floor == floor and not entry.sealed then
+			entry.sealed = true
+			sealed += 1
+			state.isolated[entry.guest.id] = true
+			for i = #state.lurkers, 1, -1 do
+				if state.lurkers[i].room == room then
+					table.remove(state.lurkers, i)
+				end
+			end
+			room.extras:ClearAllChildren()
+			ctx.floors.closeDoor(room)
+			ctx.floors.setOccupied(room, false)
+			local seal = newPart(room.extras, "SealTape", V(4, 0.35, 0.05), ctx.floors.onDoor(room, 0, 0.5) * CFrame.new(0, 0, -0.05) * CFrame.Angles(0, 0, math.rad(12)), rgb(240, 200, 40), Enum.Material.Neon)
+			textOn(seal, Enum.NormalId.Front, "출입 금지", rgb(30, 20, 10), Enum.Font.GothamBlack)
+		end
+	end
+	return sealed
+end
+
 ---------------------------------------------------------------- 전화
 local function makeCall(s, state)
 	local normals, doppels = {}, {}
-	for _, entry in ipairs(state.checks) do
-		if entry.guest.isDoppel then
-			if entry.status ~= "reported" then
-				table.insert(doppels, entry)
+	for _, guest in ipairs(state.guests) do
+		if guest.isDoppel then
+			if not state.isolated[guest.id] then
+				table.insert(doppels, guest)
 			end
-		elseif entry.status ~= "wrong" then
-			table.insert(normals, entry)
+		else
+			table.insert(normals, guest)
 		end
 	end
 
+	-- 진짜 손님 / 도플갱어 / 아무도 없는 빈방
 	local roll = math.random()
 	local kind
 	if s.day <= ctx.Config.PracticeDays then
-		kind = #normals > 0 and "normal" or "empty"
-	elseif roll < 0.45 then
 		kind = "normal"
-	elseif roll < 0.65 then
-		kind = "impostor"
-	elseif roll < 0.8 then
+	elseif roll < 0.5 then
+		kind = "normal"
+	elseif roll < 0.85 then
 		kind = "doppel"
 	else
 		kind = "empty"
 	end
-	if kind == "doppel" and #doppels == 0 then
-		kind = "impostor"
+	if kind == "normal" and #normals == 0 then
+		kind = #doppels > 0 and "doppel" or "empty"
 	end
-	if (kind == "normal" or kind == "impostor") and #normals == 0 then
+	if kind == "doppel" and #doppels == 0 and #normals == 0 then
 		kind = "empty"
 	end
 
@@ -295,52 +373,26 @@ local function makeCall(s, state)
 			end
 		end
 		call.room = pick(free)
-		-- 아무도 없는 방: 문틈엔 어둠 속의 무언가가...
 		call.visual = { id = 999, name = "?", animal = pick(ctx.Animals.List), fur = rgb(14, 13, 16), cloth = rgb(14, 13, 16) }
 		call.visualKind = "eyes"
-	else
-		local entry = kind == "doppel" and pick(doppels) or pick(normals)
-		call.room = entry.room.number
-		call.guest = entry.guest
-		local visual = table.clone(entry.guest)
-		local visualKind = nil
-		if kind == "doppel" then
-			visualKind = visibleKind(entry.guest.anomaly and entry.guest.anomaly.kind)
-		elseif kind == "impostor" then
-			-- 그 방 손님인 척하는 가짜: 털 색이 다르거나, 다른 동물이거나, 얼굴이 이상해요.
-			-- 자세히 봐야 아는 것(털 색, 옷 색, 소품)과 바로 보이는 것(다른 동물, 무서운 얼굴)이 섞여 있어요.
-			local variant = pick({ "fur", "cloth", "outfit", "animal", "eyes", "teeth", "mouth" })
-			if variant == "fur" then
-				-- 털 색이 눈에 띄게 달라요 (잿빛, 새까만, 새하얀, 붉은...)
-				local odd = { rgb(150, 150, 155), rgb(45, 40, 42), rgb(250, 250, 250), rgb(200, 90, 70), rgb(120, 150, 110) }
-				repeat
-					visual.fur = pick(odd)
-				until visual.fur ~= entry.guest.fur
-			elseif variant == "cloth" then
-				-- 옷 색이 달라요
-				repeat
-					visual.cloth = pick(ctx.Animals.Clothes)
-				until visual.cloth ~= entry.guest.cloth
-			elseif variant == "outfit" then
-				-- 모자·리본·넥타이 같은 소품이 달라요
-				visual.id = entry.guest.id + math.random(1, 50)
-			elseif variant == "animal" then
-				local others = {}
-				for _, animal in ipairs(ctx.Animals.List) do
-					if animal ~= visual.animal then
-						table.insert(others, animal)
-					end
-				end
-				visual.animal = pick(others)
-				local def = ctx.Animals.Types[visual.animal]
-				visual.fur = def.furs[math.random(#def.furs)]
-			else
-				visualKind = variant
-			end
-			call.variant = variant
+	elseif kind == "doppel" then
+		-- 낮에 받은 도플갱어가 있으면 그 방, 없으면 멀쩡한 손님 방에 숨어든 도플갱어
+		local guest = #doppels > 0 and pick(doppels) or pick(normals)
+		call.room = guest.room
+		call.guest = guest
+		call.visual = guest
+		-- 단서: 겉모습(손전등으로 비추면 보여요) / 말 / 둘 다
+		call.clue = pick({ "look", "speech", "look", "speech", "both" })
+		local kinds = { "eyes", "teeth", "mouth", "moving" }
+		call.visualKind = guest.anomaly and guest.anomaly.kind or pick(kinds)
+		if call.visualKind == "body" then
+			call.visualKind = "eyes" -- 문틈으로는 몸이 다 안 보여서 얼굴로 보여줘요
 		end
-		call.visual = visual
-		call.visualKind = visualKind
+	else
+		local guest = pick(normals)
+		call.room = guest.room
+		call.guest = guest
+		call.visual = guest
 	end
 	call.line = pick(ORDER_LINES):format(call.room, call.item)
 	table.insert(state.calls, call)
@@ -381,54 +433,50 @@ function Patrol.run(s)
 	floors.setElevators(true)
 
 	local state = {
-		checks = {},
+		guests = {},
 		calls = {},
 		lurkers = {},
 		figures = {},
 		occupied = {},
 		isolated = {},
+		doppelRooms = {},
+		inspected = {},
+		asks = {},
 		tips = 0,
 		bonus = 0,
 		penalty = 0,
 		served = 0,
+		missedCalls = 0,
+		found = 0,
 		missed = 0,
 		falseReports = 0,
-		saved = 0,
-		portraitsFound = 0,
-		portraitsWrong = 0,
-		portraitsSpawned = 0,
-		portraitsMax = math.min(3 + math.floor(s.day / 2), 7),
+		spawned = 0,
+		spawnMax = math.min(3 + math.floor(s.day / 2), 7),
 		canLeave = false,
 		leave = false,
 		deadline = os.clock() + Config.PatrolTime,
 		callsTotal = s.day <= 1 and 1 or (s.day <= 3 and 2 or 3),
 		phonePrompt = ctx.phonePrompt,
-		leavePrompt = ctx.leavePrompt,
 		ringSound = ctx.ringSound,
+		leavePrompt = ctx.leavePrompt,
 		s = s,
 	}
 	current = state
 
-	-- 오늘 받은 손님들의 방
+	-- 오늘 받은 손님들의 방: 문 밑 불빛, 도플갱어 방의 흔적
 	for _, guest in ipairs(s.accepted) do
 		local room = floors.rooms[guest.room]
 		if room and not state.occupied[guest.room] then
 			state.occupied[guest.room] = true
+			table.insert(state.guests, guest)
 			floors.setOccupied(room, true)
-			room.okPrompt.Enabled = true
-			room.reportPrompt.Enabled = true
-			table.insert(state.checks, { room = room, guest = guest, status = "pending" })
 			if guest.isDoppel then
 				decorateDoppel(state, room, guest)
+				table.insert(state.doppelRooms, { room = room, guest = guest, sealed = false })
 			else
 				decorateNormal(room)
 			end
 		end
-	end
-
-	-- 초상화: 모두 원래대로 걸고, "이상 보고" 버튼을 켜요.
-	for _, oddity in ipairs(floors.oddities) do
-		oddity.reportPrompt.Enabled = true
 	end
 
 	-- 복도 끝에 서 있는 그림자 (다가가면 사라져요)
@@ -466,15 +514,13 @@ function Patrol.run(s)
 	end
 
 	ctx.fire(s, ctx.remotes.Toast, {
-		text = "🔦 야간 순찰 시간! 직원 출입구 옆 엘리베이터로 2~4층 손님 방을 확인하세요.",
+		text = "🔦 야간 순찰! 엘리베이터로 2~4층 복도를 둘러보고, 이상한 게 있었는지 기억하세요.",
 		kind = "info",
 	})
 	sendState(s, state)
 
-	-- 전화 시간표: 순찰 시작 20초 뒤부터, 50초마다
-	local nextCallAt = os.clock() + 20
-	-- 초상화 바뀌는 시간표: 25초 뒤부터, 30~45초마다 (끝나기 30초 전부터는 안 바뀌어요)
-	local nextPortraitAt = os.clock() + 25
+	local nextCallAt = os.clock() + 20 -- 전화: 20초 뒤부터, 50초마다
+	local nextOddityAt = os.clock() + 20 -- 몰래 바뀌기: 20초 뒤부터, 25~40초마다
 	local lastSend = 0
 	local finished = false
 	while s.active and not finished do
@@ -494,21 +540,20 @@ function Patrol.run(s)
 		end
 		-- 아무도 안 받은 전화는 끊겨요.
 		if state.ringing and now - state.ringing.ringStart > Config.CallRingTime then
-			local call = state.ringing
-			state.missed += 1
-			finishCall(s, state, call, "missed")
+			state.missedCalls += 1
+			finishCall(s, state, state.ringing, "missed")
 			ctx.fire(s, ctx.remotes.Toast, { text = "📞 ...전화가 끊겼어요. 손님이 불만을 남겼어요.", kind = "info" })
 		end
 		-- 배달하던 직원이 쓰러지거나 나가면 그 주문은 놓쳐요.
 		for _, call in ipairs(state.calls) do
 			if call.state == "carrying" and not table.find(s.players, call.player) then
-				state.missed += 1
+				state.missedCalls += 1
 				finishCall(s, state, call, "missed")
 			end
 		end
 
-		-- 아무도 없는 층의 초상화가 몰래 바뀌어요.
-		if state.portraitsSpawned < state.portraitsMax and now >= nextPortraitAt and state.deadline - now > 30 then
+		-- 아무도 없는 층의 물건이 몰래 이상하게 바뀌어요.
+		if state.spawned < state.spawnMax and now >= nextOddityAt and state.deadline - now > 30 then
 			local occupiedFloors = {}
 			for _, player in ipairs(s.players) do
 				local root = rootOf(player)
@@ -526,10 +571,10 @@ function Patrol.run(s)
 			if #candidates > 0 then
 				local chosen = pick(candidates)
 				floors.setOddity(chosen, pick(chosen.kinds))
-				state.portraitsSpawned += 1
-				nextPortraitAt = now + math.random(25, 40)
+				state.spawned += 1
+				nextOddityAt = now + math.random(25, 40)
 			else
-				nextPortraitAt = now + 5
+				nextOddityAt = now + 5
 			end
 		end
 
@@ -564,20 +609,20 @@ function Patrol.run(s)
 			end
 		end
 
-		-- 다 끝났는지
-		local allChecked = true
-		for _, entry in ipairs(state.checks) do
-			allChecked = allChecked and entry.status ~= "pending"
+		-- 다 끝났는지: 2~4층을 한 번씩 다 둘러보고, 전화도 다 끝나면 퇴근할 수 있어요.
+		local allInspected = true
+		for _, floor in ipairs(floors.List) do
+			allInspected = allInspected and state.inspected[floor] == true
 		end
 		local callsDone = #state.calls >= state.callsTotal
 		for _, call in ipairs(state.calls) do
 			callsDone = callsDone and (call.state == "done" or call.state == "missed")
 		end
-		if allChecked and callsDone and not state.canLeave then
+		if allInspected and callsDone and not state.canLeave then
 			state.canLeave = true
 			state.leavePrompt.Enabled = true
 			ctx.fire(s, ctx.remotes.Toast, {
-				text = "✅ 방 확인과 배달 끝! 초상화를 한 번 더 둘러보고, 프런트 종 앞에서 퇴근하세요.",
+				text = "✅ 모든 층을 둘러보고 배달도 끝! 더 둘러봐도 되고, 프런트 종 앞에서 퇴근해도 돼요.",
 				kind = "accept",
 			})
 			sendState(s, state)
@@ -587,10 +632,10 @@ function Patrol.run(s)
 			task.wait(2)
 			finished = true
 		elseif now >= state.deadline then
-			ctx.fire(s, ctx.remotes.Toast, { text = "⏰ 순찰 시간이 끝났어요. 확인하지 못한 방은 그대로 밤을 맞아요...", kind = "warn" })
+			ctx.fire(s, ctx.remotes.Toast, { text = "⏰ 순찰 시간이 끝났어요. 정리하지 못한 층은 그대로 밤을 맞아요...", kind = "warn" })
 			for _, call in ipairs(state.calls) do
 				if call.state == "ringing" or call.state == "carrying" then
-					state.missed += 1
+					state.missedCalls += 1
 					finishCall(s, state, call, "missed")
 				end
 			end
@@ -602,32 +647,13 @@ function Patrol.run(s)
 		end
 	end
 
-	-- 끝까지 못 찾은 초상화: 그림 속 무언가가 빠져나와요...
-	local portraitsMissed = 0
-	for _, oddity in ipairs(floors.oddities) do
-		if oddity.kind ~= "normal" then
-			portraitsMissed += 1
-		end
-	end
-	if s.active and portraitsMissed > 0 then
-		ctx.fire(s, ctx.remotes.Toast, {
-			text = ("🖼 이상해진 것 %d개를 놓쳤어요... 무언가가 빠져나왔어요."):format(portraitsMissed),
-			kind = "warn",
-		})
-		for _, player in ipairs(table.clone(s.players)) do
-			ctx.fireTo(player, ctx.remotes.NightFx, { kind = "whisper" })
-			ctx.changeSanity(s, player, -Config.PortraitMissLoss * portraitsMissed)
-		end
-		task.wait(2)
-	end
-
 	-- 정리
 	current = nil
-	state.leavePrompt.Enabled = false
 	if state.ringSound then
 		state.ringSound:Stop()
 	end
 	state.phonePrompt.Enabled = false
+	state.leavePrompt.Enabled = false
 	for _, call in ipairs(state.calls) do
 		if call.tray then
 			call.tray:Destroy()
@@ -644,105 +670,73 @@ function Patrol.run(s)
 		if light then
 			light:Destroy()
 		end
+		ctx.fireTo(player, ctx.remotes.AskFloor, { close = true })
+	end
+	local saved = 0
+	for _, entry in ipairs(state.doppelRooms) do
+		if entry.sealed then
+			saved += 1
+		end
 	end
 	floors.resetAll()
 	ctx.fire(s, ctx.remotes.PatrolState, { active = false })
 
 	return {
 		isolated = state.isolated,
-		saved = state.saved,
+		saved = saved,
 		tips = state.tips,
 		bonus = state.bonus,
 		penalty = state.penalty,
 		served = state.served,
-		missed = state.missed,
+		missed = state.missedCalls,
 		falseReports = state.falseReports,
-		portraitsFound = state.portraitsFound,
-		portraitsMissed = portraitsMissed,
-		portraitsWrong = state.portraitsWrong,
+		portraitsFound = state.found,
+		portraitsMissed = state.missed,
 	}
 end
 
 ---------------------------------------------------------------- 버튼 처리 (한 번만 연결해요)
-local function entryFor(state, room)
-	for _, entry in ipairs(state.checks) do
-		if entry.room == room then
-			return entry
-		end
-	end
-	return nil
-end
-
 local function isMember(state, player)
 	return table.find(state.s.players, player) ~= nil
 end
 
-local onOddity -- 아래에서 정의해요 (초상화·꽃병·빈방 문 등 보고)
+local function floorOf(player)
+	local root = rootOf(player)
+	return root and math.floor(root.Position.Y / 14) + 1 or 1
+end
 
-local function onCheck(room, player, report)
-	local state = current
-	if not state or not isMember(state, player) then
-		return
-	end
+-- 엘리베이터에서 "이 층에 이상한 게 있었나요?" 에 대한 대답
+local function judgeFloor(state, player, floor, saw)
 	local s = state.s
-	local entry = entryFor(state, room)
-	if not entry then
-		-- 손님이 없는 방의 문: 문이 이상해졌는지 보고하는 거예요.
-		if report and room.oddity then
-			onOddity(room.oddity, player)
-		end
-		return
-	end
-	if entry.status ~= "pending" then
-		return
-	end
-	room.okPrompt.Enabled = false
-	room.reportPrompt.Enabled = false
-	local guest = entry.guest
-	if report then
-		if guest.isDoppel then
-			entry.status = "reported"
-			state.isolated[guest.id] = true
-			state.saved += 1
-			-- 경비팀이 방을 봉쇄해요: 문이 쾅 닫히고 흔적이 사라져요.
-			for i = #state.lurkers, 1, -1 do
-				if state.lurkers[i].room == room then
-					table.remove(state.lurkers, i)
-				end
-			end
-			room.extras:ClearAllChildren()
-			ctx.floors.closeDoor(room)
-			ctx.floors.setOccupied(room, false)
-			local seal = newPart(room.extras, "SealTape", V(4, 0.35, 0.05), ctx.floors.onDoor(room, 0, 0.5) * CFrame.new(0, 0, -0.05) * CFrame.Angles(0, 0, math.rad(12)), rgb(240, 200, 40), Enum.Material.Neon)
-			textOn(seal, Enum.NormalId.Front, "출입 금지", rgb(30, 20, 10), Enum.Font.GothamBlack)
-			ctx.fire(s, ctx.remotes.Toast, {
-				text = ("🚨 %d호 이상 보고! 경비팀이 방을 봉쇄했어요. 오늘 밤 희생을 막았어요."):format(room.number),
-				kind = "accept",
-			})
-		else
-			entry.status = "wrong"
-			state.falseReports += 1
-			state.penalty += ctx.Config.FalseReportPenalty
-			ctx.fire(s, ctx.remotes.Toast, {
-				text = ("😠 %d호 %s 님: \"한밤중에 무슨 소란이에요?!\" (헛보고 벌금 -%d)"):format(room.number, guest.name, ctx.Config.FalseReportPenalty),
-				kind = "warn",
-			})
-		end
+	local Config = ctx.Config
+	state.inspected[floor] = true
+	local count = anomaliesOn(state, floor)
+	if saw and count > 0 then
+		state.found += count
+		state.bonus += Config.FloorReportBonus
+		local sealed = cleanFloor(state, floor)
+		local extra = sealed > 0 and (" 도플갱어 방 %d곳을 봉쇄했어요!"):format(sealed) or ""
+		ctx.fire(s, ctx.remotes.Toast, {
+			text = ("🚨 %d층 이상 보고 (%s). 경비팀이 정리했어요.%s (수당 +%d)"):format(floor, player.DisplayName, extra, Config.FloorReportBonus),
+			kind = "accept",
+		})
+	elseif saw then
+		state.falseReports += 1
+		state.penalty += Config.FloorFalsePenalty
+		ctx.fireTo(player, ctx.remotes.Toast, {
+			text = ("...%d층엔 아무 이상도 없었어요. (헛보고 -%d)"):format(floor, Config.FloorFalsePenalty),
+			kind = "warn",
+		})
+	elseif count > 0 then
+		state.missed += count
+		ctx.fireTo(player, ctx.remotes.NightFx, { kind = "whisper" })
+		ctx.changeSanity(s, player, -Config.FloorMissLoss * count)
+		ctx.fireTo(player, ctx.remotes.Toast, {
+			text = "😨 엘리베이터 문이 닫히는 순간... 무언가 놓친 것 같은 기분이 들어요.",
+			kind = "warn",
+		})
 	else
-		if guest.isDoppel then
-			-- 이상한데 그냥 지나치려는 순간...
-			entry.status = "scared"
-			ctx.fireTo(player, ctx.remotes.NightFx, {
-				kind = "scare",
-				data = guest,
-				anomaly = visibleKind(guest.anomaly and guest.anomaly.kind),
-			})
-			ctx.changeSanity(s, player, -ctx.Config.PatrolScareLoss)
-			ctx.fire(s, ctx.remotes.Toast, { text = ("...%d호 문 너머에서 무언가 낄낄 웃어요."):format(room.number), kind = "warn" })
-		else
-			entry.status = "ok"
-			ctx.fireTo(player, ctx.remotes.Toast, { text = ("✓ %d호 이상 없음"):format(room.number), kind = "accept" })
-		end
+		ctx.fireTo(player, ctx.remotes.Toast, { text = ("✓ %d층 이상 없음"):format(floor), kind = "accept" })
 	end
 	sendState(s, state)
 end
@@ -800,21 +794,38 @@ local function onKnock(room, player)
 			end
 			call.knocked = true
 			room.knockPrompt.Enabled = false
+			-- 손님의 말: 진짜 손님은 평범하게, 도플갱어는 (말 단서일 때) 이상하게
+			local line
+			if call.kind == "empty" then
+				line = pick(EMPTY_LINES)
+			elseif call.kind == "doppel" and call.clue ~= "look" then
+				line = pick(DOPPEL_LINES)(call, player)
+			else
+				line = pick(GENUINE_LINES):format(call.item)
+			end
+			local guest = call.guest
 			ctx.fireTo(player, ctx.remotes.Peephole, {
 				callId = call.id,
 				room = call.room,
 				item = call.item,
+				line = line,
 				-- 숙박부 사진 (빈방이면 없어요)
-				register = call.guest and {
-					id = call.guest.id,
-					name = call.guest.name,
-					animal = call.guest.animal,
-					animalName = call.guest.animalName,
-					fur = call.guest.fur,
-					cloth = call.guest.cloth,
+				register = guest and {
+					id = guest.id,
+					name = guest.name,
+					animal = guest.animal,
+					animalName = guest.animalName,
+					fur = guest.fur,
+					cloth = guest.cloth,
 				} or nil,
-				visual = call.visual,
-				visualKind = call.visualKind,
+				visual = {
+					id = call.visual.id,
+					animal = call.visual.animal,
+					fur = call.visual.fur,
+					cloth = call.visual.cloth,
+				},
+				-- 겉모습 단서: 어두울 땐 멀쩡해 보이고, 손전등으로 비추면 드러나요.
+				hiddenKind = (call.kind == "doppel" and call.clue ~= "speech") and call.visualKind or nil,
 				empty = call.kind == "empty",
 			})
 			return
@@ -824,7 +835,7 @@ end
 
 local function onPeepholeChoice(player, callId, choice)
 	local state = current
-	if not state or not isMember(state, player) or (choice ~= "give" and choice ~= "leave") then
+	if not state or not isMember(state, player) or (choice ~= "enter" and choice ~= "leave") then
 		return
 	end
 	local s = state.s
@@ -834,22 +845,26 @@ local function onPeepholeChoice(player, callId, choice)
 	end
 	local Config = ctx.Config
 	local genuine = call.kind == "normal"
-	if choice == "give" then
+	if choice == "enter" then
 		if genuine then
 			state.tips += Config.RoomServiceTip
 			state.served += 1
 			ctx.changeSanity(s, player, 4)
 			ctx.fireTo(player, ctx.remotes.Toast, { text = ("💰 \"고마워요~\" 팁 +%d"):format(Config.RoomServiceTip), kind = "accept" })
 		else
-			ctx.fireTo(player, ctx.remotes.NightFx, { kind = "scare", data = call.visual, anomaly = call.visualKind or "mouth" })
+			local kind = call.visualKind or "mouth"
+			if kind == "moving" then
+				kind = "mouth"
+			end
+			ctx.fireTo(player, ctx.remotes.NightFx, { kind = "scare", data = call.visual, anomaly = kind })
 			ctx.changeSanity(s, player, -Config.RoomServiceScareLoss)
 			local text = call.kind == "empty" and ("...%d호는 아무도 묵지 않는 방이었어요."):format(call.room)
-				or "...그건 손님이 아니었어요."
+				or "...방 안에 있던 건 손님이 아니었어요."
 			ctx.fireTo(player, ctx.remotes.Toast, { text = text, kind = "warn" })
 		end
 	else
 		if genuine then
-			ctx.fireTo(player, ctx.remotes.Toast, { text = "손님이 문 앞의 쟁반을 가져갔어요. (팁 없음)", kind = "info" })
+			ctx.fireTo(player, ctx.remotes.Toast, { text = "쟁반을 문 앞에 두고 왔어요. (팁 없음)", kind = "info" })
 		else
 			local text = call.kind == "empty" and ("...%d호는 빈방이었어요. 잘 피했어요."):format(call.room)
 				or "문 너머에서 긁는 소리가 나요... 잘 피했어요."
@@ -859,36 +874,6 @@ local function onPeepholeChoice(player, callId, choice)
 	finishCall(s, state, call, "done")
 end
 
-local reportCooldown = {}
-function onOddity(oddity, player)
-	local state = current
-	if not state or not isMember(state, player) then
-		return
-	end
-	if reportCooldown[player] and os.clock() - reportCooldown[player] < 2 then
-		return
-	end
-	reportCooldown[player] = os.clock()
-	local s = state.s
-	if oddity.kind ~= "normal" then
-		state.portraitsFound += 1
-		state.bonus += ctx.Config.PortraitBonus
-		ctx.floors.setOddity(oddity, "normal")
-		ctx.fire(s, ctx.remotes.Toast, {
-			text = ("🖼 %s 님이 이상해진 %s 찾았어요! 관리팀이 바로잡았어요. (수당 +%d)"):format(player.DisplayName, oddity.whatObj, ctx.Config.PortraitBonus),
-			kind = "accept",
-		})
-	else
-		state.portraitsWrong += 1
-		state.penalty += ctx.Config.PortraitWrongPenalty
-		ctx.fireTo(player, ctx.remotes.Toast, {
-			text = ("...아무 이상 없는 %s. (헛보고 -%d)"):format(oddity.whatIs, ctx.Config.PortraitWrongPenalty),
-			kind = "warn",
-		})
-	end
-	sendState(s, state)
-end
-
 local function onLeave(player)
 	local state = current
 	if state and isMember(state, player) and state.canLeave then
@@ -896,32 +881,36 @@ local function onLeave(player)
 	end
 end
 
+local askCounter = 0
+
 -- 서버가 처음 켜질 때 한 번 불러요.
 function Patrol.init(context)
 	ctx = context
-	for _, oddity in ipairs(ctx.floors.oddities) do
-		if not oddity.shared then
-			oddity.reportPrompt.Triggered:Connect(function(player)
-				onOddity(oddity, player)
-			end)
-		end
-	end
-	ctx.leavePrompt.Triggered:Connect(onLeave)
 	for _, room in pairs(ctx.floors.rooms) do
-		room.okPrompt.Triggered:Connect(function(player)
-			onCheck(room, player, false)
-		end)
-		room.reportPrompt.Triggered:Connect(function(player)
-			onCheck(room, player, true)
-		end)
 		room.knockPrompt.Triggered:Connect(function(player)
 			onKnock(room, player)
 		end)
 	end
+	ctx.leavePrompt.Triggered:Connect(onLeave)
 	ctx.phonePrompt.Triggered:Connect(onPhone)
 	ctx.remotes.PeepholeChoice.OnServerEvent:Connect(onPeepholeChoice)
 
-	-- 엘리베이터: 순찰 중인 직원만 타요.
+	-- 엘리베이터 대답
+	ctx.remotes.AskFloorAnswer.OnServerEvent:Connect(function(player, askId, saw)
+		local state = current
+		local ask = state and state.asks[player]
+		if not ask or ask.id ~= askId or typeof(saw) ~= "boolean" then
+			return
+		end
+		state.asks[player] = nil
+		judgeFloor(state, player, ask.floor, saw)
+		ctx.fireTo(player, ctx.remotes.NightFx, { kind = "fade" })
+		task.wait(0.35)
+		ctx.teleport(player, ctx.floors.exits[ask.target])
+		ctx.fireTo(player, ctx.remotes.Toast, { text = ask.target == 1 and "🛎 로비" or ("🛎 %d층"):format(ask.target), kind = "info" })
+	end)
+
+	-- 엘리베이터: 순찰 중인 직원만 타요. 2~4층에서 떠날 때는 "이상한 게 있었나요?" 하고 물어봐요.
 	for _, entry in ipairs(ctx.floors.elevatorPrompts) do
 		entry.prompt.Triggered:Connect(function(player)
 			local state = current
@@ -932,10 +921,17 @@ function Patrol.init(context)
 			if not exit then
 				return
 			end
+			local from = floorOf(player)
+			if from >= 2 then
+				askCounter += 1
+				state.asks[player] = { id = askCounter, floor = from, target = entry.target }
+				ctx.fireTo(player, ctx.remotes.AskFloor, { id = askCounter, floor = from })
+				return
+			end
 			ctx.fireTo(player, ctx.remotes.NightFx, { kind = "fade" })
 			task.wait(0.35)
 			ctx.teleport(player, exit)
-			ctx.fireTo(player, ctx.remotes.Toast, { text = entry.target == 1 and "🛎 로비" or ("🛎 %d층"):format(entry.target), kind = "info" })
+			ctx.fireTo(player, ctx.remotes.Toast, { text = ("🛎 %d층"):format(entry.target), kind = "info" })
 		end)
 	end
 end
