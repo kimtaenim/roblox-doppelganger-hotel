@@ -271,9 +271,29 @@ function Animals.build(data, anomaly)
 		elseif def.ears == "floppy" then
 			ellipsoid(headGroup, "Ear", V(0.5, 1.6, 0.85), at(side * 1.2, -0.15, 0.05) * CFrame.Angles(0, 0, side * 0.25), dark)
 		elseif def.ears == "long" then
-			local earCF = at(side * 0.42, 2.0, 0.05) * CFrame.Angles(0, 0, -side * 0.12)
-			ellipsoid(headGroup, "Ear", V(0.6, 2.4, 0.34), earCF, fur)
-			ellipsoid(headGroup, "EarInner", V(0.34, 1.8, 0.12), earCF * CFrame.new(0, 0, -0.13), PINK)
+			-- 토끼 귀: 두 마디로 만들어서 끝이 살짝 접혀요.
+			-- (from 에서 시작해 tiltZ 만큼 옆으로, tiltX 만큼 앞으로 기운 마디, flat 이면 납작한 면이 위를 봐요)
+			local function earSeg(from, tiltZ, tiltX, length, flat)
+				local cf = from * CFrame.Angles(tiltX, 0, tiltZ)
+				if flat then
+					cf = cf * CFrame.Angles(0, math.pi / 2, 0)
+				end
+				local mid = cf * CFrame.new(0, length / 2, 0)
+				ellipsoid(headGroup, "Ear", V(0.6, length + 0.3, 0.32), mid, fur)
+				return mid, cf * CFrame.new(0, length, 0)
+			end
+			local hatted = accessory == 1 or accessory == 4
+			if hatted then
+				-- 모자에 눌려서 챙 밑으로 납작하게 옆으로 삐져나왔다가 아래로 축 처져요.
+				local _, bend = earSeg(at(side * 0.5, 0.82, 0.05), -side * 1.42, 0, 0.75, true)
+				local tipMid = earSeg(CFrame.new(bend.Position), -side * 2.55, -0.2, 0.85, false)
+				ellipsoid(headGroup, "EarInner", V(0.3, 0.6, 0.1), tipMid * CFrame.new(0, 0.05, -0.13), PINK)
+			else
+				-- 쫑긋 서 있다가 끝이 바깥쪽 앞으로 살짝 꺾여요.
+				local baseMid, bend = earSeg(at(side * 0.42, 0.85, 0.05), -side * 0.12, 0, 1.35, false)
+				ellipsoid(headGroup, "EarInner", V(0.34, 1.25, 0.12), baseMid * CFrame.new(0, 0.05, -0.13), PINK)
+				earSeg(CFrame.new(bend.Position), -side * 0.85, -0.3, 0.75, false)
+			end
 		elseif def.ears == "round" then
 			ball(headGroup, "Ear", 0.85, at(side * 0.85, 0.95, 0), fur)
 			ball(headGroup, "EarInner", 0.45, at(side * 0.85, 0.95, -0.28), dark)
