@@ -559,6 +559,31 @@ function Animals.build(data, anomaly)
 		ellipsoid(headGroup, "Blood", V(0.13, 0.16, 0.09), headCF * CFrame.new(tip.X, tip.Y - 0.05, tip.Z), BLOOD)
 	end
 
+	-- 입 밖으로 축 늘어진 혀: 구불구불 흔들리며 내려오고, 가운데 홈과 끝에 맺힌 핏방울이 있어요.
+	local TONGUE = rgb(150, 40, 60)
+	local function hangingTongue(start, count, width)
+		local points = {}
+		for i = 0, count do
+			table.insert(points, start + Vector3.new(math.sin(i * 0.8) * 0.06, -i * 0.11, -0.03 * i))
+		end
+		local function toCF(mid, dir)
+			local right = dir:Cross(Vector3.new(0, 0, -1)).Unit
+			return headCF * CFrame.fromMatrix(mid, right, dir)
+		end
+		curvyLine(headGroup, "Tongue", points, function(t)
+			return width - width * 0.2 * t
+		end, 0.1, TONGUE, toCF)
+		-- 가운데 홈 (조금 앞쪽에 어두운 선)
+		local groove = {}
+		for i = 1, count - 1 do
+			table.insert(groove, points[i] + Vector3.new(0, 0, -0.045))
+		end
+		curvyLine(headGroup, "TongueGroove", groove, 0.035, 0.02, TONGUE:Lerp(BLACK, 0.35), toCF)
+		local tip = points[#points]
+		ellipsoid(headGroup, "Tongue", V(width * 0.9, width * 0.65, 0.1), headCF * CFrame.new(tip + Vector3.new(0, -0.04, 0)), TONGUE)
+		ellipsoid(headGroup, "Blood", V(0.1, 0.14, 0.08), headCF * CFrame.new(tip + Vector3.new(0.03, -0.17, -0.02)), BLOOD)
+	end
+
 	if anomaly == "teeth" then
 		-- 턱이 빠진 듯 쩍 벌어진 동그란 입: 검붉은 구멍 + 피 묻은 입술 테두리,
 		-- 테두리를 따라 안쪽을 향한 송곳니, 구불구불 늘어진 혀
@@ -585,19 +610,7 @@ function Animals.build(data, anomaly)
 			end
 		end
 		-- 혀: 입 아래쪽에서 나와 구불구불 늘어져요
-		local tongue = {}
-		local start = mouthLocal * Vector3.new(0.06, -mh * 0.25, -0.12)
-		for i = 0, 8 do
-			table.insert(tongue, start + Vector3.new(math.sin(i * 0.8) * 0.06, -i * 0.11, -0.03 * i))
-		end
-		curvyLine(headGroup, "Tongue", tongue, function(t)
-			return 0.3 - 0.06 * t
-		end, 0.1, rgb(150, 40, 60), function(mid, dir)
-			local right = dir:Cross(Vector3.new(0, 0, -1)).Unit
-			return headCF * CFrame.fromMatrix(mid, right, dir)
-		end)
-		local tip = tongue[#tongue]
-		ellipsoid(headGroup, "Tongue", V(0.27, 0.2, 0.1), headCF * CFrame.new(tip + Vector3.new(0, -0.04, 0)), rgb(150, 40, 60))
+		hangingTongue(mouthLocal * Vector3.new(0.06, -mh * 0.25, -0.12), 8, 0.3)
 		-- 아랫입술에서 흘러내리는 피
 		for _, drip in ipairs({ { -0.3, 0.55 }, { 0.32, 0.8 } }) do
 			local lip = mouthLocal * Vector3.new(drip[1], -math.sqrt(1 - (drip[1] / (mw / 2)) ^ 2) * mh / 2, -0.12)
@@ -636,7 +649,9 @@ function Animals.build(data, anomaly)
 			fang(headGroup, toothBase * CFrame.new(0, -h * 0.32, -0.07), 0.16 * scale, 0.1, false)
 		end
 		bloodDrip(-0.5, 0.6, mouthPoint(-0.5).Y - mouthHeight(-0.5) / 2)
-		bloodDrip(0.05, 0.75, mouthPoint(0.05).Y - mouthHeight(0.05) / 2)
+		-- 가운데에서는 혀가 길게 늘어져요
+		local tongueStart = mouthPoint(0.05)
+		hangingTongue(Vector3.new(0.05, tongueStart.Y - mouthHeight(0.05) * 0.2, tongueStart.Z - 0.06), 9, 0.32)
 		bloodDrip(0.55, 0.45, mouthPoint(0.55).Y - mouthHeight(0.55) / 2)
 	else
 		-- 살짝 웃는 w 모양 입
@@ -686,7 +701,7 @@ function Animals.build(data, anomaly)
 	elseif data.animal == "dog" then
 		ellipsoid(model, "Tail", V(0.4, 0.4, 1.3), CFrame.new(0, 2.5, 1.4) * CFrame.Angles(math.rad(50), 0, 0), fur)
 	else
-		ball(model, "Tail", 0.7, CFrame.new(0, 2.4, 1.2), data.animal == "pig" and PINK or light)
+		ball(model, "Tail", 0.7, CFrame.new(0, 2.4, 1.2), data.animal == "pig" and PINK or data.animal == "bear" and fur or light)
 	end
 
 	-- 미니 인형 같은 2등신 비율: 몸은 작게, 머리는 아주 크게 (몸이 이상한 도플갱어는 그대로 길쭉하게)
