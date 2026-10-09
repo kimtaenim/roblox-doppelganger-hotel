@@ -1688,7 +1688,7 @@ local function showAsk(info)
 	askSaw = nil
 	if info.askAnomaly then
 		askTitle.Text = ("🛗 %d층을 떠나기 전에... 이상한 게 있었나요?"):format(info.floor)
-		askSub.Text = "피가 흐르는 바닥, 눈알 꽃, 뒤집힌 복도, 빨간 조명, 열린 문들, 도플갱어 방의 흔적..."
+		askSub.Text = "피가 흐르는 바닥, 눈알 꽃, 뒤집힌 복도, 빨간 조명, 열린 문들, 검은 형체들, 손자국 벽, 도플갱어 방의 흔적..."
 		askYes.Visible = true
 		askNo.Visible = true
 		for _, b in ipairs(floorButtons) do
@@ -1744,7 +1744,8 @@ local GUIDES = {
 			"1. 프런트 오른쪽 STAFF ONLY 문으로 나가요.",
 			"2. 엘리베이터 옆 버튼 판에서 E → 2층, 3층, 4층을 골라 올라가요.",
 			"3. 복도를 걸으며 둘러봐요. 아무도 없는 사이에 층 전체가 확 바뀌어요.",
-			"    (바닥에 피가 흐름, 꽃 대신 눈알, 천장과 바닥이 뒤집힘, 빨간 조명, 활짝 열린 문들)",
+			"    (바닥에 피가 흐름, 꽃 대신 눈알, 천장과 바닥이 뒤집힘, 빨간 조명, 활짝 열린 문들,",
+			"     빨간 눈의 검은 형체들, 손자국으로 뒤덮인 벽)",
 			"    도플갱어가 묵는 방 문에도 섬뜩한 흔적이 있어요. (첫날 밤은 안전해요)",
 			"4. 그 층을 떠나려고 엘리베이터를 타면 \"이상한 게 있었나요?\" 하고 물어봐요.",
 			"    맞히면 수당 + 도플갱어 방 봉쇄! 놓치면 정신력이 떨어져요.",
@@ -2069,7 +2070,6 @@ local function onNightFx(fx)
 			end
 			TweenService:Create(fadeFrame, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
 		end)
-		shakeCamera()
 	end
 end
 

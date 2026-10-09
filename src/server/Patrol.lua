@@ -516,24 +516,6 @@ function Patrol.run(s)
 		end
 	end
 
-	-- 복도 끝에 서 있는 그림자 (다가가면 사라져요)
-	for _, floor in ipairs(floors.List) do
-		if math.random() < 0.5 then
-			local data = { id = math.random(1000, 9999), name = "?", animal = pick(ctx.Animals.List), fur = rgb(12, 11, 14), cloth = rgb(12, 11, 14) }
-			local figure = ctx.Animals.build(data, nil)
-			for _, d in ipairs(figure:GetDescendants()) do
-				if d:IsA("BasePart") then
-					d.Color = rgb(10, 9, 12)
-					d.CanCollide = false
-					d.CanQuery = false
-				end
-			end
-			figure:PivotTo(floors.figures[floor])
-			figure.Parent = workspace
-			table.insert(state.figures, { model = figure, floor = floor })
-		end
-	end
-
 	-- 손전등
 	for _, player in ipairs(s.players) do
 		local head = player.Character and player.Character:FindFirstChild("Head")
@@ -590,7 +572,7 @@ function Patrol.run(s)
 			end
 		end
 
-		-- 아무도 없는 층 전체가 몰래 확 바뀌어요. (피의 강, 눈알 꽃, 뒤집힌 복도, 빨간 조명, 활짝 열린 문)
+		-- 아무도 없는 층 전체가 몰래 확 바뀌어요. (피의 강, 눈알 꽃, 뒤집힌 복도, 빨간 조명, 활짝 열린 문, 검은 형체들, 손자국 벽)
 		if state.spawned < state.spawnMax and now >= nextOddityAt and state.deadline - now > 30 then
 			local occupiedFloors = {}
 			for _, player in ipairs(s.players) do
@@ -630,22 +612,6 @@ function Patrol.run(s)
 				end
 			end
 		end
-		-- 복도 끝 그림자: 다가가면 사라져요.
-		for _, figure in ipairs(state.figures) do
-			if figure.model.Parent then
-				local pos = figure.model:GetPivot().Position
-				for _, player in ipairs(s.players) do
-					local root = rootOf(player)
-					if root and math.abs(root.Position.Y - pos.Y) < 8 and (root.Position - pos).Magnitude < 17 then
-						figure.model:Destroy()
-						ctx.fireTo(player, ctx.remotes.NightFx, { kind = "whisper" })
-						ctx.changeSanity(s, player, -3)
-						break
-					end
-				end
-			end
-		end
-
 		-- 다 끝났는지: 2~4층을 한 번씩 다 둘러보고, 전화도 다 끝나면 퇴근할 수 있어요.
 		local allInspected = true
 		for _, floor in ipairs(floors.List) do
@@ -694,11 +660,6 @@ function Patrol.run(s)
 	for _, call in ipairs(state.calls) do
 		if call.tray then
 			call.tray:Destroy()
-		end
-	end
-	for _, figure in ipairs(state.figures) do
-		if figure.model.Parent then
-			figure.model:Destroy()
 		end
 	end
 	for _, player in ipairs(s.players) do

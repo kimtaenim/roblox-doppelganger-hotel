@@ -738,7 +738,8 @@ function Floors.build(hotel)
 	---------------------------------------------------------------- 층 전체가 확 바뀌는 이상 (아주 뚜렷한 것만)
 	-- blood: 복도 바닥에 피가 강물처럼 흘러요 / eyes: 꽃병마다 꽃 대신 커다란 눈알 /
 	-- flip: 천장과 바닥이 뒤집혀요 (가구가 천장에 거꾸로 매달려요) / red: 조명이 전부 새빨개요 / doors: 모든 객실 문이 활짝 열려요
-	api.EventKinds = { "blood", "eyes", "flip", "red", "doors" }
+	-- crowd: 새까만 형체들이 빨간 눈을 빛내며 복도에 줄지어 서 있어요 (움직이지 않아요) / hands: 양쪽 벽이 피 묻은 손자국으로 뒤덮여요
+	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "hands" }
 	for _, floor in ipairs(FLOOR_LIST) do
 		local eventFolder = Instance.new("Folder")
 		eventFolder.Name = "Event"
@@ -806,6 +807,50 @@ function Floors.build(hotel)
 				for x = -24, 18, 7 do
 					for _, side in ipairs({ -1, 1 }) do
 						P(ev.folder, "BloodDrip", V(1.2, random:NextNumber(3, 7), 0.05), CFrame.new(x + random:NextNumber(-1, 1), y + 6, side * (HALF - 0.45)), rgb(110, 0, 0))
+					end
+				end
+			else
+				ev.folder:ClearAllChildren()
+			end
+		elseif kind == "crowd" then
+			if on then
+				local random = Random.new(floor * 53)
+				for i = 1, 7 do
+					local x = -25 + i * 6 + random:NextNumber(-1.5, 1.5)
+					local z = random:NextNumber(-HALF + 1.5, HALF - 1.5)
+					local figure = Animals.build({ id = 900 + i, name = "?", animal = Animals.List[random:NextInteger(1, #Animals.List)], fur = rgb(10, 9, 12), cloth = rgb(10, 9, 12) }, nil)
+					for _, d in ipairs(figure:GetDescendants()) do
+						if d:IsA("BasePart") then
+							d.CanCollide = false
+							d.CanQuery = false
+							local name = d.Name
+							if name == "EyeWhite" or name == "Iris" or name == "Pupil" or name == "EyeShine" then
+								d.Color = rgb(255, 20, 20)
+								d.Material = Mat.Neon
+							else
+								d.Color = rgb(10, 9, 12)
+							end
+						end
+					end
+					-- 엘리베이터 쪽(오는 사람)을 바라보고 서 있어요.
+					figure:PivotTo(CFrame.lookAt(V(x, y, z), V(30, y, z)))
+					figure.Parent = ev.folder
+				end
+			else
+				ev.folder:ClearAllChildren()
+			end
+		elseif kind == "hands" then
+			if on then
+				local random = Random.new(floor * 71)
+				for _ = 1, 140 do
+					local side = random:NextNumber() < 0.5 and -1 or 1
+					local x = random:NextNumber(-27, 20)
+					local cf = CFrame.lookAt(V(x, y + random:NextNumber(1.5, 9), side * (HALF - 0.42)), V(x, y + 5, 0)) * CFrame.Angles(0, 0, random:NextNumber(-0.6, 0.6))
+					local palm = P(ev.folder, "BloodHand", V(0.9, 1.05, 0.04), cf, rgb(125, 0, 0))
+					Instance.new("SpecialMesh", palm).MeshType = Enum.MeshType.Sphere
+					for f = -2, 2 do
+						local finger = P(ev.folder, "BloodHand", V(0.18, 0.62, 0.04), cf * CFrame.new(f * 0.19, 0.78 - math.abs(f) * 0.07, 0) * CFrame.Angles(0, 0, f * 0.15), rgb(125, 0, 0))
+						Instance.new("SpecialMesh", finger).MeshType = Enum.MeshType.Sphere
 					end
 				end
 			else
