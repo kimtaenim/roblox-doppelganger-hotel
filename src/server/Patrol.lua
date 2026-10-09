@@ -308,16 +308,22 @@ local function makeCall(s, state)
 			visualKind = visibleKind(entry.guest.anomaly and entry.guest.anomaly.kind)
 		elseif kind == "impostor" then
 			-- 그 방 손님인 척하는 가짜: 털 색이 다르거나, 다른 동물이거나, 얼굴이 이상해요.
-			local variant = pick({ "fur", "animal", "eyes", "teeth", "mouth" })
+			-- 자세히 봐야 아는 것(털 색, 옷 색, 소품)과 바로 보이는 것(다른 동물, 무서운 얼굴)이 섞여 있어요.
+			local variant = pick({ "fur", "cloth", "outfit", "animal", "eyes", "teeth", "mouth" })
 			if variant == "fur" then
-				local def = ctx.Animals.Types[visual.animal]
-				local others = {}
-				for _, fur in ipairs(def.furs) do
-					if fur ~= visual.fur then
-						table.insert(others, fur)
-					end
-				end
-				visual.fur = #others > 0 and pick(others) or visual.fur:Lerp(rgb(90, 90, 95), 0.5)
+				-- 털 색이 눈에 띄게 달라요 (잿빛, 새까만, 새하얀, 붉은...)
+				local odd = { rgb(150, 150, 155), rgb(45, 40, 42), rgb(250, 250, 250), rgb(200, 90, 70), rgb(120, 150, 110) }
+				repeat
+					visual.fur = pick(odd)
+				until visual.fur ~= entry.guest.fur
+			elseif variant == "cloth" then
+				-- 옷 색이 달라요
+				repeat
+					visual.cloth = pick(ctx.Animals.Clothes)
+				until visual.cloth ~= entry.guest.cloth
+			elseif variant == "outfit" then
+				-- 모자·리본·넥타이 같은 소품이 달라요
+				visual.id = entry.guest.id + math.random(1, 50)
 			elseif variant == "animal" then
 				local others = {}
 				for _, animal in ipairs(ctx.Animals.List) do
@@ -391,7 +397,7 @@ function Patrol.run(s)
 		portraitsFound = 0,
 		portraitsWrong = 0,
 		portraitsSpawned = 0,
-		portraitsMax = math.min(2 + math.floor(s.day / 2), 5),
+		portraitsMax = math.min(3 + math.floor(s.day / 2), 7),
 		canLeave = false,
 		leave = false,
 		deadline = os.clock() + Config.PatrolTime,
@@ -512,7 +518,8 @@ function Patrol.run(s)
 			end
 			local candidates = {}
 			for _, oddity in ipairs(floors.oddities) do
-				if oddity.kind == "normal" and not occupiedFloors[oddity.floor] then
+				local guestRoom = oddity.room and state.occupied[oddity.room.number]
+				if oddity.kind == "normal" and not occupiedFloors[oddity.floor] and not guestRoom then
 					table.insert(candidates, oddity)
 				end
 			end
@@ -520,7 +527,7 @@ function Patrol.run(s)
 				local chosen = pick(candidates)
 				floors.setOddity(chosen, pick(chosen.kinds))
 				state.portraitsSpawned += 1
-				nextPortraitAt = now + math.random(30, 45)
+				nextPortraitAt = now + math.random(25, 40)
 			else
 				nextPortraitAt = now + 5
 			end
@@ -604,7 +611,7 @@ function Patrol.run(s)
 	end
 	if s.active and portraitsMissed > 0 then
 		ctx.fire(s, ctx.remotes.Toast, {
-			text = ("🖼 이상해진 초상화·꽃병 %d개를 놓쳤어요... 무언가가 빠져나왔어요."):format(portraitsMissed),
+			text = ("🖼 이상해진 것 %d개를 놓쳤어요... 무언가가 빠져나왔어요."):format(portraitsMissed),
 			kind = "warn",
 		})
 		for _, player in ipairs(table.clone(s.players)) do
@@ -670,6 +677,8 @@ local function isMember(state, player)
 	return table.find(state.s.players, player) ~= nil
 end
 
+local onOddity -- 아래에서 정의해요 (초상화·꽃병·빈방 문 등 보고)
+
 local function onCheck(room, player, report)
 	local state = current
 	if not state or not isMember(state, player) then
@@ -677,7 +686,14 @@ local function onCheck(room, player, report)
 	end
 	local s = state.s
 	local entry = entryFor(state, room)
-	if not entry or entry.status ~= "pending" then
+	if not entry then
+		-- 손님이 없는 방의 문: 문이 이상해졌는지 보고하는 거예요.
+		if report and room.oddity then
+			onOddity(room.oddity, player)
+		end
+		return
+	end
+	if entry.status ~= "pending" then
 		return
 	end
 	room.okPrompt.Enabled = false
@@ -844,7 +860,7 @@ local function onPeepholeChoice(player, callId, choice)
 end
 
 local reportCooldown = {}
-local function onOddity(oddity, player)
+function onOddity(oddity, player)
 	local state = current
 	if not state or not isMember(state, player) then
 		return
@@ -866,7 +882,7 @@ local function onOddity(oddity, player)
 		state.portraitsWrong += 1
 		state.penalty += ctx.Config.PortraitWrongPenalty
 		ctx.fireTo(player, ctx.remotes.Toast, {
-			text = ("...아무 이상 없는 %s예요. (헛보고 -%d)"):format(oddity.what, ctx.Config.PortraitWrongPenalty),
+			text = ("...아무 이상 없는 %s. (헛보고 -%d)"):format(oddity.whatIs, ctx.Config.PortraitWrongPenalty),
 			kind = "warn",
 		})
 	end
@@ -884,9 +900,11 @@ end
 function Patrol.init(context)
 	ctx = context
 	for _, oddity in ipairs(ctx.floors.oddities) do
-		oddity.reportPrompt.Triggered:Connect(function(player)
-			onOddity(oddity, player)
-		end)
+		if not oddity.shared then
+			oddity.reportPrompt.Triggered:Connect(function(player)
+				onOddity(oddity, player)
+			end)
+		end
 	end
 	ctx.leavePrompt.Triggered:Connect(onLeave)
 	for _, room in pairs(ctx.floors.rooms) do

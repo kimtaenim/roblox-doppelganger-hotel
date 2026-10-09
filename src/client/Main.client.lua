@@ -1539,23 +1539,31 @@ make("UIStroke", { Color = rgb(40, 25, 16), Thickness = 2 }, doorFrame)
 local slit = make("ViewportFrame", {
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.fromScale(0.5, 0),
-	Size = UDim2.fromScale(0.34, 1),
-	BackgroundColor3 = rgb(6, 5, 6),
-	Ambient = rgb(70, 55, 50),
-	LightColor = rgb(170, 120, 90),
+	Size = UDim2.fromScale(0.72, 1),
+	BackgroundColor3 = rgb(8, 7, 8),
+	Ambient = rgb(95, 85, 80),
+	LightColor = rgb(200, 170, 140),
 	LightDirection = Vector3.new(0.6, -0.4, 1),
 	ZIndex = 22,
+}, doorFrame)
+-- 문틈 위에 겹치는 투명한 층 (가장자리 그림자, 어둠 속 눈). 문틈 그림을 새로 그려도 지워지지 않아요.
+local slitOverlay = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.fromScale(0.5, 0),
+	Size = UDim2.fromScale(0.72, 1),
+	BackgroundTransparency = 1,
+	ZIndex = 23,
 }, doorFrame)
 -- 문틈 가장자리 그림자
 for _, side in ipairs({ 0, 1 }) do
 	local shade = make("Frame", {
 		AnchorPoint = Vector2.new(side, 0),
 		Position = UDim2.fromScale(side, 0),
-		Size = UDim2.fromScale(0.3, 1),
+		Size = UDim2.fromScale(0.12, 1),
 		BackgroundColor3 = rgb(0, 0, 0),
 		BorderSizePixel = 0,
 		ZIndex = 23,
-	}, slit)
+	}, slitOverlay)
 	make("UIGradient", {
 		Rotation = side == 0 and 0 or 180,
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) }),
@@ -1565,10 +1573,10 @@ end
 local chain = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.42),
-	Size = UDim2.new(0.5, 0, 0, 4),
+	Size = UDim2.new(0.8, 0, 0, 3),
 	BackgroundColor3 = rgb(200, 170, 100),
 	BorderSizePixel = 0,
-	Rotation = 8,
+	Rotation = 6,
 	ZIndex = 24,
 }, doorFrame)
 round(chain, 2)
@@ -1583,7 +1591,7 @@ for i, x in ipairs({ 0.36, 0.64 }) do
 		BorderSizePixel = 0,
 		Visible = false,
 		ZIndex = 25,
-	}, slit)
+	}, slitOverlay)
 	round(eye, 20)
 	make("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -1595,6 +1603,35 @@ for i, x in ipairs({ 0.36, 0.64 }) do
 	}, eye)
 	darkEyes[i] = eye
 end
+-- 손전등으로 비춰 보기: 누르고 있는 동안 문틈이 환해져요.
+local lightButton = button(doorFrame, "🔦 비춰 보기", rgb(60, 50, 35), {
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -6),
+	Size = UDim2.new(0.7, 0, 0, 28),
+	ZIndex = 27,
+}, 16)
+local function setPeepLight(on)
+	slit.Ambient = on and rgb(200, 195, 185) or rgb(95, 85, 80)
+	slit.LightColor = on and rgb(255, 250, 235) or rgb(200, 170, 140)
+	slit.BackgroundColor3 = on and rgb(40, 34, 30) or rgb(8, 7, 8)
+end
+lightButton.MouseButton1Down:Connect(function()
+	setPeepLight(true)
+end)
+lightButton.MouseButton1Up:Connect(function()
+	setPeepLight(false)
+end)
+lightButton.MouseLeave:Connect(function()
+	setPeepLight(false)
+end)
+lightButton.Activated:Connect(function()
+	-- 터치 화면: 한 번 누르면 2초 동안 환해져요.
+	setPeepLight(true)
+	task.delay(2, function()
+		setPeepLight(false)
+	end)
+end)
+
 local peepHint = label(peep, {
 	Font = Enum.Font.Gotham,
 	TextColor3 = CREAM,
@@ -1613,6 +1650,8 @@ local leaveButton = button(peep, "문 앞에 두고 가기", OXBLOOD, {
 	ZIndex = 21,
 }, 20)
 
+-- 숙박부 사진과 문틈을 똑같은 구도로 보여줘서 비교하기 쉬워요. (머리부터 가슴까지)
+local PEEP_CAMERA = CFrame.lookAt(Vector3.new(0, 6, -12), Vector3.new(0, 5.3, 0))
 local peepCallId = nil
 local peepToken = 0
 local function closePeep()
@@ -1621,6 +1660,7 @@ local function closePeep()
 	peepToken += 1
 	registerView:ClearAllChildren()
 	slit:ClearAllChildren()
+	setPeepLight(false)
 end
 
 local function choosePeep(choice)
@@ -1642,11 +1682,11 @@ local function showPeep(info)
 	peepCallId = info.callId
 	local token = peepToken
 	peepTitle.Text = ("🛎 %d호 · %s 배달"):format(info.room, info.item)
-	peepHint.Text = "똑똑... 체인을 건 채 문이 빼꼼 열렸어요. 숙박부 사진과 같은 손님인가요?"
+	peepHint.Text = "똑똑... 체인을 건 채 문이 열렸어요. 숙박부 사진과 털 색, 옷, 소품, 얼굴까지 똑같나요?"
 
 	-- 숙박부 사진
 	if info.register then
-		fillViewport(registerView, info.register, nil, CFrame.lookAt(Vector3.new(0, 5.9, -10), Vector3.new(0, 5.6, 0)), 40, false)
+		fillViewport(registerView, info.register, nil, PEEP_CAMERA, 40, false)
 		registerCaption.Text = ("숙박부 · %d호 %s (%s)"):format(info.room, info.register.name, info.register.animalName or "")
 	else
 		registerCaption.Text = ("숙박부 · %d호 — 기록 없음"):format(info.room)
@@ -1666,7 +1706,7 @@ local function showPeep(info)
 			end
 		end)
 	else
-		local model = fillViewport(slit, info.visual, info.visualKind, CFrame.lookAt(Vector3.new(0.35, 5.75, -3.4), Vector3.new(0, 5.5, 0)), 52, false)
+		local model = fillViewport(slit, info.visual, info.visualKind, PEEP_CAMERA, 40, false)
 		-- 문틈 너머에서 고개를 아주 천천히 갸웃거려요.
 		local headGroup = model:FindFirstChild("HeadGroup")
 		if headGroup then
