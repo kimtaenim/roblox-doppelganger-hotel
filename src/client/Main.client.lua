@@ -1401,7 +1401,8 @@ local UserInputService = game:GetService("UserInputService")
 local bag = make("Frame", {
 	AnchorPoint = Vector2.new(1, 1),
 	Position = UDim2.new(1, -16, 1, -16),
-	Size = UDim2.new(0, 490, 0, 64),
+	Size = UDim2.new(0, 166, 0, 0),
+	AutomaticSize = Enum.AutomaticSize.Y,
 	BackgroundColor3 = ESPRESSO,
 	BackgroundTransparency = 0.15,
 	Visible = false,
@@ -1409,19 +1410,27 @@ local bag = make("Frame", {
 }, gui)
 round(bag, 8)
 brassFrame(bag, 1)
+-- 세로로 쌓아서 가운데 아래의 손님 응대 창과 겹치지 않게 해요.
 make("UIListLayout", {
-	FillDirection = Enum.FillDirection.Horizontal,
+	FillDirection = Enum.FillDirection.Vertical,
 	HorizontalAlignment = Enum.HorizontalAlignment.Center,
-	VerticalAlignment = Enum.VerticalAlignment.Center,
-	Padding = UDim.new(0, 8),
+	VerticalAlignment = Enum.VerticalAlignment.Bottom,
+	Padding = UDim.new(0, 6),
+	SortOrder = Enum.SortOrder.LayoutOrder,
+}, bag)
+make("UIPadding", {
+	PaddingTop = UDim.new(0, 8),
+	PaddingBottom = UDim.new(0, 8),
 }, bag)
 local drinkSlot = button(bag, "🥤 0", rgb(60, 48, 34), {
-	Size = UDim2.new(0, 150, 0, 50),
+	Size = UDim2.new(0, 150, 0, 44),
+	LayoutOrder = 1,
 	ZIndex = 7,
 }, 20)
 -- 무전기: 순찰 중에 프런트 전화가 오면 어디서든 받아요. (2번 키)
 local radioSlot = button(bag, "📻 무전기 [2]", rgb(45, 52, 48), {
-	Size = UDim2.new(0, 150, 0, 50),
+	Size = UDim2.new(0, 150, 0, 44),
+	LayoutOrder = 2,
 	ZIndex = 7,
 }, 16)
 local traySlot = label(bag, {
@@ -1430,7 +1439,8 @@ local traySlot = label(bag, {
 	TextColor3 = CREAM,
 	BackgroundTransparency = 0.3,
 	BackgroundColor3 = rgb(40, 32, 26),
-	Size = UDim2.new(0, 150, 0, 50),
+	Size = UDim2.new(0, 150, 0, 44),
+	LayoutOrder = 3,
 	ZIndex = 7,
 }, 14)
 round(traySlot, 10)
@@ -1440,6 +1450,7 @@ local radioRinging = false
 local inPatrol = false
 local function refreshBag()
 	radioSlot.Visible = inPatrol
+	traySlot.Visible = inPatrol
 	radioSlot.Text = radioRinging and "📻 무전 왔어요! [2]" or "📻 무전기 [2]"
 	radioSlot.BackgroundColor3 = radioRinging and rgb(150, 60, 30) or rgb(45, 52, 48)
 	drinkSlot.Text = ("🥤 음료 %d/%d  [1]"):format(drinkCount, drinkMax)
