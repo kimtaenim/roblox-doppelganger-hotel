@@ -563,7 +563,7 @@ function Patrol.run(s)
 			end
 		end
 
-		-- 아무도 없는 층 전체가 몰래 확 바뀌어요. (피의 강, 눈알 꽃, 뒤집힌 복도, 빨간 조명, 활짝 열린 문, 검은 형체들, 손자국 벽)
+		-- 아무도 없는 층 전체가 몰래 확 바뀌어요. (피의 강, 눈알 꽃, 뒤집힌 복도, 빨간 조명, 활짝 열린 문, 검은 형체들)
 		if state.spawned < state.spawnMax and now >= nextOddityAt and state.deadline - now > 30 then
 			local occupiedFloors = {}
 			for _, player in ipairs(s.players) do
