@@ -858,13 +858,37 @@ function Floors.build(hotel)
 				end
 			end
 		elseif kind == "red" then
+			-- 복도 전체가 새빨간 빛으로 물들어요: 모든 등이 빨갛게, 빨간 빛을 더 달고, 바닥·천장도 붉게 비쳐요.
 			for _, bulb in ipairs(lampsOn(floor)) do
-				bulb.Color = on and rgb(230, 20, 20) or WARM
+				bulb.Color = on and rgb(255, 0, 0) or WARM
 				local light = bulb:FindFirstChildWhichIsA("Light")
 				if light then
-					light.Color = on and rgb(255, 20, 20) or WARM
-					light.Brightness = on and 1.4 or (bulb.Name == "LoungeChandelier" and 0.9 or 0.7)
+					if on then
+						light:SetAttribute("NormalRange", light.Range)
+					end
+					light.Color = on and rgb(255, 0, 0) or WARM
+					light.Brightness = on and 3 or (bulb.Name == "LoungeChandelier" and 0.9 or 0.7)
+					light.Range = on and 24 or (light:GetAttribute("NormalRange") or light.Range)
 				end
+			end
+			if on then
+				-- 빨간 빛을 촘촘히 더 달아요.
+				for x = -26, 26, 4 do
+					local glowPart = P(ev.folder, "RedGlow", V(0.5, 0.5, 0.5), V(x, y + WALL_H - 1, 0), rgb(255, 0, 0), Mat.Neon, { Transparency = 1 })
+					local red = Instance.new("PointLight")
+					red.Color = rgb(255, 0, 0)
+					red.Range = 16
+					red.Brightness = 2.5
+					red.Shadows = false
+					red.Parent = glowPart
+				end
+				-- 바닥과 천장에 붉은 빛이 번진 것처럼 반투명한 빨간 막을 깔아요.
+				local length = LOUNGE_X + 28.9
+				local midX = (LOUNGE_X - 28.9) / 2
+				P(ev.folder, "RedFloorTint", V(length, 0.02, HALF * 2), V(midX, y + 0.11, 0), rgb(200, 0, 0), Mat.Neon, { Transparency = 0.82 })
+				P(ev.folder, "RedCeilingTint", V(length, 0.02, HALF * 2), V(midX, y + WALL_H - 0.02, 0), rgb(200, 0, 0), Mat.Neon, { Transparency = 0.7 })
+			else
+				ev.folder:ClearAllChildren()
 			end
 		elseif kind == "doors" then
 			if on then
