@@ -445,6 +445,14 @@ local function runGuest(s, data)
 		day = s.day,
 	})
 
+	if data.demo then
+		task.delay(1.5, function()
+			if s.currentGuest == data then
+				fire(s, Toast, { text = "💡 예약 사진을 보세요! 입이 쩍 찢어져 있죠? 이런 손님은 [셔터 닫기]!", kind = "warn" })
+			end
+		end)
+	end
+
 	if not waitUntil(s, function()
 		return s.decision ~= nil
 	end) then
@@ -453,7 +461,13 @@ local function runGuest(s, data)
 	local choice = s.decision
 	s.currentGuest = nil
 
-	if choice == "accept" then
+	if choice == "accept" and data.demo then
+		-- 첫날 연습용 도플갱어: 받아도 희생자는 없지만, 바로 정체를 보여줘요.
+		Npc.say(model, "데자뷔! 히히히히...", 3)
+		fire(s, Toast, { text = "😱 그건 도플갱어였어요! 오늘은 연습이라 괜찮지만, 내일부터는 희생자가 생겨요.", kind = "warn", shake = true })
+		task.wait(1.5)
+		Npc.walkTo(model, markers.Door.Position, Config.WalkSpeed * 1.5)
+	elseif choice == "accept" then
 		table.insert(s.accepted, data) -- 밤 순찰 때 이 방을 확인해요
 		-- 도플갱어를 받아도 지금은 티가 안 나요. 밤이 되면 알게 돼요...
 		if data.isDoppel then
@@ -465,8 +479,12 @@ local function runGuest(s, data)
 		fire(s, Toast, { text = "✅ 체크인 완료! " .. data.name .. " 님이 방으로 올라갔어요.", kind = "accept" })
 		Npc.walkTo(model, markers.Elevator.Position, Config.WalkSpeed)
 	else
-		-- 셔터로 돌려보낸 손님이 도플갱어였는지는 다음 날 아침에 알려줘요.
-		table.insert(s.refused, { name = data.name, animalName = data.animalName, isDoppel = data.isDoppel })
+		-- 셔터로 돌려보낸 손님이 도플갱어였는지는 다음 날 아침에 알려줘요. (첫날 연습용 도플갱어만 바로 알려줘요)
+		if data.demo then
+			fire(s, Toast, { text = "👍 잘했어요! 방금 그 손님은 도플갱어였어요. 내일부터는 정체를 다음 날 아침 보고서로 알려줘요.", kind = "accept" })
+		else
+			table.insert(s.refused, { name = data.name, animalName = data.animalName, isDoppel = data.isDoppel })
+		end
 		Npc.say(model, pick(PROTESTS), 3)
 		task.wait(0.8)
 		moveShutter(true)
@@ -642,7 +660,7 @@ local function runDay(s)
 		table.insert(staying, resident)
 	end
 	s.residents = staying
-	s.guestsTotal = Config.GuestsPerDay
+	s.guestsTotal = s.day == 1 and 3 or Config.GuestsPerDay -- 첫날은 짧게 (빨리 순찰까지 가 봐요)
 	s.guestIndex = 0
 
 	corpseFolder:ClearAllChildren() -- 밤사이 청소 완료
@@ -677,14 +695,14 @@ local function runDay(s)
 	s.refused = {}
 
 	if s.day <= Config.PracticeDays then
-		fire(s, Toast, { text = ("🌙 %d일차 밤 근무 시작! 첫날은 연습이에요. 도플갱어는 오지 않아요."):format(s.day), kind = "info" })
+		fire(s, Toast, { text = "🌙 첫날 밤 근무 시작! 오늘은 연습이에요. 손님의 예약 사진을 잘 보세요.", kind = "info" })
 	else
 		fire(s, Toast, {
 			text = ("🌙 %d일차 밤 근무... 오늘은 도플갱어가 찾아올 거예요. 사진과 CCTV를 꼼꼼히 보세요!"):format(s.day),
 			kind = "warn",
 		})
 	end
-	task.wait(3)
+	task.wait(1.5)
 
 	-- 꼬마 손님 (3일차부터 3일마다)
 	if s.day >= Config.KidFirstDay and (s.day - Config.KidFirstDay) % Config.KidEveryDays == 0 then
@@ -701,7 +719,14 @@ local function runDay(s)
 		end
 		s.guestIndex = i
 		sendState(s)
-		runGuest(s, makeGuestData(plan[i], s.usedRooms))
+		local data = makeGuestData(plan[i], s.usedRooms)
+		if s.day == 1 and i == 2 then
+			-- 첫날 두 번째 손님: 연습용 도플갱어 (예약 사진에서 입이 확 찢어져 있어요)
+			data.isDoppel = true
+			data.demo = true
+			data.anomaly = { kind = "mouth", where = "photo" }
+		end
+		runGuest(s, data)
 		task.wait(1)
 	end
 end
@@ -811,7 +836,43 @@ faint = function(s, player)
 	end
 end
 
+-- 첫 출근길: 호텔 정문 앞에서 시작해요. 정문에서 도플갱어가 걸어 나와 "데자뷔!" 외치고 사라져요.
+local function runIntro(s)
+	for i, player in ipairs(s.players) do
+		local spot = Vector3.new((i - 1) * 3 - 4.5, 3.5, -40)
+		teleport(player, CFrame.lookAt(spot, Vector3.new(spot.X, 3.5, -20)))
+	end
+	fire(s, Toast, { text = "🌙 첫 야간 출근... 호텔 정문으로 들어가요.", kind = "info" })
+	task.wait(1.2)
+	local stranger = Animals.build({ id = 4242, name = "?", animal = "rabbit", fur = rgb(252, 248, 245), cloth = rgb(195, 175, 235) }, "mouth")
+	stranger:PivotTo(CFrame.new(markers.Door.Position + Vector3.new(0, 0, 6)))
+	stranger.Parent = guestFolder
+	Npc.walkTo(stranger, Vector3.new(0, markers.Door.Position.Y, -32), Config.WalkSpeed * 0.9)
+	if not s.active then
+		stranger:Destroy()
+		return
+	end
+	Npc.face(stranger, Vector3.new(0, 0, -40))
+	Npc.say(stranger, "데자뷔!!", 2)
+	for _, player in ipairs(s.players) do
+		NightFx:FireClient(player, { kind = "sting" })
+	end
+	fire(s, Toast, { text = "🗣 \"데자뷔!! 우리 전에 만난 적 있죠? 히히히...\"", kind = "warn", shake = true })
+	task.wait(1.6)
+	stranger:Destroy()
+	task.wait(0.6)
+	fire(s, Toast, { text = "...방금 그건 뭐였지? 일단 프런트로 가요.", kind = "info" })
+	for _, player in ipairs(s.players) do
+		NightFx:FireClient(player, { kind = "fade" })
+	end
+	task.wait(0.5)
+	for i, player in ipairs(s.players) do
+		teleport(player, deskCFrame(i))
+	end
+end
+
 local function runGame(s)
+	runIntro(s)
 	while s.active do
 		runDay(s)
 		if not s.active then
