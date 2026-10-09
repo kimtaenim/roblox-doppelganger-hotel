@@ -1401,6 +1401,68 @@ Remotes.KidEvent.OnClientEvent:Connect(function(ask)
 	kidFrame.Visible = true
 end)
 
+---------------------------------------------------------------- 가방 (화면 오른쪽 아래): 음료를 들고 다니다가 1번 키나 버튼으로 마셔요
+local UserInputService = game:GetService("UserInputService")
+local bag = make("Frame", {
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.new(1, -16, 1, -16),
+	Size = UDim2.new(0, 330, 0, 64),
+	BackgroundColor3 = ESPRESSO,
+	BackgroundTransparency = 0.15,
+	Visible = false,
+	ZIndex = 6,
+}, gui)
+round(bag, 8)
+brassFrame(bag, 1)
+make("UIListLayout", {
+	FillDirection = Enum.FillDirection.Horizontal,
+	HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	VerticalAlignment = Enum.VerticalAlignment.Center,
+	Padding = UDim.new(0, 8),
+}, bag)
+local drinkSlot = button(bag, "🥤 0", rgb(60, 48, 34), {
+	Size = UDim2.new(0, 150, 0, 50),
+	ZIndex = 7,
+}, 20)
+local traySlot = label(bag, {
+	Text = "",
+	Font = Enum.Font.GothamBold,
+	TextColor3 = CREAM,
+	BackgroundTransparency = 0.3,
+	BackgroundColor3 = rgb(40, 32, 26),
+	Size = UDim2.new(0, 150, 0, 50),
+	ZIndex = 7,
+}, 14)
+round(traySlot, 10)
+local drinkCount, drinkMax = 0, 3
+local trayText = nil
+local function refreshBag()
+	drinkSlot.Text = ("🥤 음료 %d/%d  [1]"):format(drinkCount, drinkMax)
+	drinkSlot.TextTransparency = drinkCount > 0 and 0 or 0.5
+	traySlot.Text = trayText or "🛎 빈손"
+	traySlot.TextTransparency = trayText and 0 or 0.5
+end
+refreshBag()
+local function drink()
+	if drinkCount > 0 then
+		Remotes.UseDrink:FireServer()
+	end
+end
+drinkSlot.Activated:Connect(drink)
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.One and bag.Visible then
+		drink()
+	end
+end)
+Remotes.Inventory.OnClientEvent:Connect(function(info)
+	drinkCount = info.drinks or 0
+	drinkMax = info.max or drinkMax
+	refreshBag()
+end)
+
 ---------------------------------------------------------------- 야간 순찰 목록 (오른쪽)
 local patrolFrame = make("Frame", {
 	AnchorPoint = Vector2.new(1, 0),
@@ -1431,6 +1493,13 @@ local patrolBody = label(patrolFrame, {
 }, 15)
 
 local function showPatrol(info)
+	trayText = nil
+	for _, call in ipairs(info.calls or {}) do
+		if call.state == "carrying" and call.who == player.DisplayName then
+			trayText = ("🛎 %s → %d호"):format(call.item or "", call.room or 0)
+		end
+	end
+	refreshBag()
 	if not info.active then
 		patrolFrame.Visible = false
 		return
@@ -1479,64 +1548,200 @@ end
 local ask = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromScale(0.5, 0.3),
+	Size = UDim2.fromScale(0.5, 0.34),
 	BackgroundColor3 = ESPRESSO,
 	BackgroundTransparency = 0.03,
 	Visible = false,
 	ZIndex = 30,
 }, gui)
 round(ask, 8)
-maxSize(ask, 460, 210)
+maxSize(ask, 480, 230)
 brassFrame(ask, 1.5)
 local askTitle = label(ask, {
 	Font = SERIF,
 	TextColor3 = rgb(255, 210, 120),
-	Position = UDim2.fromScale(0.06, 0.08),
-	Size = UDim2.fromScale(0.88, 0.22),
-	ZIndex = 31,
-}, 24)
-label(ask, {
-	Text = "초상화, 꽃병, 문, 조명... 처음과 달라진 게 있었나요?",
-	Font = Enum.Font.Gotham,
-	TextColor3 = CREAM,
-	Position = UDim2.fromScale(0.06, 0.34),
+	Position = UDim2.fromScale(0.06, 0.06),
 	Size = UDim2.fromScale(0.88, 0.2),
 	ZIndex = 31,
+}, 24)
+local askSub = label(ask, {
+	Font = Enum.Font.Gotham,
+	TextColor3 = CREAM,
+	Position = UDim2.fromScale(0.06, 0.28),
+	Size = UDim2.fromScale(0.88, 0.18),
+	ZIndex = 31,
 }, 16)
+-- 1단계: 이 층에 이상한 게 있었나요?
 local askYes = button(ask, "😨 이상 있었어요", OXBLOOD, {
-	Position = UDim2.fromScale(0.06, 0.62),
-	Size = UDim2.fromScale(0.42, 0.28),
+	Position = UDim2.fromScale(0.06, 0.52),
+	Size = UDim2.fromScale(0.42, 0.26),
 	ZIndex = 31,
 }, 18)
 local askNo = button(ask, "🙂 이상 없었어요", BOTTLE, {
-	Position = UDim2.fromScale(0.52, 0.62),
-	Size = UDim2.fromScale(0.42, 0.28),
+	Position = UDim2.fromScale(0.52, 0.52),
+	Size = UDim2.fromScale(0.42, 0.26),
 	ZIndex = 31,
 }, 18)
-local askId = nil
-local function answerAsk(saw)
-	if not askId then
-		return
+-- 2단계: 어느 층으로 갈까요?
+local floorButtons = {}
+for target = 1, 4 do
+	local b = button(ask, target == 1 and "로비" or target .. "층", rgb(80, 62, 40), {
+		Position = UDim2.fromScale(0.06 + (target - 1) * 0.225, 0.52),
+		Size = UDim2.fromScale(0.2, 0.26),
+		ZIndex = 31,
+	}, 18)
+	floorButtons[target] = b
+end
+local askClose = button(ask, "닫기", rgb(45, 36, 30), {
+	Position = UDim2.fromScale(0.35, 0.83),
+	Size = UDim2.fromScale(0.3, 0.12),
+	TextColor3 = rgb(170, 150, 125),
+	ZIndex = 31,
+}, 14)
+
+local askId, askFloor, askSaw = nil, nil, nil
+local function showFloorStep()
+	askTitle.Text = "🛗 어느 층으로 갈까요?"
+	askSub.Text = askFloor == 1 and "엘리베이터 불빛이 지직거려요..." or ("지금은 %d층이에요."):format(askFloor)
+	askYes.Visible = false
+	askNo.Visible = false
+	for target, b in ipairs(floorButtons) do
+		b.Visible = true
+		b.AutoButtonColor = target ~= askFloor
+		b.BackgroundColor3 = target == askFloor and rgb(40, 34, 30) or rgb(80, 62, 40)
+		b.TextTransparency = target == askFloor and 0.6 or 0
 	end
-	Remotes.AskFloorAnswer:FireServer(askId, saw)
+end
+local function closeAsk(tellServer)
+	if tellServer and askId then
+		Remotes.AskFloorAnswer:FireServer(askId, nil)
+	end
 	askId = nil
 	ask.Visible = false
 end
 askYes.Activated:Connect(function()
-	answerAsk(true)
+	askSaw = true
+	showFloorStep()
 end)
 askNo.Activated:Connect(function()
-	answerAsk(false)
+	askSaw = false
+	showFloorStep()
+end)
+for target, b in ipairs(floorButtons) do
+	b.Activated:Connect(function()
+		if not askId or target == askFloor then
+			return
+		end
+		Remotes.AskFloorAnswer:FireServer(askId, target, askSaw)
+		closeAsk(false)
+	end)
+end
+askClose.Activated:Connect(function()
+	closeAsk(true)
 end)
 local function showAsk(info)
 	if info.close then
-		askId = nil
-		ask.Visible = false
+		closeAsk(false)
 		return
 	end
 	askId = info.id
-	askTitle.Text = ("🛗 %d층을 떠나기 전에... 이상한 게 있었나요?"):format(info.floor)
+	askFloor = info.floor
+	askSaw = nil
+	if info.askAnomaly then
+		askTitle.Text = ("🛗 %d층을 떠나기 전에... 이상한 게 있었나요?"):format(info.floor)
+		askSub.Text = "초상화, 꽃병, 문, 조명, 표시판, 의자... 처음과 달라진 게 있었나요?"
+		askYes.Visible = true
+		askNo.Visible = true
+		for _, b in ipairs(floorButtons) do
+			b.Visible = false
+		end
+	else
+		showFloorStep()
+	end
 	ask.Visible = true
+end
+
+---------------------------------------------------------------- 안내 창 (순찰 시작, 룸서비스)
+local guide = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromScale(0.62, 0.62),
+	BackgroundColor3 = rgb(236, 231, 218),
+	Visible = false,
+	ZIndex = 40,
+}, gui)
+round(guide, 6)
+maxSize(guide, 560, 430)
+make("UIStroke", { Color = rgb(150, 140, 120), Thickness = 1 }, guide)
+local guideTitle = label(guide, {
+	Font = Enum.Font.GothamBold,
+	TextColor3 = rgb(35, 30, 28),
+	Position = UDim2.fromScale(0.06, 0.04),
+	Size = UDim2.fromScale(0.88, 0.11),
+	ZIndex = 41,
+}, 24)
+local guideBody = label(guide, {
+	Font = Enum.Font.Gotham,
+	TextColor3 = rgb(35, 30, 28),
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top,
+	Position = UDim2.fromScale(0.07, 0.18),
+	Size = UDim2.fromScale(0.86, 0.64),
+	ZIndex = 41,
+}, 17)
+local guideButton = button(guide, "알겠어요", rgb(45, 40, 38), {
+	Position = UDim2.fromScale(0.3, 0.86),
+	Size = UDim2.fromScale(0.4, 0.09),
+	ZIndex = 41,
+}, 18)
+guideButton.Activated:Connect(function()
+	guide.Visible = false
+end)
+
+local GUIDES = {
+	patrol = {
+		title = "🔦 야간 순찰 안내",
+		body = table.concat({
+			"1. 프런트 오른쪽 STAFF ONLY 문으로 나가요.",
+			"2. 엘리베이터 옆 버튼 판에서 E → 2층, 3층, 4층을 골라 올라가요.",
+			"3. 복도를 걸으며 초상화, 꽃병, 객실 문, 조명, 층 표시판, 의자를 잘 봐 두세요.",
+			"    (피, 뒤집힌 그림, 열린 문, 꺼진 불... 이상한 게 생겨요)",
+			"4. 그 층을 떠나려고 엘리베이터를 타면 \"이상한 게 있었나요?\" 하고 물어봐요.",
+			"    맞히면 수당 + 도플갱어 방 봉쇄! 놓치면 정신력이 떨어져요.",
+			"5. 프런트 전화가 울리면 받아서 룸서비스를 배달해요.",
+			"6. 2~4층을 다 둘러보고 배달도 끝나면, 프런트 종 앞에서 Q로 퇴근!",
+			"",
+			"🥤 정신력이 떨어지면 가방(화면 오른쪽 아래)의 음료를 마셔요. (1번 키)",
+		}, "\n"),
+	},
+	roomservice = {
+		title = "🛎 룸서비스 안내",
+		body = "",
+	},
+}
+local function showGuide(fx)
+	local data = GUIDES[fx.topic]
+	if not data then
+		return
+	end
+	guideTitle.Text = data.title
+	if fx.topic == "roomservice" then
+		guideBody.Text = table.concat({
+			("주문: %s"):format(fx.line or ""),
+			"",
+			("1. 쟁반을 들고 엘리베이터로 %d층에 가요."):format(math.floor((fx.room or 200) / 100)),
+			("2. %d호 문 앞에서 F를 눌러 노크해요."):format(fx.room or 0),
+			"3. 손님이 체인을 건 채 문을 열면 얼굴과 말을 잘 봐요.",
+			"    · 얼굴이 이상하거나(검은 눈, 이빨, 찢어진 입) 말이 이상하면 도플갱어!",
+			"    · 숙박부에 없는 빈방에서 온 전화도 조심해요.",
+			"4. 진짜 손님이면 \"방에 들어가 건네기\" → 팁 +30",
+			"    수상하면 \"팁 포기, 문 앞에 두기\" → 안전",
+			"    (도플갱어 방에 들어가면 정신력이 크게 떨어져요!)",
+		}, "\n")
+	else
+		guideBody.Text = data.body
+	end
+	guide.Visible = true
 end
 
 ---------------------------------------------------------------- 룸서비스: 체인 건 문틈
@@ -1805,14 +2010,26 @@ local function onNightFx(fx)
 		-- 복도 끝 그림자가 사라질 때: 낮게 깔리는 소리
 		playScream(0.25, 0.45)
 		shakeCamera()
+	elseif fx.kind == "guide" then
+		showGuide(fx)
 	elseif fx.kind == "fade" then
-		-- 엘리베이터: 잠깐 캄캄해졌다가 밝아져요.
-		fadeFrame.BackgroundTransparency = 1
-		local fadeIn = TweenService:Create(fadeFrame, TweenInfo.new(0.3), { BackgroundTransparency = 0 })
-		fadeIn:Play()
-		fadeIn.Completed:Wait()
-		task.wait(0.5)
-		TweenService:Create(fadeFrame, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
+		-- 엘리베이터: 불이 지직지직 깜빡이다가 캄캄해졌다가 다시 밝아져요.
+		task.spawn(function()
+			for _ = 1, 9 do
+				fadeFrame.BackgroundTransparency = math.random() < 0.5 and 0.05 or 0.55 + math.random() * 0.3
+				flashFrame.BackgroundTransparency = math.random() < 0.2 and 0.7 or 1
+				task.wait(0.05 + math.random() * 0.08)
+			end
+			flashFrame.BackgroundTransparency = 1
+			fadeFrame.BackgroundTransparency = 0
+			task.wait(0.6)
+			for _ = 1, 4 do
+				fadeFrame.BackgroundTransparency = math.random() < 0.5 and 0.2 or 0.8
+				task.wait(0.06)
+			end
+			TweenService:Create(fadeFrame, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
+		end)
+		shakeCamera()
 	end
 end
 
@@ -1838,10 +2055,12 @@ Remotes.State.OnClientEvent:Connect(function(state)
 		applySanity(100, 100) -- 화면 효과 되돌리기
 		hideDesk()
 		patrolFrame.Visible = false
+		bag.Visible = false
 		closePeep()
 		showAsk({ close = true })
 		return
 	end
+	bag.Visible = true
 	if state.phase ~= "Patrol" then
 		patrolFrame.Visible = false
 		closePeep()

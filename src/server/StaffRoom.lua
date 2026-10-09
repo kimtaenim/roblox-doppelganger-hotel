@@ -54,7 +54,7 @@ local function buildMachine(parent, index, base)
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "DrinkPrompt"
-	prompt.ActionText = "음료 마시기"
+	prompt.ActionText = "음료 챙기기"
 	prompt.ObjectText = "정신력 회복"
 	prompt.HoldDuration = 0.4
 	prompt.MaxActivationDistance = 9

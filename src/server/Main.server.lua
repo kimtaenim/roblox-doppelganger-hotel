@@ -47,6 +47,8 @@ local MorningOk = remote("MorningOk") -- 화면 → 서버: 아침 소식 확인
 local PatrolState = remote("PatrolState") -- 서버 → 화면: 순찰 목록, 남은 시간, 룸서비스 주문
 local Peephole = remote("Peephole") -- 서버 → 화면: 노크했더니 손님이 체인을 건 채 문을 빼꼼 열었어요
 local PeepholeChoice = remote("PeepholeChoice") -- 화면 → 서버: 건네주기 / 문 앞에 두고 가기
+local Inventory = remote("Inventory") -- 서버 → 화면: 가방 속 음료 개수
+local UseDrink = remote("UseDrink") -- 화면 → 서버: 가방의 음료 마시기
 local AskFloor = remote("AskFloor") -- 서버 → 화면: 엘리베이터에서 "이 층에 이상한 게 있었나요?"
 local AskFloorAnswer = remote("AskFloorAnswer") -- 화면 → 서버: 있었다 / 없었다
 local NightFx = remote("NightFx") -- 서버 → 화면: 순찰 중 공포 효과 (깜짝 놀람, 속삭임, 엘리베이터 암전)
@@ -202,18 +204,29 @@ local function changeSanity(s, player, amount)
 end
 
 ---------------------------------------------------------------- 음료 기계
+-- 음료는 기계에서 챙겨서 가방에 넣고 다니다가, 아무 데서나 꺼내 마셔요. (가방엔 최대 Config.DrinkBagMax 개)
+local function sendInventory(s, player)
+	Inventory:FireClient(player, { drinks = s.drinks[player] or 0, max = Config.DrinkBagMax })
+end
+
 local staff = StaffRoom.setup(hotel, function(player, _machine, stock)
 	local s = session
 	if not s or not table.find(s.players, player) then
-		Toast:FireClient(player, { text = "근무 중인 직원만 마실 수 있어요.", kind = "info" })
+		Toast:FireClient(player, { text = "근무 중인 직원만 챙길 수 있어요.", kind = "info" })
 		return false
 	end
 	if stock <= 0 then
 		Toast:FireClient(player, { text = "🥤 음료가 다 떨어졌어요. 다음 밤 근무에 다시 채워져요.", kind = "info" })
 		return false
 	end
-	changeSanity(s, player, Config.DrinkRestore)
-	Toast:FireClient(player, { text = ("🥤 시원한 음료를 마셨어요. 정신력 +%d"):format(Config.DrinkRestore), kind = "accept" })
+	local count = s.drinks[player] or 0
+	if count >= Config.DrinkBagMax then
+		Toast:FireClient(player, { text = "🎒 가방이 꽉 찼어요. 먼저 하나 마셔요. (1번 키)", kind = "info" })
+		return false
+	end
+	s.drinks[player] = count + 1
+	sendInventory(s, player)
+	Toast:FireClient(player, { text = ("🥤 음료를 가방에 챙겼어요 (%d/%d). 1번 키나 가방 버튼으로 마셔요."):format(count + 1, Config.DrinkBagMax), kind = "accept" })
 	return true
 end)
 
@@ -840,6 +853,7 @@ local function startSession(players)
 		guestsTotal = 0,
 		victims = {},
 		refused = {},
+		drinks = {},
 		accepted = {},
 		usedRooms = {},
 	}
@@ -849,6 +863,7 @@ local function startSession(players)
 		teleport(player, deskCFrame(i))
 		PartyClosed:FireClient(player)
 		sendSanity(s, player)
+		sendInventory(s, player)
 	end
 	session = s
 	task.spawn(runGame, s)
@@ -982,6 +997,17 @@ PartyStartNow.OnServerEvent:Connect(function(player)
 		closeParty()
 		startSession(members)
 	end
+end)
+
+UseDrink.OnServerEvent:Connect(function(player)
+	local s = sessionOf(player)
+	if not s or (s.drinks[player] or 0) <= 0 then
+		return
+	end
+	s.drinks[player] -= 1
+	changeSanity(s, player, Config.DrinkRestore)
+	sendInventory(s, player)
+	Toast:FireClient(player, { text = ("🥤 시원한 음료를 마셨어요. 정신력 +%d"):format(Config.DrinkRestore), kind = "accept" })
 end)
 
 Scared.OnServerEvent:Connect(function(player)

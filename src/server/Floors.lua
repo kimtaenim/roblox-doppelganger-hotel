@@ -538,24 +538,33 @@ local function buildLounge(parent, lights, floor, api)
 	P(parent, "ElevatorFrame", V(0.5, 9.5, 6.4), V(28.6, y + 4.75, 0), rgb(120, 90, 50), Mat.Metal)
 	P(parent, "ElevatorDoor", V(0.3, 8.5, 5.4), V(28.4, y + 4.25, 0), rgb(90, 70, 45), Mat.Metal)
 	P(parent, "ElevatorGap", V(0.35, 8.5, 0.08), V(28.4, y + 4.25, 0), rgb(20, 15, 10))
+	-- 엘리베이터 문 위의 낡은 등: 지직지직 깜빡여요.
+	local elevatorLamp = P(lights, "ElevatorLamp", V(0.3, 0.4, 2.2), V(28.45, y + 9.15, 0), rgb(255, 230, 190), Mat.Neon)
+	elevatorLamp:SetAttribute("Zone", "Flicker")
+	local lampLight = Instance.new("SpotLight")
+	lampLight.Face = Enum.NormalId.Left
+	lampLight.Range = 16
+	lampLight.Angle = 100
+	lampLight.Brightness = 1.6
+	lampLight.Color = rgb(255, 220, 180)
+	lampLight.Parent = elevatorLamp
+	table.insert(api.elevatorLamps, elevatorLamp)
 	local sign = P(parent, "FloorSign", V(0.15, 1.2, 2.4), V(28.5, y + 10.3, 0), rgb(15, 10, 10))
 	api.signs[floor] = Props.text(sign, Enum.NormalId.Left, floor .. "F", rgb(255, 200, 120), Enum.Font.Garamond)
 	api.exits[floor] = CFrame.lookAt(V(25.5, y + 3, 0), V(20, y + 3, 0))
 	return V(28.5, y + 4.5, -3.6) -- 버튼 판 위치
 end
 
--- 엘리베이터 버튼: 누르면 그 층으로 가요. (숫자 키 1~4 로도 눌러요)
-local KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four }
+-- 엘리베이터 버튼 판: "엘리베이터 타기"(E)를 누르면 화면에 층 고르기 창이 떠요.
 local function buttonPanel(parent, base, here, api)
-	P(parent, "ButtonPanel", V(0.12, 2.6, 0.8), base, rgb(30, 22, 18), Mat.Metal)
+	local panel = P(parent, "ButtonPanel", V(0.12, 2.6, 0.8), base, rgb(30, 22, 18), Mat.Metal)
 	for target = 1, 4 do
 		local button = P(parent, "FloorButton", V(0.12, 0.45, 0.45), base + V(-0.06, 1.0 - (target - 1) * 0.6, 0), target == here and rgb(255, 170, 80) or BRASS, target == here and Mat.Neon or Mat.Metal)
 		Props.text(button, Enum.NormalId.Left, target == 1 and "L" or tostring(target), rgb(30, 20, 10), Enum.Font.GothamBold)
-		if target ~= here then
-			local p = prompt(button, target == 1 and "로비로" or target .. "층으로", "엘리베이터", KEYS[target], 7)
-			table.insert(api.elevatorPrompts, { prompt = p, target = target })
-		end
 	end
+	local p = prompt(panel, "엘리베이터 타기", here == 1 and "로비" or here .. "층", Enum.KeyCode.E, 7)
+	p.HoldDuration = 0.3
+	table.insert(api.elevatorPrompts, { prompt = p, floor = here })
 end
 
 function Floors.build(hotel)
@@ -568,7 +577,7 @@ function Floors.build(hotel)
 	folder.Parent = hotel
 	local lights = hotel:FindFirstChild("Lights") or folder
 
-	local api = { rooms = {}, exits = {}, elevatorPrompts = {}, figures = {}, oddities = {}, lamps = {}, signs = {}, chairs = {} }
+	local api = { elevatorLamps = {}, List = FLOOR_LIST, rooms = {}, exits = {}, elevatorPrompts = {}, figures = {}, oddities = {}, lamps = {}, signs = {}, chairs = {} }
 	api.exits[1] = CFrame.lookAt(V(24.5, 3.5, -2), V(18, 3.5, -2))
 
 	for _, floor in ipairs(FLOOR_LIST) do
@@ -644,6 +653,44 @@ function Floors.build(hotel)
 
 	-- 로비 엘리베이터 옆 버튼 판 (원래 있던 호출 버튼 자리)
 	buttonPanel(folder, V(28.5, 4.6, -7.4), 1, api)
+	local lobbyLamp = P(lights, "ElevatorLamp", V(0.3, 0.4, 2.2), V(28.2, 10.2, -2), rgb(255, 230, 190), Mat.Neon)
+	lobbyLamp:SetAttribute("Zone", "Flicker")
+	local lobbyLight = Instance.new("SpotLight")
+	lobbyLight.Face = Enum.NormalId.Left
+	lobbyLight.Range = 16
+	lobbyLight.Angle = 100
+	lobbyLight.Brightness = 1.6
+	lobbyLight.Color = rgb(255, 220, 180)
+	lobbyLight.Parent = lobbyLamp
+	table.insert(api.elevatorLamps, lobbyLamp)
+
+	-- 엘리베이터 등 깜빡임: 평소엔 켜져 있다가 지직, 지지직 하고 꺼졌다 켜져요.
+	task.spawn(function()
+		while folder.Parent do
+			task.wait(0.4 + math.random() * 1.6)
+			for _, lamp in ipairs(api.elevatorLamps) do
+				if math.random() < 0.6 then
+					task.spawn(function()
+						local light = lamp:FindFirstChildWhichIsA("Light")
+						for _ = 1, math.random(2, 6) do
+							local on = math.random() < 0.4
+							lamp.Material = on and Mat.Neon or Mat.SmoothPlastic
+							lamp.Color = on and rgb(255, 230, 190) or rgb(60, 55, 50)
+							if light then
+								light.Enabled = on
+							end
+							task.wait(0.03 + math.random() * 0.09)
+						end
+						lamp.Material = Mat.Neon
+						lamp.Color = rgb(255, 230, 190)
+						if light then
+							light.Enabled = true
+						end
+					end)
+				end
+			end
+		end
+	end)
 
 	-- 복도 끝에 서 있다가 다가가면 사라지는 그림자 자리
 	for _, floor in ipairs(FLOOR_LIST) do

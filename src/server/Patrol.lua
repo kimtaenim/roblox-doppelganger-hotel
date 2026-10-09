@@ -525,6 +525,7 @@ function Patrol.run(s)
 		text = "🔦 야간 순찰! 엘리베이터로 2~4층 복도를 둘러보고, 이상한 게 있었는지 기억하세요.",
 		kind = "info",
 	})
+	ctx.fire(s, ctx.remotes.NightFx, { kind = "guide", topic = "patrol" })
 	sendState(s, state)
 
 	local nextCallAt = os.clock() + 20 -- 전화: 20초 뒤부터, 50초마다
@@ -708,11 +709,6 @@ local function isMember(state, player)
 	return table.find(state.s.players, player) ~= nil
 end
 
-local function floorOf(player)
-	local root = rootOf(player)
-	return root and math.floor(root.Position.Y / 14) + 1 or 1
-end
-
 -- 엘리베이터에서 "이 층에 이상한 게 있었나요?" 에 대한 대답
 local function judgeFloor(state, player, floor, saw)
 	local s = state.s
@@ -778,6 +774,7 @@ local function onPhone(player)
 		text = ("📞 \"%s\"  → %d층 %d호 앞에서 노크(F)"):format(call.line, math.floor(call.room / 100), call.room),
 		kind = "info",
 	})
+	ctx.fireTo(player, ctx.remotes.NightFx, { kind = "guide", topic = "roomservice", room = call.room, item = call.item, line = call.line })
 	for _, other in ipairs(s.players) do
 		if other ~= player then
 			ctx.fireTo(other, ctx.remotes.Toast, { text = ("📞 %s 님이 %d호 주문을 받았어요."):format(player.DisplayName, call.room), kind = "info" })
@@ -903,45 +900,46 @@ function Patrol.init(context)
 	ctx.phonePrompt.Triggered:Connect(onPhone)
 	ctx.remotes.PeepholeChoice.OnServerEvent:Connect(onPeepholeChoice)
 
-	-- 엘리베이터 대답
-	ctx.remotes.AskFloorAnswer.OnServerEvent:Connect(function(player, askId, saw)
-		local state = current
-		local ask = state and state.asks[player]
-		if not ask or ask.id ~= askId or typeof(saw) ~= "boolean" then
-			return
-		end
-		state.asks[player] = nil
-		judgeFloor(state, player, ask.floor, saw)
-		ctx.fireTo(player, ctx.remotes.NightFx, { kind = "fade" })
-		task.wait(0.35)
-		ctx.teleport(player, ctx.floors.exits[ask.target])
-		ctx.fireTo(player, ctx.remotes.Toast, { text = ask.target == 1 and "🛎 로비" or ("🛎 %d층"):format(ask.target), kind = "info" })
-	end)
-
-	-- 엘리베이터: 순찰 중인 직원만 타요. 2~4층에서 떠날 때는 "이상한 게 있었나요?" 하고 물어봐요.
+	-- 엘리베이터: "엘리베이터 타기"를 누르면 화면에 층 고르기 창이 떠요.
+	-- 2~4층에서 떠날 때는 같은 창에서 "이 층에 이상한 게 있었나요?"도 함께 물어봐요.
 	for _, entry in ipairs(ctx.floors.elevatorPrompts) do
 		entry.prompt.Triggered:Connect(function(player)
 			local state = current
 			if not state or not isMember(state, player) then
 				return
 			end
-			local exit = ctx.floors.exits[entry.target]
-			if not exit then
-				return
-			end
-			local from = floorOf(player)
-			if from >= 2 then
-				askCounter += 1
-				state.asks[player] = { id = askCounter, floor = from, target = entry.target }
-				ctx.fireTo(player, ctx.remotes.AskFloor, { id = askCounter, floor = from })
-				return
-			end
-			ctx.fireTo(player, ctx.remotes.NightFx, { kind = "fade" })
-			task.wait(0.35)
-			ctx.teleport(player, exit)
-			ctx.fireTo(player, ctx.remotes.Toast, { text = ("🛎 %d층"):format(entry.target), kind = "info" })
+			askCounter += 1
+			local askAnomaly = entry.floor >= 2
+			state.asks[player] = { id = askCounter, floor = entry.floor, askAnomaly = askAnomaly }
+			ctx.fireTo(player, ctx.remotes.AskFloor, { id = askCounter, floor = entry.floor, askAnomaly = askAnomaly })
 		end)
 	end
+
+	ctx.remotes.AskFloorAnswer.OnServerEvent:Connect(function(player, askId, target, saw)
+		local state = current
+		local ask = state and state.asks[player]
+		if not ask or ask.id ~= askId then
+			return
+		end
+		if target == nil then
+			state.asks[player] = nil -- 창을 닫았어요 (그대로 머물러요)
+			return
+		end
+		if typeof(target) ~= "number" or not ctx.floors.exits[target] or target == ask.floor then
+			return
+		end
+		if ask.askAnomaly and typeof(saw) ~= "boolean" then
+			return
+		end
+		state.asks[player] = nil
+		if ask.askAnomaly then
+			judgeFloor(state, player, ask.floor, saw)
+		end
+		ctx.fireTo(player, ctx.remotes.NightFx, { kind = "fade" })
+		task.wait(0.35)
+		ctx.teleport(player, ctx.floors.exits[target])
+		ctx.fireTo(player, ctx.remotes.Toast, { text = target == 1 and "🛎 로비" or ("🛎 %d층"):format(target), kind = "info" })
+	end)
 end
 
 return Patrol

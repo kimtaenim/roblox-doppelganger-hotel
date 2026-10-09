@@ -30,6 +30,7 @@ local Config = {
 	-- 음료 기계: 마시면 정신력이 채워져요. 기계마다 하룻밤에 몇 잔씩 나와요.
 	DrinkRestore = 40,
 	DrinksPerMachine = 2,
+	DrinkBagMax = 3, -- 가방에 넣고 다닐 수 있는 음료 개수
 
 	-- 꼬마 손님: 이 날부터, 이 날마다 찾아와요. (3일차, 6일차, 9일차, ...)
 	KidFirstDay = 3,
