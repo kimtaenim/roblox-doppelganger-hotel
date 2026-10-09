@@ -738,7 +738,7 @@ function Floors.build(hotel)
 	---------------------------------------------------------------- 층 전체가 확 바뀌는 이상 (아주 뚜렷한 것만)
 	-- blood: 복도 바닥에 피가 강물처럼 흘러요 / eyes: 꽃병마다 꽃 대신 커다란 눈알 /
 	-- flip: 천장과 바닥이 뒤집혀요 (가구가 천장에 거꾸로 매달려요) / red: 조명이 전부 새빨개요 / doors: 모든 객실 문이 활짝 열려요
-	-- crowd: 새까만 형체들이 빨간 눈을 빛내며 복도에 줄지어 서 있어요 (움직이지 않아요) / hands: 양쪽 벽이 피 묻은 손자국으로 뒤덮여요
+	-- crowd: 새까만 형체들이 빨간 눈을 빛내며 천장에 거꾸로 매달려 있어요 (움직이지 않아요) / hands: 양쪽 벽이 피 묻은 손자국으로 뒤덮여요
 	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "hands" }
 	for _, floor in ipairs(FLOOR_LIST) do
 		local eventFolder = Instance.new("Folder")
@@ -832,8 +832,9 @@ function Floors.build(hotel)
 							end
 						end
 					end
-					-- 엘리베이터 쪽(오는 사람)을 바라보고 서 있어요.
-					figure:PivotTo(CFrame.lookAt(V(x, y, z), V(30, y, z)))
+					-- 천장에 발이 붙은 채 거꾸로 매달려서, 엘리베이터 쪽(오는 사람)을 바라봐요.
+					local ceiling = y + WALL_H
+					figure:PivotTo(CFrame.lookAt(V(x, ceiling, z), V(30, ceiling, z)) * CFrame.Angles(0, 0, math.pi))
 					figure.Parent = ev.folder
 				end
 			else
