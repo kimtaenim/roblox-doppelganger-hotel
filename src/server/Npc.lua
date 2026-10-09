@@ -113,14 +113,30 @@ function Npc.spawnBelongings(data, position, parent)
 	local base = CFrame.new(position.X, floorY, position.Z) * CFrame.Angles(0, math.random() * math.pi * 2, 0)
 	local cloth = data.cloth or rgb(160, 120, 90)
 
-	-- 작은 핏자국 (소지품 아래로 살짝 번져 나와요)
-	local function puddle(size, offset)
-		part("Blood", Vector3.new(0.04, size, size * 0.8), base * CFrame.new(offset) * CFrame.Angles(0, 0, math.rad(90)), rgb(95, 0, 0), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder).Reflectance = 0.15
+	-- 핏물 웅덩이: 소지품 아래에서 넓게 번져 나와요. (가장자리는 검붉게, 가운데는 번들번들)
+	local function blot(name, size, offset, color, lift, gloss)
+		local p = part(name, Vector3.new(size.X, 0.04, size.Y), base * CFrame.new(offset + Vector3.new(0, lift, 0)) * CFrame.Angles(0, math.random() * math.pi, 0), color)
+		p.Reflectance = gloss
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Parent = p
 	end
-	puddle(2.6, Vector3.new(0.6, 0, 0.9)) -- 가방 아래에서 앞으로 번져 나와요
-	puddle(1.1, Vector3.new(1.7, 0, 1.6))
-	puddle(0.45, Vector3.new(2.4, 0, 0.6))
-	puddle(0.3, Vector3.new(-0.4, 0, 2))
+	local pools = {
+		{ Vector2.new(5, 4), Vector3.new(0.5, 0, 0.6) },
+		{ Vector2.new(3, 2.4), Vector3.new(2.4, 0, 1.6) },
+		{ Vector2.new(2.2, 1.8), Vector3.new(-1.6, 0, 1.4) },
+	}
+	for _, pool in ipairs(pools) do
+		local size, offset = pool[1], pool[2]
+		blot("BloodEdge", size + Vector2.new(0.5, 0.5), offset, rgb(55, 0, 2), 0, 0.05)
+		blot("BloodPool", size, offset, rgb(100, 2, 6), 0.01, 0.2)
+		blot("BloodShine", size * 0.35, offset + Vector3.new(0.3, 0, -0.2), rgb(145, 10, 14), 0.02, 0.5)
+	end
+	-- 주변에 튄 핏방울
+	for _ = 1, 8 do
+		local d = math.random() * 0.25 + 0.15
+		blot("BloodDrop", Vector2.new(d, d * 1.2), Vector3.new(math.random() * 7 - 3, 0, math.random() * 6 - 2), rgb(80, 0, 3), 0.005, 0.1)
+	end
 
 	-- 쓰러진 여행 가방 (손님 옷 색)
 	local bag = base * CFrame.new(0.2, 0.42, 0) * CFrame.Angles(0, 0.3, 0)
