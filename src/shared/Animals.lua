@@ -687,10 +687,12 @@ function Animals.build(data, anomaly)
 		-- 머리 위 큰 리본
 		local bows = { rgb(250, 160, 190), rgb(255, 120, 150), rgb(170, 150, 235), rgb(130, 200, 235), rgb(255, 210, 120) }
 		local bowColor = bows[style:NextInteger(1, #bows)]
+		-- 귀와 헷갈리지 않게 한쪽 이마 옆에 작게 달아요 (귀는 꼭 두 개만 보여야 해요)
+		local bowCF = at(-0.62, 0.72, -0.82) * CFrame.Angles(math.rad(-35), math.rad(30), 0.35)
 		for _, side in ipairs({ -1, 1 }) do
-			ellipsoid(headGroup, "Bow", V(0.75, 0.55, 0.28), at(side * 0.4, 1.0, -0.35) * CFrame.Angles(math.rad(-25), 0, side * 0.35), bowColor)
+			ellipsoid(headGroup, "Bow", V(0.42, 0.32, 0.14), bowCF * CFrame.new(side * 0.2, 0, 0) * CFrame.Angles(0, 0, side * 0.35), bowColor)
 		end
-		ball(headGroup, "BowKnot", 0.3, at(0, 1.02, -0.42), bowColor:Lerp(BLACK, 0.1))
+		ball(headGroup, "BowKnot", 0.16, bowCF * CFrame.new(0, 0, -0.04), bowColor:Lerp(BLACK, 0.1))
 	elseif accessory == 3 then
 		if weirdBody then
 			vcyl(model, "Scarf", 0.45, 1.1, CFrame.new(0, 4.3, -0.3), tieColor)
