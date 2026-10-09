@@ -1277,7 +1277,7 @@ end)
 local function showMorning(report)
 	hideDesk()
 	night.Visible = false
-	reportMeta.Text = ("문서번호  DH-%03d-N\n작성일시  %d일차 06:00   작성  야간 경비팀"):format(report.day - 1, report.day)
+	reportMeta.Text = ("문서번호  DH-%03d-N\n작성일시  %d일차 06:00   작성  프런트 야간 근무자"):format(report.day - 1, report.day)
 
 	local lines = { "1. 야간 사고" }
 	if #report.victims > 0 then

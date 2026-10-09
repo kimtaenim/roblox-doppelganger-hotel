@@ -5,7 +5,7 @@
 --   아무도 없는 층의 것들이 몰래 이상하게 바뀌고, 도플갱어가 묵는 방 문에는 섬뜩한 흔적이 있어요.
 --   물건마다 보고할 필요는 없어요. 층을 떠나려고 엘리베이터 버튼을 누르면
 --   "이 층에 이상한 게 있었나요?" 하고 물어봐요. 있다 / 없다 로만 답해요.
---     - 이상이 있는데 "있다" → 경비팀이 그 층을 정리해요. 도플갱어 방은 봉쇄돼서 오늘 밤 희생을 막아요. (수당)
+--     - 이상이 있는데 "있다" → 엘리베이터 문이 닫히면 그 층의 이상한 일이 사라지고, 도플갱어 방 문은 잠겨서 오늘 밤 희생을 막아요. (수당)
 --     - 이상이 있는데 "없다" → 무언가를 놓쳤어요... 정신력이 떨어져요.
 --     - 아무 이상 없는데 "있다" → 헛보고 벌금
 --
@@ -330,7 +330,7 @@ local function anomaliesOn(state, floor)
 	return count
 end
 
--- 경비팀이 그 층을 정리해요: 이상해진 물건은 원래대로, 도플갱어 방은 봉쇄.
+-- 이상을 알아차린 층: 이상한 일은 사라지고, 도플갱어 방 문은 잠겨요.
 local function cleanFloor(state, floor)
 	ctx.floors.setEvent(floor, "normal")
 	local sealed = 0
@@ -699,9 +699,9 @@ local function judgeFloor(state, player, floor, saw)
 		state.found += count
 		state.bonus += Config.FloorReportBonus
 		local sealed = cleanFloor(state, floor)
-		local extra = sealed > 0 and (" 도플갱어 방 %d곳을 봉쇄했어요!"):format(sealed) or ""
+		local extra = sealed > 0 and (" 도플갱어 방 문 %d곳이 잠겼어요!"):format(sealed) or ""
 		ctx.fire(s, ctx.remotes.Toast, {
-			text = ("🚨 %d층 이상 보고 (%s). 경비팀이 정리했어요.%s (수당 +%d)"):format(floor, player.DisplayName, extra, Config.FloorReportBonus),
+			text = ("✅ 맞았어요! %d층의 이상한 일이 사라졌어요 (%s).%s (수당 +%d)"):format(floor, player.DisplayName, extra, Config.FloorReportBonus),
 			kind = "accept",
 		})
 	elseif saw then
