@@ -1184,7 +1184,7 @@ local function showNight(report)
 		local patrol = report.patrol
 		table.insert(lines, ("🔦 순찰: 봉쇄한 방 %d · 헛보고 %d"):format(patrol.saved, patrol.falseReports))
 		table.insert(lines, ("🛎 룸서비스: 팁 +%d · 놓친 전화 %d"):format(patrol.tips, patrol.missed))
-		table.insert(lines, ("🖼 초상화: 찾음 %d · 놓침 %d"):format(patrol.portraitsFound or 0, patrol.portraitsMissed or 0))
+		table.insert(lines, ("🖼 초상화·꽃병: 찾음 %d · 놓침 %d"):format(patrol.portraitsFound or 0, patrol.portraitsMissed or 0))
 	end
 	if #report.victims > 0 then
 		table.insert(lines, "💀 희생된 손님: " .. table.concat(report.victims, ", "))
@@ -1319,7 +1319,7 @@ local function showMorning(report)
 	if patrol then
 		table.insert(lines, ("   - 이상 객실 봉쇄 %d건 / 오보 %d건"):format(patrol.saved, patrol.falseReports))
 		table.insert(lines, ("   - 룸서비스 완료 %d건 / 미응답 %d건"):format(patrol.served, patrol.missed))
-		table.insert(lines, ("   - 초상화 이상 발견 %d건 / 미발견 %d건"):format(patrol.portraitsFound or 0, patrol.portraitsMissed or 0))
+		table.insert(lines, ("   - 초상화·꽃병 이상 발견 %d건 / 미발견 %d건"):format(patrol.portraitsFound or 0, patrol.portraitsMissed or 0))
 	else
 		table.insert(lines, "   - 기록 없음")
 	end
@@ -1473,8 +1473,8 @@ local function showPatrol(info)
 		table.insert(lines, '<font color="#A8A39A">...전화가 더 올지도 몰라요</font>')
 	end
 	table.insert(lines, "")
-	table.insert(lines, "<b>초상화</b>  (뒤집히거나 이상해진 그림 앞에서 R)")
-	table.insert(lines, ("찾은 그림 %d개"):format(info.portraitsFound or 0))
+	table.insert(lines, "<b>초상화 · 꽃병</b>  (이상해진 것 앞에서 R)")
+	table.insert(lines, ("찾은 것 %d개"):format(info.portraitsFound or 0))
 	if info.canLeave then
 		table.insert(lines, "")
 		table.insert(lines, '<font color="#9FD99F"><b>🛎 할 일 끝! 프런트 종 앞에서 Q로 퇴근</b></font>')

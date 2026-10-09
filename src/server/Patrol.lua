@@ -10,8 +10,9 @@
 --   손님이 체인을 건 채 문을 빼꼼 열면, 숙박부 사진과 비교해서 건네줄지 문 앞에 두고 갈지 골라요.
 --   진짜 손님이면 팁, 가짜(도플갱어)거나 아무도 묵지 않는 빈방이면 깜짝 놀라요.
 --
--- [초상화] 복도마다 오래된 초상화가 걸려 있어요. 순찰하는 동안 아무도 없는 층의 초상화가 몰래 바뀌어요.
---   뒤집히거나, 기울어지거나, 얼굴이 이상해지거나, 뒤돌아서거나, 사라지거나, 피를 흘려요.
+-- [초상화·꽃병] 복도마다 오래된 초상화와 꽃병이 있어요. 순찰하는 동안 아무도 없는 층의 것이 몰래 바뀌어요.
+--   초상화: 뒤집히거나, 기울어지거나, 얼굴이 이상해지거나, 뒤돌아서거나, 사라지거나, 피를 흘려요.
+--   꽃병: 시들거나, 피가 넘치거나, 쓰러지거나, 꽃이 눈알로 바뀌거나, 사라지거나, 공중에 떠 있어요.
 --   알아차리고 "이상 보고"(R)하면 관리 수당, 멀쩡한 그림을 보고하면 벌금,
 --   끝까지 못 찾으면 그림 속 무언가가 빠져나와 정신력이 떨어져요.
 --
@@ -420,8 +421,8 @@ function Patrol.run(s)
 	end
 
 	-- 초상화: 모두 원래대로 걸고, "이상 보고" 버튼을 켜요.
-	for _, portrait in ipairs(floors.portraits) do
-		portrait.reportPrompt.Enabled = true
+	for _, oddity in ipairs(floors.oddities) do
+		oddity.reportPrompt.Enabled = true
 	end
 
 	-- 복도 끝에 서 있는 그림자 (다가가면 사라져요)
@@ -510,13 +511,14 @@ function Patrol.run(s)
 				end
 			end
 			local candidates = {}
-			for _, portrait in ipairs(floors.portraits) do
-				if portrait.kind == "normal" and not occupiedFloors[portrait.floor] then
-					table.insert(candidates, portrait)
+			for _, oddity in ipairs(floors.oddities) do
+				if oddity.kind == "normal" and not occupiedFloors[oddity.floor] then
+					table.insert(candidates, oddity)
 				end
 			end
 			if #candidates > 0 then
-				floors.setPortrait(pick(candidates), pick(floors.PortraitKinds))
+				local chosen = pick(candidates)
+				floors.setOddity(chosen, pick(chosen.kinds))
 				state.portraitsSpawned += 1
 				nextPortraitAt = now + math.random(30, 45)
 			else
@@ -595,14 +597,14 @@ function Patrol.run(s)
 
 	-- 끝까지 못 찾은 초상화: 그림 속 무언가가 빠져나와요...
 	local portraitsMissed = 0
-	for _, portrait in ipairs(floors.portraits) do
-		if portrait.kind ~= "normal" then
+	for _, oddity in ipairs(floors.oddities) do
+		if oddity.kind ~= "normal" then
 			portraitsMissed += 1
 		end
 	end
 	if s.active and portraitsMissed > 0 then
 		ctx.fire(s, ctx.remotes.Toast, {
-			text = ("🖼 이상해진 초상화 %d개를 놓쳤어요... 그림 속 무언가가 빠져나왔어요."):format(portraitsMissed),
+			text = ("🖼 이상해진 초상화·꽃병 %d개를 놓쳤어요... 무언가가 빠져나왔어요."):format(portraitsMissed),
 			kind = "warn",
 		})
 		for _, player in ipairs(table.clone(s.players)) do
@@ -842,7 +844,7 @@ local function onPeepholeChoice(player, callId, choice)
 end
 
 local reportCooldown = {}
-local function onPortrait(portrait, player)
+local function onOddity(oddity, player)
 	local state = current
 	if not state or not isMember(state, player) then
 		return
@@ -852,19 +854,19 @@ local function onPortrait(portrait, player)
 	end
 	reportCooldown[player] = os.clock()
 	local s = state.s
-	if portrait.kind ~= "normal" then
+	if oddity.kind ~= "normal" then
 		state.portraitsFound += 1
 		state.bonus += ctx.Config.PortraitBonus
-		ctx.floors.setPortrait(portrait, "normal")
+		ctx.floors.setOddity(oddity, "normal")
 		ctx.fire(s, ctx.remotes.Toast, {
-			text = ("🖼 %s 님이 이상해진 초상화를 찾았어요! 관리팀이 바로잡았어요. (수당 +%d)"):format(player.DisplayName, ctx.Config.PortraitBonus),
+			text = ("🖼 %s 님이 이상해진 %s 찾았어요! 관리팀이 바로잡았어요. (수당 +%d)"):format(player.DisplayName, oddity.whatObj, ctx.Config.PortraitBonus),
 			kind = "accept",
 		})
 	else
 		state.portraitsWrong += 1
 		state.penalty += ctx.Config.PortraitWrongPenalty
 		ctx.fireTo(player, ctx.remotes.Toast, {
-			text = ("...아무 이상 없는 초상화예요. (헛보고 -%d)"):format(ctx.Config.PortraitWrongPenalty),
+			text = ("...아무 이상 없는 %s예요. (헛보고 -%d)"):format(oddity.what, ctx.Config.PortraitWrongPenalty),
 			kind = "warn",
 		})
 	end
@@ -881,9 +883,9 @@ end
 -- 서버가 처음 켜질 때 한 번 불러요.
 function Patrol.init(context)
 	ctx = context
-	for _, portrait in ipairs(ctx.floors.portraits) do
-		portrait.reportPrompt.Triggered:Connect(function(player)
-			onPortrait(portrait, player)
+	for _, oddity in ipairs(ctx.floors.oddities) do
+		oddity.reportPrompt.Triggered:Connect(function(player)
+			onOddity(oddity, player)
 		end)
 	end
 	ctx.leavePrompt.Triggered:Connect(onLeave)

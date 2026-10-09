@@ -281,7 +281,7 @@ local function newPortrait(parent, floor, cf, api)
 	local animal = Animals.List[portraitRandom:NextInteger(1, #Animals.List)]
 	local def = Animals.Types[animal]
 	local p = {
-		id = #api.portraits + 1,
+		id = #api.oddities + 1,
 		floor = floor,
 		cf = cf,
 		bg = PORTRAIT_BG[portraitRandom:NextInteger(1, #PORTRAIT_BG)],
@@ -296,6 +296,10 @@ local function newPortrait(parent, floor, cf, api)
 			cloth = PORTRAIT_CLOTH[portraitRandom:NextInteger(1, #PORTRAIT_CLOTH)],
 		},
 		kind = "normal",
+		kinds = Floors.PortraitKinds,
+		draw = drawPortrait,
+		what = "초상화",
+		whatObj = "초상화를",
 	}
 	local model = Instance.new("Model")
 	model.Name = "Portrait" .. p.id
@@ -310,8 +314,131 @@ local function newPortrait(parent, floor, cf, api)
 	p.spot = spot
 	p.reportPrompt = prompt(spot, "이상 보고", "초상화 · " .. p.title, Enum.KeyCode.R, 6)
 	drawPortrait(p, "normal")
-	table.insert(api.portraits, p)
+	table.insert(api.oddities, p)
 	return p
+end
+
+---------------------------------------------------------------- 꽃병
+-- 탁자 위의 꽃병. 밤에 몰래 시들거나, 피를 흘리거나, 쓰러지거나, 꽃이 눈알로 바뀌거나, 사라지거나, 떠올라요.
+Floors.VaseKinds = { "wilt", "blood", "tipped", "eyes", "gone", "float" }
+local FLOWER_COLORS = { rgb(235, 235, 225), rgb(240, 170, 190), rgb(250, 215, 120), rgb(200, 170, 230), rgb(170, 30, 40) }
+
+local function drawVase(v, kind)
+	local model = v.model
+	model:ClearAllChildren()
+	local base = v.base -- 탁자 윗면 가운데, -Z 가 복도 쪽
+	if kind == "gone" then
+		-- 꽃병이 있던 자리에 물 자국만 남아요.
+		local ring = P(model, "WaterRing", V(0.03, 0.8, 0.8), base * CFrame.new(0, 0.02, 0) * CFrame.Angles(0, 0, math.rad(90)), rgb(60, 50, 45))
+		ring.Shape = Enum.PartType.Cylinder
+		v.kind = kind
+		return
+	end
+	local vaseCF = base * CFrame.new(0, 0.6, 0)
+	if kind == "float" then
+		vaseCF = base * CFrame.new(0, 2.2, 0) * CFrame.Angles(0.15, 0.4, 0.25)
+	elseif kind == "tipped" then
+		vaseCF = base * CFrame.new(0.2, 0.36, 0) * CFrame.Angles(0, 0, math.rad(-90))
+	end
+	local vase = P(model, "Vase", V(1.2, 0.7, 0.7), vaseCF * CFrame.Angles(0, 0, math.rad(90)), v.vaseColor, Mat.Glass, { Transparency = 0.2 })
+	vase.Shape = Enum.PartType.Cylinder
+	local rim = P(model, "VaseRim", V(0.12, 0.8, 0.8), vaseCF * CFrame.new(0, 0.6, 0) * CFrame.Angles(0, 0, math.rad(90)), BRASS, Mat.Metal)
+	rim.Shape = Enum.PartType.Cylinder
+
+	local headColor = v.color
+	local stemColor = C.LEAF_DARK
+	if kind == "wilt" then
+		headColor = rgb(55, 40, 30)
+		stemColor = rgb(70, 60, 35)
+	elseif kind == "blood" then
+		headColor = rgb(90, 0, 0)
+	end
+	for i = 1, 6 do
+		local angle = i / 6 * math.pi * 2
+		local lean = kind == "wilt" and math.rad(115) or math.rad(18)
+		local stem = vaseCF * CFrame.new(math.cos(angle) * 0.15, 0.5, math.sin(angle) * 0.15) * CFrame.Angles(0, -angle, 0) * CFrame.Angles(0, 0, -lean) -- 바깥쪽으로 퍼져요
+		local length = 1.1 + (i % 3) * 0.15
+		P(model, "Stem", V(0.06, length, 0.06), stem * CFrame.new(0, length / 2, 0), stemColor)
+		local tip = stem * CFrame.new(0, length, 0)
+		if kind == "eyes" then
+			-- 꽃 대신 눈알이 복도를 쳐다봐요.
+			local eyePos = tip.Position
+			local look = CFrame.lookAt(eyePos, eyePos + (base * CFrame.new(0, 0, -5)).LookVector * 5 + V(0, -0.3, 0))
+			Props.ball(model, "EyeFlower", 0.36, eyePos, rgb(240, 235, 225))
+			local iris = P(model, "EyeIris", V(0.03, 0.2, 0.2), look * CFrame.new(0, 0, -0.17) * CFrame.Angles(0, math.rad(90), 0), rgb(110, 70, 40))
+			iris.Shape = Enum.PartType.Cylinder
+			local pupil = P(model, "EyePupil", V(0.03, 0.09, 0.09), look * CFrame.new(0, 0, -0.185) * CFrame.Angles(0, math.rad(90), 0), rgb(10, 8, 8))
+			pupil.Shape = Enum.PartType.Cylinder
+		else
+			Props.ball(model, "FlowerHead", 0.38, tip.Position, headColor)
+			Props.ball(model, "FlowerCenter", 0.16, (tip * CFrame.new(0, 0.14, 0)).Position, kind == "wilt" and rgb(30, 25, 20) or rgb(250, 210, 80))
+		end
+	end
+
+	if kind == "wilt" then
+		-- 떨어진 꽃잎
+		for i = 1, 5 do
+			P(model, "FallenPetal", V(0.2, 0.02, 0.15), base * CFrame.new(-0.7 + i * 0.25, 0.02, -0.2 + (i % 2) * 0.3) * CFrame.Angles(0, i, 0), rgb(70, 50, 35))
+		end
+	elseif kind == "blood" then
+		-- 꽃병 위로 피가 넘쳐 탁자와 바닥까지 흘러요.
+		for i = 1, 4 do
+			local x = -0.3 + i * 0.12
+			local length = 0.4 + (i % 3) * 0.3
+			P(model, "Blood", V(0.06, length, 0.03), vaseCF * CFrame.new(x, 0.6 - length / 2, -0.36), rgb(100, 0, 0))
+		end
+		P(model, "Blood", V(1.2, 0.03, 0.8), base * CFrame.new(0.1, 0.02, -0.1), rgb(100, 0, 0))
+		P(model, "Blood", V(0.12, 2.9, 0.04), base * CFrame.new(0.3, -1.45, -0.52), rgb(100, 0, 0))
+		local puddle = P(model, "Blood", V(0.04, 1.4, 1.4), base * CFrame.new(0.3, -2.95, -0.9) * CFrame.Angles(0, 0, math.rad(90)), rgb(90, 0, 0))
+		puddle.Shape = Enum.PartType.Cylinder
+	elseif kind == "tipped" then
+		-- 쏟아진 물
+		local puddle = P(model, "Water", V(0.03, 1.3, 1.1), base * CFrame.new(0.9, 0.02, 0) * CFrame.Angles(0, 0, math.rad(90)), rgb(120, 140, 150), Mat.Glass, { Transparency = 0.4 })
+		puddle.Shape = Enum.PartType.Cylinder
+	end
+	v.kind = kind
+end
+
+local function newVase(parent, floor, base, api)
+	local v = {
+		id = #api.oddities + 1,
+		floor = floor,
+		base = base,
+		color = FLOWER_COLORS[portraitRandom:NextInteger(1, #FLOWER_COLORS)],
+		vaseColor = ({ rgb(40, 60, 55), rgb(60, 40, 50), rgb(200, 205, 210) })[portraitRandom:NextInteger(1, 3)],
+		kind = "normal",
+		kinds = Floors.VaseKinds,
+		draw = drawVase,
+		what = "꽃병",
+		whatObj = "꽃병을",
+	}
+	local model = Instance.new("Model")
+	model.Name = "Vase" .. v.id
+	model.Parent = parent
+	v.model = model
+	local spot = P(parent, "VaseSpot", V(1, 1, 1), (base * CFrame.new(0, 0, -1.3)).Position, rgb(255, 0, 255), nil, {
+		Transparency = 1,
+		CanQuery = false,
+		CanTouch = false,
+	})
+	v.spot = spot
+	v.reportPrompt = prompt(spot, "이상 보고", "꽃병", Enum.KeyCode.R, 6)
+	drawVase(v, "normal")
+	table.insert(api.oddities, v)
+	return v
+end
+
+-- 벽에 붙인 작은 원목 탁자 (꽃병 받침)
+local function consoleTable(parent, x, y, side)
+	local z = side * (HALF - 0.85)
+	Props.solid(parent, "ConsoleTop", V(1.9, 0.15, 1.0), V(x, y + 2.95, z), WOOD_DARK, Mat.Wood)
+	P(parent, "ConsoleApron", V(1.8, 0.35, 0.9), V(x, y + 2.7, z), WOOD, Mat.Wood)
+	for _, dx in ipairs({ -0.8, 0.8 }) do
+		for _, dz in ipairs({ -0.35, 0.35 }) do
+			P(parent, "ConsoleLeg", V(0.14, 2.6, 0.14), V(x + dx, y + 1.3, z + dz), WOOD_DARK, Mat.Wood)
+		end
+	end
+	return CFrame.lookAt(V(x, y + 3.03, z), V(x, y + 3.03, z - side))
 end
 
 ---------------------------------------------------------------- 층 로비 (엘리베이터 앞)
@@ -402,7 +529,7 @@ function Floors.build(hotel)
 	folder.Parent = hotel
 	local lights = hotel:FindFirstChild("Lights") or folder
 
-	local api = { rooms = {}, exits = {}, elevatorPrompts = {}, figures = {}, portraits = {} }
+	local api = { rooms = {}, exits = {}, elevatorPrompts = {}, figures = {}, oddities = {} }
 	api.exits[1] = CFrame.lookAt(V(24.5, 3.5, -2), V(18, 3.5, -2))
 
 	for _, floor in ipairs(FLOOR_LIST) do
@@ -465,6 +592,11 @@ function Floors.build(hotel)
 				newPortrait(portraits, floor, CFrame.lookAt(V(x, y + 8, z), V(x, y + 8, z - side)), api)
 			end
 		end
+		-- 초상화 밑 탁자 위 꽃병 (층마다 3개)
+		for _, spotInfo in ipairs({ { -18, 1 }, { -2, -1 }, { 14, 1 } }) do
+			local top = consoleTable(level, spotInfo[1], y, spotInfo[2])
+			newVase(portraits, floor, top, api)
+		end
 
 		local panelBase = buildLounge(level, lights, floor, api)
 		buttonPanel(level, panelBase, floor, api)
@@ -497,11 +629,11 @@ function Floors.build(hotel)
 		for _, entry in ipairs(api.elevatorPrompts) do
 			entry.prompt.Enabled = false
 		end
-		for _, p in ipairs(api.portraits) do
-			if p.kind ~= "normal" then
-				drawPortrait(p, "normal")
+		for _, o in ipairs(api.oddities) do
+			if o.kind ~= "normal" then
+				o.draw(o, "normal")
 			end
-			p.reportPrompt.Enabled = false
+			o.reportPrompt.Enabled = false
 		end
 	end
 
@@ -532,9 +664,9 @@ function Floors.build(hotel)
 		end
 	end
 
-	-- 초상화를 바꿔요. ("normal" 이면 원래대로)
-	function api.setPortrait(p, kind)
-		drawPortrait(p, kind)
+	-- 초상화·꽃병을 바꿔요. ("normal" 이면 원래대로)
+	function api.setOddity(o, kind)
+		o.draw(o, kind)
 	end
 
 	api.resetAll()
