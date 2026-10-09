@@ -122,20 +122,20 @@ function Npc.spawnBelongings(data, position, parent)
 		mesh.Parent = p
 	end
 	local pools = {
-		{ Vector2.new(5, 4), Vector3.new(0.5, 0, 0.6) },
-		{ Vector2.new(3, 2.4), Vector3.new(2.4, 0, 1.6) },
-		{ Vector2.new(2.2, 1.8), Vector3.new(-1.6, 0, 1.4) },
+		{ Vector2.new(3, 2.4), Vector3.new(0.4, 0, 0.5) },
+		{ Vector2.new(1.6, 1.3), Vector3.new(1.6, 0, 1.2) },
+		{ Vector2.new(1.1, 0.9), Vector3.new(-1, 0, 1.1) },
 	}
 	for _, pool in ipairs(pools) do
 		local size, offset = pool[1], pool[2]
-		blot("BloodEdge", size + Vector2.new(0.5, 0.5), offset, rgb(55, 0, 2), 0, 0.05)
+		blot("BloodEdge", size + Vector2.new(0.3, 0.3), offset, rgb(55, 0, 2), 0, 0.05)
 		blot("BloodPool", size, offset, rgb(100, 2, 6), 0.01, 0.2)
 		blot("BloodShine", size * 0.35, offset + Vector3.new(0.3, 0, -0.2), rgb(145, 10, 14), 0.02, 0.5)
 	end
 	-- 주변에 튄 핏방울
-	for _ = 1, 8 do
-		local d = math.random() * 0.25 + 0.15
-		blot("BloodDrop", Vector2.new(d, d * 1.2), Vector3.new(math.random() * 7 - 3, 0, math.random() * 6 - 2), rgb(80, 0, 3), 0.005, 0.1)
+	for _ = 1, 5 do
+		local d = math.random() * 0.2 + 0.12
+		blot("BloodDrop", Vector2.new(d, d * 1.2), Vector3.new(math.random() * 4.5 - 2, 0, math.random() * 3.5 - 1), rgb(80, 0, 3), 0.005, 0.1)
 	end
 
 	-- 쓰러진 여행 가방 (손님 옷 색)
