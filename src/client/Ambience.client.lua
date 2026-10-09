@@ -16,7 +16,7 @@ local lobbySpot = lobby:FindFirstChild("Sign") or lobby:FindFirstChildWhichIsA("
 local isNight = false
 
 Remotes.State.OnClientEvent:Connect(function(state)
-	isNight = state.phase == "Night"
+	isNight = state.phase == "Night" or state.phase == "Patrol"
 end)
 
 -- 후보 번호를 하나씩 불러 보고, 성공한 첫 번째 소리를 돌려줘요.

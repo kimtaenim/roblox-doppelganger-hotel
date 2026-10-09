@@ -20,9 +20,10 @@ local Config = {
 
 	-- 정신력: 근무하는 동안 조금씩 줄고, 다 떨어지면 쓰러져서 호텔 밖(로비)으로 나가요.
 	SanityMax = 100,
-	SanityDrainShift = 0.15, -- 밤 근무 중 1초에 줄어드는 양 (하루가 지날수록 조금씩 더 빨라져요)
-	SanityDrainPerDay = 0.05, -- 하루마다 빨라지는 비율
-	SanityDrainNight = 0.1, -- 근무가 끝난 뒤 1초에 줄어드는 양
+	SanityDrainShift = 0.08, -- 손님 받는 동안 1초에 줄어드는 양 (하루가 지날수록 조금씩 더 빨라져요)
+	SanityDrainPerDay = 0.03, -- 하루마다 빨라지는 비율
+	SanityDrainPatrol = 0.06, -- 야간 순찰 중 1초에 줄어드는 양
+	SanityDrainNight = 0.04, -- 근무가 끝난 뒤 1초에 줄어드는 양
 	SanityScareLoss = 6, -- 도플갱어에게 놀랐을 때 줄어드는 양
 	SanityCorpseLoss = 8, -- 밤에 사체를 봤을 때 줄어드는 양 (한 구마다)
 
@@ -33,6 +34,14 @@ local Config = {
 	-- 꼬마 손님: 이 날부터, 이 날마다 찾아와요. (3일차, 6일차, 9일차, ...)
 	KidFirstDay = 3,
 	KidEveryDays = 3,
+
+	-- 야간 순찰 + 룸서비스
+	PatrolTime = 300, -- 순찰 제한 시간 (초)
+	PatrolScareLoss = 10, -- 도플갱어 방에 "이상 없음"을 눌렀을 때 줄어드는 정신력
+	FalseReportPenalty = 30, -- 멀쩡한 방을 "이상 보고"했을 때 벌금
+	RoomServiceTip = 30, -- 진짜 손님에게 배달하면 받는 팁
+	RoomServiceScareLoss = 12, -- 가짜 손님·빈방에 건네줬을 때 줄어드는 정신력
+	CallRingTime = 40, -- 전화가 울리는 시간 (안 받으면 끊겨요)
 }
 
 return Config

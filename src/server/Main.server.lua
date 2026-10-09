@@ -12,6 +12,8 @@ local HotelBuilder = require(script.Parent:WaitForChild("HotelBuilder"))
 local Npc = require(script.Parent:WaitForChild("Npc"))
 local StaffRoom = require(script.Parent:WaitForChild("StaffRoom"))
 local Props = require(script.Parent:WaitForChild("Props"))
+local Floors = require(script.Parent:WaitForChild("Floors"))
+local Patrol = require(script.Parent:WaitForChild("Patrol"))
 
 local rgb = Color3.fromRGB
 
@@ -42,6 +44,10 @@ local Decide = remote("Decide") -- 화면 → 서버: 예약 받기 / 셔터 닫
 local NextDay = remote("NextDay") -- 화면 → 서버: 다음 날로
 local BackToLobby = remote("BackToLobby") -- 화면 → 서버: 로비로 돌아가기
 local MorningOk = remote("MorningOk") -- 화면 → 서버: 아침 소식 확인
+local PatrolState = remote("PatrolState") -- 서버 → 화면: 순찰 목록, 남은 시간, 룸서비스 주문
+local Peephole = remote("Peephole") -- 서버 → 화면: 노크했더니 손님이 체인을 건 채 문을 빼꼼 열었어요
+local PeepholeChoice = remote("PeepholeChoice") -- 화면 → 서버: 건네주기 / 문 앞에 두고 가기
+local NightFx = remote("NightFx") -- 서버 → 화면: 순찰 중 공포 효과 (깜짝 놀람, 속삭임, 엘리베이터 암전)
 remotes.Parent = ReplicatedStorage
 
 ---------------------------------------------------------------- 월드 준비
@@ -49,6 +55,7 @@ local hotel = HotelBuilder.ensure()
 local markers = hotel:WaitForChild("Markers")
 local shutter = hotel:WaitForChild("Shutter")
 local lobbySpawn = workspace:FindFirstChild("LobbySpawn", true)
+local floors = Floors.build(hotel) -- 2~4층 객실 복도
 
 local guestFolder = Instance.new("Folder")
 guestFolder.Name = "Guests"
@@ -109,7 +116,7 @@ local function setDaylight(isDay)
 				lamp:SetAttribute("Glow", lamp.Material == Enum.Material.Neon)
 			end
 			local zone = lamp:GetAttribute("Zone")
-			local on = isDay or zone == "Staff" or zone == "Flicker" or zone == "Candle" or zone == "Outside"
+			local on = isDay or zone == "Staff" or zone == "Flicker" or zone == "Candle" or zone == "Outside" or zone == "Corridor"
 			if lamp:GetAttribute("Glow") then
 				lamp.Material = on and Enum.Material.Neon or Enum.Material.SmoothPlastic
 			end
@@ -259,6 +266,53 @@ local function sendState(s)
 	})
 end
 
+---------------------------------------------------------------- 야간 순찰 + 룸서비스 준비
+-- 프런트 전화기: 순찰 중에 울리면 받아요.
+local phone = hotel:FindFirstChild("PhoneBase", true)
+local phonePrompt = Instance.new("ProximityPrompt")
+phonePrompt.ActionText = "전화 받기"
+phonePrompt.ObjectText = "프런트 전화"
+phonePrompt.HoldDuration = 0
+phonePrompt.MaxActivationDistance = 8
+phonePrompt.RequiresLineOfSight = false
+phonePrompt.Enabled = false
+phonePrompt.Parent = phone or markers.DeskSpawn
+local ringSound = Instance.new("Sound")
+ringSound.Name = "PhoneRing"
+ringSound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
+ringSound.Looped = true
+ringSound.Volume = 0.7
+ringSound.PlaybackSpeed = 1.3
+ringSound.RollOffMaxDistance = 120
+ringSound.Parent = phone or markers.DeskSpawn
+
+Patrol.init({
+	floors = floors,
+	Animals = Animals,
+	Config = Config,
+	phonePrompt = phonePrompt,
+	ringSound = ringSound,
+	remotes = {
+		Toast = Toast,
+		PatrolState = PatrolState,
+		Peephole = Peephole,
+		PeepholeChoice = PeepholeChoice,
+		NightFx = NightFx,
+	},
+	fire = function(s, event, payload)
+		fire(s, event, payload)
+	end,
+	fireTo = function(player, event, payload)
+		if player.Parent then
+			event:FireClient(player, payload)
+		end
+	end,
+	changeSanity = function(s, player, amount)
+		changeSanity(s, player, amount)
+	end,
+	teleport = teleport,
+})
+
 -- 조건이 참이 될 때까지 기다려요. 도중에 게임이 끝나면 false 를 돌려줘요.
 local function waitUntil(s, check)
 	while s.active and not check() do
@@ -267,7 +321,19 @@ local function waitUntil(s, check)
 	return s.active
 end
 
-local function makeGuestData(isDoppel)
+-- 오늘 아직 아무도 묵지 않는 방 (2~4층, 01~12호)
+local function freeRoom(used)
+	for _ = 1, 100 do
+		local room = math.random(2, 4) * 100 + math.random(1, 12)
+		if not used[room] then
+			used[room] = true
+			return room
+		end
+	end
+	return 201
+end
+
+local function makeGuestData(isDoppel, usedRooms)
 	nextGuestId += 1
 	local animal = Animals.List[math.random(#Animals.List)]
 	local def = Animals.Types[animal]
@@ -276,7 +342,7 @@ local function makeGuestData(isDoppel)
 		name = NAMES[math.random(#NAMES)],
 		animal = animal,
 		animalName = def.name,
-		room = math.random(2, 4) * 100 + math.random(1, 12),
+		room = freeRoom(usedRooms or {}),
 		fur = def.furs[math.random(#def.furs)],
 		cloth = Animals.Clothes[math.random(#Animals.Clothes)],
 		isDoppel = isDoppel,
@@ -356,6 +422,7 @@ local function runGuest(s, data)
 	s.currentGuest = nil
 
 	if choice == "accept" then
+		table.insert(s.accepted, data) -- 밤 순찰 때 이 방을 확인해요
 		-- 도플갱어를 받아도 지금은 티가 안 나요. 밤이 되면 알게 돼요...
 		if data.isDoppel then
 			table.insert(s.victims, data)
@@ -520,12 +587,18 @@ local function runDay(s)
 	s.phase = "Day"
 	s.earned = 0
 	s.victims = {}
+	s.accepted = {}
+	s.usedRooms = {}
 	s.guestsTotal = Config.GuestsPerDay
 	s.guestIndex = 0
 
 	corpseFolder:ClearAllChildren() -- 밤사이 청소 완료
 	staff.refill(Config.DrinksPerMachine) -- 음료 기계 채우기
 	setDaylight(true)
+	-- 모두 프런트 자리로
+	for i, player in ipairs(s.players) do
+		teleport(player, deskCFrame(i))
+	end
 	moveShutter(false)
 	sendState(s)
 
@@ -537,6 +610,7 @@ local function runDay(s)
 			refused = s.refused,
 			victims = s.yesterdayVictims or {},
 			earned = s.yesterdayEarned or 0,
+			patrol = s.yesterdayPatrol,
 			money = s.money,
 			deaths = s.deaths,
 			maxDeaths = Config.MaxDeaths,
@@ -574,9 +648,35 @@ local function runDay(s)
 		end
 		s.guestIndex = i
 		sendState(s)
-		runGuest(s, makeGuestData(plan[i]))
+		runGuest(s, makeGuestData(plan[i], s.usedRooms))
 		task.wait(1)
 	end
+end
+
+-- 손님을 다 받은 뒤: 야간 순찰 + 룸서비스. 찾아낸 도플갱어 방은 봉쇄돼서 희생자가 생기지 않아요.
+local function runPatrol(s)
+	s.phase = "Patrol"
+	setDaylight(false)
+	moveShutter(true) -- 정문 셔터를 내리고 순찰을 돌아요
+	sendState(s)
+	local result = Patrol.run(s)
+	if not s.active then
+		return
+	end
+	s.patrol = result
+	-- 봉쇄한 방의 도플갱어는 오늘 밤 아무도 해치지 못해요.
+	local remaining = {}
+	for _, victim in ipairs(s.victims) do
+		if not result.isolated[victim.id] then
+			table.insert(remaining, victim)
+		end
+	end
+	s.victims = remaining
+	s.earned += result.tips - result.penalty
+	for i, player in ipairs(s.players) do
+		teleport(player, deskCFrame(i))
+	end
+	moveShutter(false)
 end
 
 -- 밤: 직원이 퇴근하고, 도플갱어가 있었다면 사체가 남아요. 게임 오버면 true.
@@ -595,6 +695,7 @@ local function runNight(s)
 
 	s.yesterdayVictims = victimNames
 	s.yesterdayEarned = s.earned
+	s.yesterdayPatrol = s.patrol
 	if #s.victims > 0 then
 		for _, player in ipairs(s.players) do
 			changeSanity(s, player, -Config.SanityCorpseLoss * #s.victims)
@@ -606,6 +707,7 @@ local function runNight(s)
 		day = s.day,
 		earned = s.earned,
 		victims = victimNames,
+		patrol = s.patrol,
 		refused = gameOver and s.refused or nil, -- 게임이 끝나면 바로 정체를 알려줘요
 		money = s.money,
 		deaths = s.deaths,
@@ -662,6 +764,11 @@ local function runGame(s)
 		if not s.active then
 			break
 		end
+		s.patrol = nil
+		runPatrol(s)
+		if not s.active then
+			break
+		end
 		local gameOver = runNight(s)
 		s.request = nil
 		if not waitUntil(s, function()
@@ -699,6 +806,8 @@ local function startSession(players)
 		guestsTotal = 0,
 		victims = {},
 		refused = {},
+		accepted = {},
+		usedRooms = {},
 	}
 	for i, player in ipairs(players) do
 		table.insert(s.players, player)
@@ -717,9 +826,12 @@ local function startSession(players)
 			if not s.active then
 				break
 			end
-			local drain = s.phase == "Day"
-					and Config.SanityDrainShift * (1 + (s.day - 1) * Config.SanityDrainPerDay)
-				or Config.SanityDrainNight
+			local drain = Config.SanityDrainNight
+			if s.phase == "Day" then
+				drain = Config.SanityDrainShift * (1 + (s.day - 1) * Config.SanityDrainPerDay)
+			elseif s.phase == "Patrol" then
+				drain = Config.SanityDrainPatrol
+			end
 			for _, player in ipairs(table.clone(s.players)) do
 				changeSanity(s, player, -drain)
 			end

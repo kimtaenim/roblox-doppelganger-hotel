@@ -1180,6 +1180,11 @@ local function showNight(report)
 	task.wait(3)
 
 	local lines = { ("💰 오늘 수입: %d"):format(report.earned) }
+	if report.patrol then
+		local patrol = report.patrol
+		table.insert(lines, ("🔦 순찰: 봉쇄한 방 %d · 헛보고 %d"):format(patrol.saved, patrol.falseReports))
+		table.insert(lines, ("🛎 룸서비스: 팁 +%d · 놓친 전화 %d"):format(patrol.tips, patrol.missed))
+	end
 	if #report.victims > 0 then
 		table.insert(lines, "💀 희생된 손님: " .. table.concat(report.victims, ", "))
 		table.insert(lines, "로비에 쓰러진 손님들이 있어요... 도플갱어에게 속았어요.")
@@ -1308,8 +1313,17 @@ local function showMorning(report)
 	end
 
 	table.insert(lines, "")
-	table.insert(lines, ("3. 전일 수입 %d / 누적 %d"):format(report.earned, report.money))
-	table.insert(lines, ("4. 누적 사망 %d / %d"):format(report.deaths, report.maxDeaths))
+	table.insert(lines, "3. 야간 순찰 및 객실 서비스")
+	local patrol = report.patrol
+	if patrol then
+		table.insert(lines, ("   - 이상 객실 봉쇄 %d건 / 오보 %d건"):format(patrol.saved, patrol.falseReports))
+		table.insert(lines, ("   - 룸서비스 완료 %d건 (팁 %d) / 미응답 %d건"):format(patrol.served, patrol.tips, patrol.missed))
+	else
+		table.insert(lines, "   - 기록 없음")
+	end
+	table.insert(lines, "")
+	table.insert(lines, ("4. 전일 수입 %d / 누적 %d"):format(report.earned, report.money))
+	table.insert(lines, ("5. 누적 사망 %d / %d"):format(report.deaths, report.maxDeaths))
 	table.insert(lines, "")
 	local note = "없음."
 	if doppels > 0 then
@@ -1386,6 +1400,333 @@ Remotes.KidEvent.OnClientEvent:Connect(function(ask)
 	kidFrame.Visible = true
 end)
 
+---------------------------------------------------------------- 야간 순찰 목록 (오른쪽)
+local patrolFrame = make("Frame", {
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -16, 0, 70),
+	Size = UDim2.fromScale(0.26, 0.55),
+	BackgroundColor3 = ESPRESSO,
+	BackgroundTransparency = 0.12,
+	Visible = false,
+}, gui)
+round(patrolFrame, 6)
+maxSize(patrolFrame, 300, 380)
+brassFrame(patrolFrame, 1)
+local patrolTitle = label(patrolFrame, {
+	Font = SERIF,
+	TextColor3 = rgb(255, 210, 120),
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Position = UDim2.new(0, 12, 0, 8),
+	Size = UDim2.new(1, -24, 0, 24),
+}, 20)
+local patrolBody = label(patrolFrame, {
+	Font = Enum.Font.Gotham,
+	TextColor3 = CREAM,
+	RichText = true,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top,
+	Position = UDim2.new(0, 12, 0, 38),
+	Size = UDim2.new(1, -24, 1, -46),
+}, 15)
+
+local CHECK_COLORS = {
+	pending = "#CFC3A8",
+	ok = "#9FD99F",
+	reported = "#F0A85A",
+	wrong = "#E07A6E",
+	scared = "#A8A39A",
+}
+
+local function showPatrol(info)
+	if not info.active then
+		patrolFrame.Visible = false
+		return
+	end
+	local left = info.timeLeft or 0
+	patrolTitle.Text = ("🔦 야간 순찰  ·  %d:%02d"):format(math.floor(left / 60), left % 60)
+	local lines = { "<b>오늘의 숙박부</b>  (E 이상 없음 · R 이상 보고)" }
+	if #info.checks == 0 then
+		table.insert(lines, "확인할 방이 없어요.")
+	end
+	for _, check in ipairs(info.checks) do
+		table.insert(lines, ('<font color="%s">%d호  %s  —  %s</font>'):format(
+			CHECK_COLORS[check.status] or "#FFFFFF",
+			check.room,
+			check.label,
+			check.statusText or ""
+		))
+	end
+	table.insert(lines, "")
+	table.insert(lines, "<b>룸서비스</b>")
+	for _, call in ipairs(info.calls) do
+		if call.state == "ringing" then
+			table.insert(lines, '<font color="#F0A85A">📞 프런트 전화가 울려요! (전화기 앞에서 E)</font>')
+		elseif call.state == "carrying" then
+			table.insert(lines, ("🛎 %d호  %s  —  %s 님 배달 중 (F 노크)"):format(call.room, call.item, call.who or "?"))
+		else
+			table.insert(lines, ('<font color="#A8A39A">%d호  %s  —  %s</font>'):format(call.room or 0, call.item or "", call.stateText))
+		end
+	end
+	if (info.callsLeft or 0) > 0 then
+		table.insert(lines, '<font color="#A8A39A">...전화가 더 올지도 몰라요</font>')
+	end
+	patrolBody.Text = table.concat(lines, "\n")
+	patrolFrame.Visible = true
+end
+
+---------------------------------------------------------------- 룸서비스: 체인 건 문틈
+local peep = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromScale(0.72, 0.62),
+	BackgroundColor3 = ESPRESSO,
+	BackgroundTransparency = 0.03,
+	Visible = false,
+	ZIndex = 20,
+}, gui)
+round(peep, 8)
+maxSize(peep, 640, 430)
+brassFrame(peep, 1.5)
+local peepTitle = label(peep, {
+	Font = SERIF,
+	TextColor3 = rgb(255, 210, 120),
+	Position = UDim2.fromScale(0.04, 0.03),
+	Size = UDim2.fromScale(0.92, 0.09),
+	ZIndex = 21,
+}, 24)
+
+-- 왼쪽: 숙박부 사진
+local registerCard = make("Frame", {
+	Position = UDim2.fromScale(0.05, 0.15),
+	Size = UDim2.fromScale(0.4, 0.62),
+	BackgroundColor3 = rgb(250, 248, 240),
+	Rotation = -2,
+	ZIndex = 21,
+}, peep)
+local registerView = make("ViewportFrame", {
+	Position = UDim2.fromScale(0.06, 0.05),
+	Size = UDim2.fromScale(0.88, 0.76),
+	BackgroundColor3 = rgb(170, 185, 195),
+	Ambient = rgb(170, 165, 160),
+	ZIndex = 22,
+}, registerCard)
+local registerCaption = label(registerCard, {
+	Font = Enum.Font.Garamond,
+	TextColor3 = rgb(50, 40, 40),
+	Position = UDim2.fromScale(0.06, 0.83),
+	Size = UDim2.fromScale(0.88, 0.15),
+	ZIndex = 22,
+}, 18)
+
+-- 오른쪽: 체인을 건 채 빼꼼 열린 문틈
+local doorFrame = make("Frame", {
+	Position = UDim2.fromScale(0.55, 0.15),
+	Size = UDim2.fromScale(0.4, 0.62),
+	BackgroundColor3 = rgb(70, 42, 28),
+	ZIndex = 21,
+	ClipsDescendants = true,
+}, peep)
+make("UIStroke", { Color = rgb(40, 25, 16), Thickness = 2 }, doorFrame)
+local slit = make("ViewportFrame", {
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.fromScale(0.5, 0),
+	Size = UDim2.fromScale(0.34, 1),
+	BackgroundColor3 = rgb(6, 5, 6),
+	Ambient = rgb(70, 55, 50),
+	LightColor = rgb(170, 120, 90),
+	LightDirection = Vector3.new(0.6, -0.4, 1),
+	ZIndex = 22,
+}, doorFrame)
+-- 문틈 가장자리 그림자
+for _, side in ipairs({ 0, 1 }) do
+	local shade = make("Frame", {
+		AnchorPoint = Vector2.new(side, 0),
+		Position = UDim2.fromScale(side, 0),
+		Size = UDim2.fromScale(0.3, 1),
+		BackgroundColor3 = rgb(0, 0, 0),
+		BorderSizePixel = 0,
+		ZIndex = 23,
+	}, slit)
+	make("UIGradient", {
+		Rotation = side == 0 and 0 or 180,
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) }),
+	}, shade)
+end
+-- 도어 체인
+local chain = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.42),
+	Size = UDim2.new(0.5, 0, 0, 4),
+	BackgroundColor3 = rgb(200, 170, 100),
+	BorderSizePixel = 0,
+	Rotation = 8,
+	ZIndex = 24,
+}, doorFrame)
+round(chain, 2)
+-- 빈방의 어둠 속 두 눈
+local darkEyes = {}
+for i, x in ipairs({ 0.36, 0.64 }) do
+	local eye = make("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(x, 0.33),
+		Size = UDim2.fromScale(0.16, 0.035),
+		BackgroundColor3 = rgb(235, 230, 220),
+		BorderSizePixel = 0,
+		Visible = false,
+		ZIndex = 25,
+	}, slit)
+	round(eye, 20)
+	make("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.3, 1),
+		BackgroundColor3 = rgb(160, 0, 0),
+		BorderSizePixel = 0,
+		ZIndex = 26,
+	}, eye)
+	darkEyes[i] = eye
+end
+local peepHint = label(peep, {
+	Font = Enum.Font.Gotham,
+	TextColor3 = CREAM,
+	Position = UDim2.fromScale(0.05, 0.79),
+	Size = UDim2.fromScale(0.9, 0.07),
+	ZIndex = 21,
+}, 16)
+local giveButton = button(peep, "🛎 건네주기", BOTTLE, {
+	Position = UDim2.fromScale(0.08, 0.88),
+	Size = UDim2.fromScale(0.39, 0.09),
+	ZIndex = 21,
+}, 20)
+local leaveButton = button(peep, "문 앞에 두고 가기", OXBLOOD, {
+	Position = UDim2.fromScale(0.53, 0.88),
+	Size = UDim2.fromScale(0.39, 0.09),
+	ZIndex = 21,
+}, 20)
+
+local peepCallId = nil
+local peepToken = 0
+local function closePeep()
+	peep.Visible = false
+	peepCallId = nil
+	peepToken += 1
+	registerView:ClearAllChildren()
+	slit:ClearAllChildren()
+end
+
+local function choosePeep(choice)
+	if not peepCallId then
+		return
+	end
+	Remotes.PeepholeChoice:FireServer(peepCallId, choice)
+	closePeep()
+end
+giveButton.Activated:Connect(function()
+	choosePeep("give")
+end)
+leaveButton.Activated:Connect(function()
+	choosePeep("leave")
+end)
+
+local function showPeep(info)
+	closePeep()
+	peepCallId = info.callId
+	local token = peepToken
+	peepTitle.Text = ("🛎 %d호 · %s 배달"):format(info.room, info.item)
+	peepHint.Text = "똑똑... 체인을 건 채 문이 빼꼼 열렸어요. 숙박부 사진과 같은 손님인가요?"
+
+	-- 숙박부 사진
+	if info.register then
+		fillViewport(registerView, info.register, nil, CFrame.lookAt(Vector3.new(0, 5.9, -10), Vector3.new(0, 5.6, 0)), 40, false)
+		registerCaption.Text = ("숙박부 · %d호 %s (%s)"):format(info.room, info.register.name, info.register.animalName or "")
+	else
+		registerCaption.Text = ("숙박부 · %d호 — 기록 없음"):format(info.room)
+	end
+
+	-- 문틈
+	for _, eye in ipairs(darkEyes) do
+		eye.Visible = false
+	end
+	if info.empty then
+		-- 아무도 없어야 할 방... 어둠 속에서 눈이 떠져요.
+		task.delay(1.4, function()
+			if peepToken == token then
+				for _, eye in ipairs(darkEyes) do
+					eye.Visible = true
+				end
+			end
+		end)
+	else
+		local model = fillViewport(slit, info.visual, info.visualKind, CFrame.lookAt(Vector3.new(0.35, 5.75, -3.4), Vector3.new(0, 5.5, 0)), 52, false)
+		-- 문틈 너머에서 고개를 아주 천천히 갸웃거려요.
+		local headGroup = model:FindFirstChild("HeadGroup")
+		if headGroup then
+			local base = headGroup:GetPivot()
+			task.spawn(function()
+				local t = 0
+				while peepToken == token do
+					t += RunService.RenderStepped:Wait()
+					headGroup:PivotTo(base * CFrame.Angles(0, math.sin(t * 0.7) * 0.08, math.sin(t * 0.5) * 0.12))
+				end
+			end)
+		end
+	end
+	peep.Visible = true
+end
+
+---------------------------------------------------------------- 순찰 중 공포 효과
+local fadeFrame = make("Frame", {
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = rgb(0, 0, 0),
+	BackgroundTransparency = 1,
+	ZIndex = 60,
+}, gui)
+local flashFrame = make("Frame", {
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = rgb(120, 0, 0),
+	BackgroundTransparency = 1,
+	ZIndex = 59,
+}, gui)
+
+local function playScream(volume, speed)
+	if not screamSound then
+		return
+	end
+	local sound = screamSound:Clone()
+	sound.Volume = volume
+	sound.PlaybackSpeed = speed
+	sound.Parent = SoundService
+	sound:Play()
+	sound.Ended:Connect(function()
+		sound:Destroy()
+	end)
+end
+
+local function onNightFx(fx)
+	if fx.kind == "scare" then
+		closePeep()
+		task.spawn(jumpScare, fx.data, fx.anomaly)
+	elseif fx.kind == "sting" then
+		-- 휙 돌아보는 순간: 짧은 비명과 붉은 번쩍임
+		playScream(0.5, 1.3)
+		shakeCamera()
+		flashFrame.BackgroundTransparency = 0.5
+		TweenService:Create(flashFrame, TweenInfo.new(0.6), { BackgroundTransparency = 1 }):Play()
+	elseif fx.kind == "whisper" then
+		-- 복도 끝 그림자가 사라질 때: 낮게 깔리는 소리
+		playScream(0.25, 0.45)
+		shakeCamera()
+	elseif fx.kind == "fade" then
+		-- 엘리베이터: 잠깐 캄캄해졌다가 밝아져요.
+		fadeFrame.BackgroundTransparency = 1
+		local fadeIn = TweenService:Create(fadeFrame, TweenInfo.new(0.3), { BackgroundTransparency = 0 })
+		fadeIn:Play()
+		fadeIn.Completed:Wait()
+		task.wait(0.5)
+		TweenService:Create(fadeFrame, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
+	end
+end
+
 ---------------------------------------------------------------- 광장 출근 대기
 Remotes.PartyPrompt.OnClientEvent:Connect(showPartyChooser)
 Remotes.PartyStatus.OnClientEvent:Connect(showPartyStatus)
@@ -1407,7 +1748,13 @@ Remotes.State.OnClientEvent:Connect(function(state)
 		reportFrame.Visible = false
 		applySanity(100, 100) -- 화면 효과 되돌리기
 		hideDesk()
+		patrolFrame.Visible = false
+		closePeep()
 		return
+	end
+	if state.phase ~= "Patrol" then
+		patrolFrame.Visible = false
+		closePeep()
 	end
 
 	lobbyFrame.Visible = false
@@ -1425,7 +1772,7 @@ Remotes.State.OnClientEvent:Connect(function(state)
 	end
 	hudText.Text = ("%d일차   ·   %s   ·   💰 %d   ·   💀 %d/%d%s"):format(
 		state.day,
-		state.phase == "Day" and "🌙 밤 근무" or "🌑 근무 끝",
+		state.phase == "Day" and "🌙 밤 근무" or state.phase == "Patrol" and "🔦 야간 순찰" or "🌑 근무 끝",
 		state.money,
 		state.deaths,
 		state.maxDeaths,
@@ -1443,4 +1790,7 @@ Remotes.Toast.OnClientEvent:Connect(function(message)
 end)
 
 Remotes.NightReport.OnClientEvent:Connect(showNight)
+Remotes.PatrolState.OnClientEvent:Connect(showPatrol)
+Remotes.Peephole.OnClientEvent:Connect(showPeep)
+Remotes.NightFx.OnClientEvent:Connect(onNightFx)
 Remotes.MorningReport.OnClientEvent:Connect(showMorning)
