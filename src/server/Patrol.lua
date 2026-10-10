@@ -69,6 +69,30 @@ local DOPPEL_LINES = {
 	function(call)
 		return ("%d호? 여긴 원래 아무도 없는 방인데요. 히히."):format(call.room)
 	end,
+	function(call)
+		return ("%s... %s... 맛있는 냄새. 쟁반 말고, 당신한테서요."):format(call.item, call.item)
+	end,
+	function()
+		return "어? 방금 복도에 당신이 지나갔는데. 그럼 당신은 누구예요?"
+	end,
+	function()
+		return "똑똑. 아, 제가 노크하는 거예요. 안에서요. 똑똑."
+	end,
+	function(call, player)
+		return ("%s 씨, 내일 아침 근무는 제가 대신 할게요. 얼굴도 대신 할게요."):format(player.DisplayName)
+	end,
+	function()
+		return "시계가 거꾸로 가요. 같이 어제로 갈래요?"
+	end,
+	function()
+		return "데자뷔! 우리 이 대화 벌써 백 번째예요."
+	end,
+	function(call)
+		return ("지금 몇 시예요? 아, 몰라도 돼요. 여기선 시간이 안 가거든요. %s 거기 두세요."):format(call.item)
+	end,
+	function()
+		return "쉿, 옆방 손님 깨우지 마세요. 옆방 손님은... 저예요."
+	end,
 }
 local EMPTY_LINES = {
 	"......들어와.",
@@ -406,7 +430,7 @@ local function makeCall(s, state)
 		call.visual = guest
 		-- 도플갱어는 문틈으로 보면 얼굴이 바로 이상하고, 말도 이상해요.
 		-- 문틈으로 바로 알아볼 수 있는 얼굴 모습 (오늘까지 나타난 것 중에서)
-		local FACE_KINDS = { eyes = true, teeth = true, mouth = true, noface = true, manyeyes = true, upside = true, bigeye = true }
+		local FACE_KINDS = { eyes = true, teeth = true, mouth = true, noface = true, manyeyes = true, upside = true, bigeye = true, spiral = true, mismatch = true, twohead = true }
 		local kinds = {}
 		for _, kind in ipairs(ctx.Config.unlocked("doppel", math.max(s.day, 2))) do
 			if FACE_KINDS[kind] then

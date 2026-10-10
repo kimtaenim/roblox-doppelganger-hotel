@@ -238,13 +238,34 @@ local NAMES = {
 	"시우", "하린", "주원", "채원", "건우", "유나", "우진", "다은",
 }
 
--- 손님 대사 (도플갱어도 똑같이 말해서 대사로는 구별할 수 없어요)
+-- 손님 대사 (도플갱어도 대부분 똑같이 말해요)
 local GREETINGS = {
 	"안녕하세요! 예약자 %s입니다. 체크인 부탁해요.",
 	"오늘 하룻밤 묵으려고요. 예약한 %s입니다.",
 	"먼 길 오느라 힘들었어요... 예약자 %s입니다.",
 	"방 준비됐나요? %s 이름으로 예약했어요.",
 	"안녕하세요~ 창가 쪽 방이면 좋겠어요. 예약자는 %s입니다.",
+}
+-- 도플갱어가 가끔 하는 이상한 인사 (말이 이상하면 의심해 보세요)
+local DOPPEL_GREETINGS = {
+	"안녕하세요. 예약자 %s입니다. 예약자 %s입니다. 예약자 %s입니다.",
+	"체크인... 하러 왔어요. 이 얼굴, 오늘 처음 써 봐요. 히히.",
+	"%s예요. 진짜 %s는... 아, 아니에요. 제가 %s예요.",
+	"방 주세요. 창문 없는 방이요. 거울도 없는 방이요.",
+	"데자뷔! 우리 어제도 여기서 만났잖아요. 그제도. 그 전날도.",
+	"오늘 밤 묵을 거예요. 아니, 오늘 밤부터 계속 묵을 거예요.",
+	"...요세하녕안. 아, 거꾸로 말했네. 안녕하세요~",
+	"제 이름이 뭐였더라... 아, 사진 보면 나와요? 그거 저 맞아요.",
+	"배고파요. 아니, 피곤해요. 아니, 배고파요. 방 주세요.",
+	"당신 목소리 예쁘네요. 저한테 빌려줄래요?",
+	"쉿. 다른 손님들한테는 제가 왔다고 말하지 마세요.",
+	"하하하. 하하. 하. ...체크인이요.",
+}
+local DOPPEL_THANKS = {
+	"고마워요... 오늘 밤에 또 봐요. 히히.",
+	"방 번호 기억할게요. 당신 방 번호도요.",
+	"좋은 꿈 꾸세요. 제가 꿈에 갈게요.",
+	"데자뷔!",
 }
 local THANKS = {
 	"감사합니다! 좋은 하루 되세요.",
@@ -430,8 +451,14 @@ local function runGuest(s, data)
 	s.currentGuest = data
 	s.decision = nil
 	local anomaly = data.anomaly
-	local greeting = pick(GREETINGS):format(data.name)
+	-- 도플갱어는 가끔 이상한 말을 하고, 가끔 이상한 행동을 해요.
+	local greeting = (data.isDoppel and not data.demo and math.random() < 0.45) and pick(DOPPEL_GREETINGS):gsub("%%s", data.name) or pick(GREETINGS):format(data.name)
 	Npc.say(model, greeting, 6)
+	if data.isDoppel and not data.demo and math.random() < 0.45 then
+		Npc.oddBehavior(model, function()
+			return s.currentGuest == data and s.active
+		end)
+	end
 	fire(s, GuestArrived, {
 		line = greeting,
 		id = data.id,
@@ -485,7 +512,7 @@ local function runGuest(s, data)
 		else
 			s.earned += Config.RoomPrice
 		end
-		Npc.say(model, pick(THANKS), 3)
+		Npc.say(model, (data.isDoppel and math.random() < 0.4) and pick(DOPPEL_THANKS) or pick(THANKS), 3)
 		fire(s, Toast, { text = "✅ 체크인 완료! " .. data.name .. " 님이 방으로 올라갔어요.", kind = "accept" })
 		Npc.walkTo(model, markers.Elevator.Position, Config.WalkSpeed)
 	else

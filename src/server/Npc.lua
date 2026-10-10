@@ -85,6 +85,70 @@ function Npc.say(model, text, duration)
 	end)
 end
 
+-- 프런트 앞 도플갱어의 이상한 행동 (alive() 가 false 가 되면 멈추고 제자리로 돌아와요)
+--   twitch: 고개가 가끔 옆으로 뚝 꺾여요 / float: 발이 바닥에서 둥실 떠올라요
+--   spin: 머리가 한 바퀴 빙글 돌아요 / stare: 고개가 플레이어를 끝까지 따라 봐요
+--   giggle: 머리를 덜덜 떨며 킥킥 웃어요
+Npc.OddKinds = { "twitch", "float", "spin", "stare", "giggle" }
+function Npc.oddBehavior(model, alive, kind)
+	kind = kind or Npc.OddKinds[math.random(#Npc.OddKinds)]
+	local headGroup = model:FindFirstChild("HeadGroup")
+	if not headGroup then
+		return
+	end
+	local Players = game:GetService("Players")
+	local bodyBase = model:GetPivot()
+	local headBase = headGroup:GetPivot()
+	local headRel = bodyBase:ToObjectSpace(headBase) -- 몸에 대한 머리 자리
+	task.spawn(function()
+		local t = 0
+		local nextGiggle = 1
+		while model.Parent and alive() do
+			local dt = RunService.Heartbeat:Wait()
+			t += dt
+			if kind == "twitch" then
+				local cycle = t % 2.4
+				local roll = cycle < 0.15 and math.rad(65) or (cycle < 0.25 and math.rad(-15) or 0)
+				headGroup:PivotTo(headBase * CFrame.Angles(0, 0, roll))
+			elseif kind == "float" then
+				local lift = math.min(t * 0.6, 1.4) + math.sin(t * 2) * 0.15
+				model:PivotTo(bodyBase + Vector3.new(0, lift, 0))
+				headBase = headGroup:GetPivot() -- 몸과 함께 떠요
+			elseif kind == "spin" then
+				local cycle = t % 5
+				local yaw = cycle < 1.6 and (cycle / 1.6) * math.pi * 2 or 0
+				headGroup:PivotTo(headBase * CFrame.Angles(0, yaw, 0))
+			elseif kind == "stare" then
+				-- 가장 가까운 플레이어 쪽으로 고개만 홱
+				local nearest, best = nil, math.huge
+				for _, player in ipairs(Players:GetPlayers()) do
+					local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+					if root then
+						local d = (root.Position - headBase.Position).Magnitude
+						if d < best then
+							nearest, best = root, d
+						end
+					end
+				end
+				if nearest then
+					local target = Vector3.new(nearest.Position.X, headBase.Position.Y, nearest.Position.Z)
+					headGroup:PivotTo(CFrame.lookAt(headBase.Position, target))
+				end
+			elseif kind == "giggle" then
+				headGroup:PivotTo(headBase * CFrame.new(math.sin(t * 40) * 0.05, 0, 0) * CFrame.Angles(0, 0, math.sin(t * 33) * 0.06))
+				if t > nextGiggle then
+					nextGiggle = t + 4
+					Npc.say(model, "킥킥... 킥킥킥...", 1.5)
+				end
+			end
+		end
+		-- 머리를 몸 위 제자리로 (몸은 이미 걸어가고 있을 수 있어요. 떠 있던 몸은 걸으면서 내려와요)
+		if model.Parent then
+			headGroup:PivotTo(model:GetPivot() * headRel)
+		end
+	end)
+end
+
 -- 도플갱어에게 당한 손님은 사라지고, 바닥에 소지품만 덩그러니 남아요. (그 아래에 작은 핏자국)
 function Npc.spawnBelongings(data, position, parent)
 	local rgb = Color3.fromRGB

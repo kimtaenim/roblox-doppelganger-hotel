@@ -44,12 +44,12 @@ local Config = {
 	Unlocks = {
 		{ day = 2, doppel = { "teeth", "mouth", "eyes" }, floor = { "eyes", "red", "blood" } },
 		{ day = 3, doppel = { "moving" }, floor = { "doors", "fish" } },
-		{ day = 4, doppel = { "body" }, floor = { "balloons", "forest" } },
+		{ day = 4, doppel = { "body", "mismatch" }, floor = { "balloons", "forest" } },
 		{ day = 5, doppel = { "noface" }, floor = { "flip" } },
-		{ day = 6, doppel = { "manyeyes" }, floor = { "crowd", "space" } },
+		{ day = 6, doppel = { "manyeyes", "spiral" }, floor = { "crowd", "space" } },
 		{ day = 7, doppel = { "upside" }, floor = { "giant" } },
 		{ day = 8, doppel = { "bigeye" }, floor = { "flood" } },
-		{ day = 9, doppel = {}, floor = { "mirror" } }, -- 여기까지 버틴 사람만 보는 거울 이상
+		{ day = 9, doppel = { "twohead" }, floor = { "mirror" } }, -- 여기까지 버틴 사람만 보는 거울 이상
 	},
 	RoomServiceTip = 30, -- 진짜 손님에게 배달하면 받는 팁
 	RoomServiceScareLoss = 15, -- 도플갱어·빈방에 들어갔을 때 줄어드는 정신력

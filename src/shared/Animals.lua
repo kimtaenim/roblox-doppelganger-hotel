@@ -28,7 +28,7 @@ Animals.Clothes = {
 }
 
 -- 도플갱어의 이상한 점 종류
-Animals.AnomalyKinds = { "teeth", "mouth", "eyes", "body", "moving", "noface", "upside", "manyeyes", "bigeye" }
+Animals.AnomalyKinds = { "teeth", "mouth", "eyes", "body", "moving", "noface", "upside", "manyeyes", "bigeye", "spiral", "mismatch", "twohead" }
 -- 도플갱어 모습의 이름 (아침 보고서의 "새로운 도플갱어" 소식에 써요)
 Animals.AnomalyNames = {
 	teeth = "이빨을 드러낸 손님",
@@ -40,6 +40,9 @@ Animals.AnomalyNames = {
 	upside = "머리가 거꾸로 달린 손님",
 	manyeyes = "눈이 여러 개인 손님",
 	bigeye = "거대한 눈알 하나뿐인 손님",
+	spiral = "눈이 빙글빙글 소용돌이인 손님",
+	mismatch = "다른 동물의 귀가 달린 손님",
+	twohead = "머리가 두 개인 손님",
 }
 
 local WHITE = rgb(250, 250, 245)
@@ -768,6 +771,24 @@ function Animals.build(data, anomaly)
 		ball(headGroup, "BigEyeShine", 0.09, at(-0.16, -0.12, front + 0.03), WHITE)
 	end
 
+	-- 소용돌이 눈 도플갱어: 눈동자 자리에 까만·하얀 동그라미가 겹겹이, 최면을 거는 것처럼
+	if anomaly == "spiral" then
+		for _, iris in ipairs(headGroup:GetChildren()) do
+			if iris.Name == "Iris" then
+				local d = iris.Size.Y * 1.15
+				for k = 0, 4 do
+					local ring = newPart(headGroup, "SpiralRing", "Part", V(0.03, d * (1 - k * 0.2), d * (1 - k * 0.2)), iris.CFrame * CFrame.new(0.004 * k, 0, 0) * CFrame.Angles(k * 0.3, 0, 0), k % 2 == 0 and rgb(20, 15, 25) or rgb(250, 250, 245))
+					ring.Shape = Enum.PartType.Cylinder
+				end
+			end
+		end
+		for _, d in ipairs(headGroup:GetChildren()) do
+			if d.Name == "Iris" or d.Name == "Pupil" or d.Name == "EyeShine" then
+				d:Destroy()
+			end
+		end
+	end
+
 	-- 눈이 여러 개인 도플갱어: 이마, 볼, 코 옆까지 사람 같은 눈이 잔뜩 떠 있어요.
 	if anomaly == "manyeyes" then
 		local spots = { V(0, 0.75, -0.95), V(-0.55, 0.55, -0.95), V(0.55, 0.55, -0.95), V(-0.75, -0.3, -0.85), V(0.75, -0.3, -0.85), V(0, 0.32, -1.13), V(-0.32, 0.95, -0.6), V(0.32, 0.95, -0.6) }
@@ -796,6 +817,42 @@ function Animals.build(data, anomaly)
 			headGroup:PivotTo(CFrame.new(0, 5.75, 0) * CFrame.Angles(0, 0, math.pi))
 		end
 		headGroup.Parent = model
+	end
+
+	-- 다른 동물의 귀가 달린 도플갱어: 긴 토끼 귀가 쫑긋 (토끼는 동글동글 곰 귀)
+	if anomaly == "mismatch" then
+		local swap = table.clone(data)
+		swap.animal = data.animal == "rabbit" and "bear" or "rabbit"
+		local donor = Animals.build(swap, nil)
+		local donorHead = donor:FindFirstChild("HeadGroup")
+		local EAR = { Ear = true, EarInner = true, EarFluff = true }
+		for _, d in ipairs(headGroup:GetChildren()) do
+			if EAR[d.Name] then
+				d:Destroy()
+			end
+		end
+		if donorHead then
+			donorHead:PivotTo(headGroup:GetPivot())
+			for _, d in ipairs(donorHead:GetChildren()) do
+				if EAR[d.Name] then
+					d.Parent = headGroup
+				end
+			end
+		end
+		donor:Destroy()
+	end
+
+	-- 머리가 두 개인 도플갱어: 똑같은 머리 두 개가 양쪽으로 갸웃
+	if anomaly == "twohead" and not weirdBody then
+		local second = headGroup:Clone()
+		second.Name = "HeadGroup2"
+		pcall(function()
+			headGroup:ScaleTo(1.12)
+			second:ScaleTo(1.12)
+		end)
+		headGroup:PivotTo(CFrame.new(-0.95, 5.5, 0) * CFrame.Angles(0, math.rad(12), math.rad(16)))
+		second:PivotTo(CFrame.new(0.95, 5.5, 0) * CFrame.Angles(0, math.rad(-12), math.rad(-16)))
+		second.Parent = model
 	end
 
 	return model
