@@ -405,7 +405,14 @@ local function makeCall(s, state)
 		call.guest = guest
 		call.visual = guest
 		-- 도플갱어는 문틈으로 보면 얼굴이 바로 이상하고, 말도 이상해요.
-		local kinds = { "eyes", "teeth", "mouth" }
+		-- 문틈으로 바로 알아볼 수 있는 얼굴 모습 (오늘까지 나타난 것 중에서)
+		local FACE_KINDS = { eyes = true, teeth = true, mouth = true, noface = true, manyeyes = true, upside = true }
+		local kinds = {}
+		for _, kind in ipairs(ctx.Config.unlocked("doppel", math.max(s.day, 2))) do
+			if FACE_KINDS[kind] then
+				table.insert(kinds, kind)
+			end
+		end
 		local guestKind = guest.anomaly and guest.anomaly.kind
 		call.visualKind = table.find(kinds, guestKind) and guestKind or pick(kinds)
 	else
@@ -579,7 +586,7 @@ function Patrol.run(s)
 				end
 			end
 			if #candidates > 0 then
-				floors.setEvent(pick(candidates), pick(floors.EventKinds))
+				floors.setEvent(pick(candidates), pick(ctx.Config.unlocked("floor", s.day))) -- 오늘까지 나타난 이상 중에서
 				state.spawned += 1
 				nextOddityAt = now + math.random(30, 45)
 			else

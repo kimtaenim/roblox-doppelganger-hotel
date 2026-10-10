@@ -14,6 +14,7 @@ local StaffRoom = require(script.Parent:WaitForChild("StaffRoom"))
 local Props = require(script.Parent:WaitForChild("Props"))
 local Floors = require(script.Parent:WaitForChild("Floors"))
 local Patrol = require(script.Parent:WaitForChild("Patrol"))
+local Records = require(script.Parent:WaitForChild("Records"))
 
 local rgb = Color3.fromRGB
 
@@ -49,6 +50,7 @@ local Peephole = remote("Peephole") -- 서버 → 화면: 노크했더니 손님
 local PeepholeChoice = remote("PeepholeChoice") -- 화면 → 서버: 건네주기 / 문 앞에 두고 가기
 local Inventory = remote("Inventory") -- 서버 → 화면: 가방 속 음료 개수
 local UseDrink = remote("UseDrink") -- 화면 → 서버: 가방의 음료 마시기
+local RecordEvent = remote("Record") -- 서버 → 화면: 내 최고 기록
 local AnswerRadio = remote("AnswerRadio") -- 화면 → 서버: 무전기로 프런트 전화 받기
 local AskFloor = remote("AskFloor") -- 서버 → 화면: 엘리베이터에서 "이 층에 이상한 게 있었나요?"
 local AskFloorAnswer = remote("AskFloorAnswer") -- 화면 → 서버: 있었다 / 없었다
@@ -365,7 +367,7 @@ local function freeRoom(used)
 	return 201
 end
 
-local function makeGuestData(isDoppel, usedRooms)
+local function makeGuestData(isDoppel, usedRooms, day)
 	nextGuestId += 1
 	local animal = Animals.List[math.random(#Animals.List)]
 	local def = Animals.Types[animal]
@@ -380,7 +382,8 @@ local function makeGuestData(isDoppel, usedRooms)
 		isDoppel = isDoppel,
 	}
 	if isDoppel then
-		local kind = Animals.AnomalyKinds[math.random(#Animals.AnomalyKinds)]
+		local kinds = Config.unlocked("doppel", math.max(day or 2, 2)) -- 오늘까지 나타난 모습 중에서
+		local kind = kinds[math.random(#kinds)]
 		local where = (kind == "moving" or math.random() < 0.5) and "photo" or "cctv"
 		data.anomaly = { kind = kind, where = where }
 	end
@@ -682,6 +685,21 @@ local function runDay(s)
 			victims = s.yesterdayVictims or {},
 			earned = s.yesterdayEarned or 0,
 			patrol = s.yesterdayPatrol,
+			news = (function()
+				-- 오늘 처음 나타나는 도플갱어 모습과 복도 이상
+				local step = Config.newOn(s.day)
+				if not step then
+					return nil
+				end
+				local news = { doppel = {}, floor = {} }
+				for _, kind in ipairs(step.doppel) do
+					table.insert(news.doppel, Animals.AnomalyNames[kind] or kind)
+				end
+				for _, kind in ipairs(step.floor) do
+					table.insert(news.floor, Floors.EventNames[kind] or kind)
+				end
+				return news
+			end)(),
 			money = s.money,
 			deaths = s.deaths,
 			maxDeaths = Config.MaxDeaths,
@@ -702,6 +720,19 @@ local function runDay(s)
 			kind = "warn",
 		})
 	end
+	-- 오늘 처음 나타나는 것이 있으면 한 번 더 알려줘요.
+	local step = Config.newOn(s.day)
+	if step and s.day > Config.PracticeDays then
+		task.wait(2)
+		local names = {}
+		for _, kind in ipairs(step.doppel) do
+			table.insert(names, Animals.AnomalyNames[kind] or kind)
+		end
+		for _, kind in ipairs(step.floor) do
+			table.insert(names, Floors.EventNames[kind] or kind)
+		end
+		fire(s, Toast, { text = "🆕 오늘부터 나타나요: " .. table.concat(names, ", "), kind = "warn" })
+	end
 	task.wait(1.5)
 
 	-- 꼬마 손님 (3일차부터 3일마다)
@@ -719,7 +750,7 @@ local function runDay(s)
 		end
 		s.guestIndex = i
 		sendState(s)
-		local data = makeGuestData(plan[i], s.usedRooms)
+		local data = makeGuestData(plan[i], s.usedRooms, s.day)
 		if s.day == 1 and i == 2 then
 			-- 첫날 두 번째 손님: 연습용 도플갱어 (예약 사진에서 입이 확 찢어져 있어요)
 			data.isDoppel = true
@@ -781,6 +812,22 @@ local function runNight(s)
 	end
 	sendState(s)
 	local gameOver = s.deaths >= Config.MaxDeaths
+	-- 최고 기록: 이번 판에서 버틴 날과 모은 돈
+	for _, player in ipairs(s.players) do
+		local broke = Records.submit(player, s.day, s.money)
+		local record = Records.get(player)
+		RecordEvent:FireClient(player, record)
+		if broke.day or broke.money then
+			local parts = {}
+			if broke.day then
+				table.insert(parts, ("%d일차까지 버팀"):format(record.bestDay))
+			end
+			if broke.money then
+				table.insert(parts, ("💰 %d"):format(record.bestMoney))
+			end
+			Toast:FireClient(player, { text = "🏆 새 기록! " .. table.concat(parts, " · "), kind = "accept", shake = true })
+		end
+	end
 	fire(s, NightReport, {
 		day = s.day,
 		earned = s.earned,
@@ -1131,8 +1178,65 @@ BackToLobby.OnServerEvent:Connect(function(player)
 	end
 end)
 
+---------------------------------------------------------------- 광장의 명예의 전당 게시판 (상위 5명, 1분마다 새로 고쳐요)
+do
+	local lobby = workspace:FindFirstChild("Lobby")
+	local sign = lobby and lobby:FindFirstChild("Sign")
+	if sign then
+		local boardPart = sign:Clone()
+		boardPart:ClearAllChildren()
+		boardPart.Name = "HallOfFame"
+		boardPart.Size = Vector3.new(5, 4, 0.3)
+		boardPart.CFrame = sign.CFrame * CFrame.new(-19, 0.7, 0)
+		boardPart.Parent = lobby
+		for _, dx in ipairs({ -1.9, 1.9 }) do
+			local leg = Instance.new("Part")
+			leg.Name = "HallOfFameLeg"
+			leg.Anchored = true
+			leg.Size = Vector3.new(0.3, 3.4, 0.3)
+			leg.CFrame = boardPart.CFrame * CFrame.new(dx, -3.6, 0)
+			leg.Color = rgb(25, 25, 28)
+			leg.Material = Enum.Material.Metal
+			leg.Parent = lobby
+		end
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = Enum.NormalId.Front
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = 50
+		gui.Parent = boardPart
+		local text = Instance.new("TextLabel")
+		text.Size = UDim2.fromScale(1, 1)
+		text.BackgroundTransparency = 1
+		text.TextScaled = true
+		text.Font = Enum.Font.Garamond
+		text.TextColor3 = rgb(255, 215, 130)
+		text.Text = "🏆 명예의 전당\n(불러오는 중...)"
+		text.Parent = gui
+		task.spawn(function()
+			while boardPart.Parent do
+				local top = Records.top()
+				local lines = { "🏆 명예의 전당 · 가장 오래 버틴 직원" }
+				if #top == 0 then
+					table.insert(lines, "아직 기록이 없어요")
+				end
+				for i, entry in ipairs(top) do
+					table.insert(lines, ("%d. %s  —  %d일차"):format(i, entry.name, entry.day))
+				end
+				text.Text = table.concat(lines, "\n")
+				task.wait(60)
+			end
+		end)
+	end
+end
+
 ---------------------------------------------------------------- 플레이어 입장/퇴장
 local function onPlayerAdded(player)
+	task.spawn(function()
+		local record = Records.load(player)
+		if player.Parent then
+			RecordEvent:FireClient(player, record)
+		end
+	end)
 	player.CharacterAdded:Connect(function(character)
 		-- 게임 중에 캐릭터가 다시 생기면 프론트로 돌려보내요.
 		if sessionOf(player) then

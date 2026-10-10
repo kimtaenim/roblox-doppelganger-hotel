@@ -40,6 +40,18 @@ local WARM = rgb(255, 214, 160)
 local GOLD = rgb(170, 128, 55)
 
 Floors.List = FLOOR_LIST
+-- 복도 이상의 이름 (아침 보고서의 "새로운 이상" 소식에 써요)
+Floors.EventNames = {
+	blood = "바닥에 흐르는 피의 강",
+	eyes = "꽃 대신 눈알이 핀 꽃병",
+	flip = "천장과 바닥이 뒤집힌 복도",
+	red = "새빨갛게 물든 조명",
+	doors = "한꺼번에 활짝 열린 객실 문",
+	crowd = "천장에 거꾸로 매달린 검은 형체들",
+	giant = "복도 끝에서 들여다보는 거대한 얼굴",
+	balloons = "복도에 가득 떠 있는 빨간 풍선",
+	flood = "검은 물에 잠긴 복도",
+}
 
 local function floorY(floor)
 	return (floor - 1) * FH + 0.5
@@ -700,7 +712,9 @@ function Floors.build(hotel)
 	-- blood: 복도 바닥에 피가 강물처럼 흘러요 / eyes: 꽃병마다 꽃 대신 커다란 눈알 /
 	-- flip: 천장과 바닥이 뒤집혀요 (가구가 천장에 거꾸로 매달려요) / red: 조명이 전부 새빨개요 / doors: 모든 객실 문이 활짝 열려요
 	-- crowd: 새까만 형체들이 빨간 눈을 빛내며 천장에 거꾸로 매달려 있어요 (움직이지 않아요)
-	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd" }
+	-- giant: 복도 끝에서 거대한 도플갱어 얼굴이 들여다봐요 / balloons: 빨간 풍선이 복도에 가득 떠 있어요 /
+	-- flood: 복도가 검은 물에 잠기고 물건이 떠다녀요
+	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "giant", "balloons", "flood" }
 	for _, floor in ipairs(FLOOR_LIST) do
 		local eventFolder = Instance.new("Folder")
 		eventFolder.Name = "Event"
@@ -899,6 +913,86 @@ function Floors.build(hotel)
 					room.door:PivotTo(pivot)
 				end
 				ev.doorPivots = nil
+			end
+		elseif kind == "giant" then
+			if on then
+				-- 서쪽 끝 벽을 뚫고 거대한 얼굴이 복도를 꽉 채운 채 이쪽을 들여다봐요.
+				local face = Animals.build({ id = 7000 + floor, name = "?", animal = Animals.List[(floor % #Animals.List) + 1], fur = rgb(235, 225, 215), cloth = rgb(40, 30, 30) }, floor % 2 == 0 and "mouth" or "eyes")
+				for _, d in ipairs(face:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.CanCollide = false
+						d.CanQuery = false
+					end
+				end
+				local headGroup = face:FindFirstChild("HeadGroup")
+				if headGroup then
+					headGroup.Parent = ev.folder
+					face:Destroy()
+					pcall(function()
+						headGroup:ScaleTo(headGroup:GetScale() * 3)
+					end)
+					headGroup:PivotTo(CFrame.lookAt(V(-25.5, y + 5.4, 0), V(30, y + 5.4, 0)))
+				else
+					face.Parent = ev.folder
+				end
+			else
+				ev.folder:ClearAllChildren()
+			end
+		elseif kind == "balloons" then
+			if on then
+				-- 빨간 풍선이 천장 가득 떠 있고, 끈이 축 늘어져 있어요. 몇 개는 웃는 얼굴이 그려져 있어요.
+				local random = Random.new(floor * 97)
+				for _ = 1, 34 do
+					local pos = V(random:NextNumber(-27, 26), y + random:NextNumber(6.5, 10.5), random:NextNumber(-HALF + 1, HALF - 1))
+					local balloon = P(ev.folder, "Balloon", V(1.3, 1.6, 1.3), CFrame.new(pos), rgb(200, 15, 25), Mat.SmoothPlastic, { Reflectance = 0.2 })
+					Instance.new("SpecialMesh", balloon).MeshType = Enum.MeshType.Sphere
+					P(ev.folder, "BalloonKnot", V(0.18, 0.18, 0.18), CFrame.new(pos - V(0, 0.85, 0)), rgb(150, 10, 15))
+					local length = random:NextNumber(2.5, 5)
+					P(ev.folder, "BalloonString", V(0.04, length, 0.04), CFrame.new(pos - V(0, 0.9 + length / 2, 0)), rgb(235, 235, 230))
+					if random:NextNumber() < 0.35 then
+						-- 복도 쪽을 보는 하얀 웃는 얼굴
+						local look = CFrame.lookAt(pos, pos + V(1, 0, 0)) * CFrame.new(0, 0, -0.64)
+						for _, dx in ipairs({ -0.22, 0.22 }) do
+							local eye = P(ev.folder, "BalloonEye", V(0.16, 0.22, 0.03), look * CFrame.new(dx, 0.2, 0), rgb(250, 250, 245))
+							Instance.new("SpecialMesh", eye).MeshType = Enum.MeshType.Sphere
+						end
+						for i = -2, 2 do
+							P(ev.folder, "BalloonSmile", V(0.14, 0.05, 0.03), look * CFrame.new(i * 0.12, -0.2 + math.abs(i) * 0.05, 0) * CFrame.Angles(0, 0, i * 0.35), rgb(250, 250, 245))
+						end
+					end
+				end
+			else
+				ev.folder:ClearAllChildren()
+			end
+		elseif kind == "flood" then
+			if on then
+				-- 무릎까지 차오른 검은 물 (걸어 다닐 수 있어요). 의자와 꽃병 꽃, 신발이 둥둥 떠 있어요.
+				local length = LOUNGE_X + 28.9
+				local midX = (LOUNGE_X - 28.9) / 2
+				P(ev.folder, "BlackWater", V(length, 1.6, HALF * 2 - 0.1), V(midX, y + 0.8, 0), rgb(6, 7, 12), Mat.Glass, { Transparency = 0.04, Reflectance = 0.5 })
+				P(ev.folder, "BlackWater", V(28.9 - LOUNGE_X, 1.6, LOUNGE_HALF * 2 - 0.1), V((LOUNGE_X + 28.9) / 2, y + 0.8, 0), rgb(6, 7, 12), Mat.Glass, { Transparency = 0.04, Reflectance = 0.5 })
+				local random = Random.new(floor * 13)
+				for _ = 1, 14 do
+					local pos = V(random:NextNumber(-26, 24), y + 1.65, random:NextNumber(-HALF + 1, HALF - 1))
+					local roll = random:NextNumber()
+					if roll < 0.4 then
+						P(ev.folder, "FloatingShoe", V(0.5, 0.35, 1), CFrame.new(pos) * CFrame.Angles(0, random:NextNumber(0, 6), 0.2), rgb(40, 28, 22), Mat.Leather)
+					elseif roll < 0.7 then
+						local flower = P(ev.folder, "FloatingFlower", V(0.45, 0.45, 0.45), CFrame.new(pos), rgb(240, 170, 190))
+						flower.Shape = Enum.PartType.Ball
+					else
+						P(ev.folder, "FloatingBook", V(1, 0.15, 0.7), CFrame.new(pos) * CFrame.Angles(0, random:NextNumber(0, 6), 0), rgb(110, 30, 30))
+					end
+				end
+				-- 물속에서 떠오르는 검은 손 (움직이지 않아요)
+				for i = 1, 4 do
+					local arm = CFrame.new(-22 + i * 10, y + 2, random:NextNumber(-2, 2)) * CFrame.Angles(0, 0, random:NextNumber(-0.3, 0.3))
+					P(ev.folder, "DrownedArm", V(0.4, 1.4, 0.4), arm, rgb(15, 15, 18))
+					local hand = P(ev.folder, "DrownedHand", V(0.6, 0.7, 0.3), arm * CFrame.new(0, 0.9, 0), rgb(15, 15, 18))
+					Instance.new("SpecialMesh", hand).MeshType = Enum.MeshType.Sphere
+				end
+			else
+				ev.folder:ClearAllChildren()
 			end
 		elseif kind == "flip" then
 			-- 복도 한가운데 높이를 축으로 180도 돌려요. (두 번 돌리면 제자리)

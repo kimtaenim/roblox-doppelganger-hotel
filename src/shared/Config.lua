@@ -38,6 +38,18 @@ local Config = {
 
 	-- 야간 순찰 + 룸서비스
 	PatrolTime = 300, -- 순찰 제한 시간 (초)
+
+	-- 날짜마다 새로 나타나는 도플갱어 모습과 복도 이상 (그날부터 계속 나올 수 있어요)
+	-- doppel: 손님 도플갱어의 모습 / floor: 순찰 복도에 생기는 층 전체 이상
+	Unlocks = {
+		{ day = 2, doppel = { "teeth", "mouth", "eyes" }, floor = { "eyes", "red", "blood" } },
+		{ day = 3, doppel = { "moving" }, floor = { "doors" } },
+		{ day = 4, doppel = { "body" }, floor = { "balloons" } },
+		{ day = 5, doppel = { "noface" }, floor = { "flip" } },
+		{ day = 6, doppel = { "manyeyes" }, floor = { "crowd" } },
+		{ day = 7, doppel = { "upside" }, floor = { "giant" } },
+		{ day = 8, doppel = {}, floor = { "flood" } },
+	},
 	RoomServiceTip = 30, -- 진짜 손님에게 배달하면 받는 팁
 	RoomServiceScareLoss = 15, -- 도플갱어·빈방에 들어갔을 때 줄어드는 정신력
 	CallRingTime = 40, -- 전화가 울리는 시간 (안 받으면 끊겨요)
@@ -45,5 +57,28 @@ local Config = {
 	FloorFalsePenalty = 15, -- 아무 이상 없는 층을 "있다"고 했을 때 벌금
 	FloorMissLoss = 6, -- 이상한 게 있었는데 "없다"고 했을 때, 놓친 것 하나마다 줄어드는 정신력
 }
+
+-- 오늘(day)까지 나타난 도플갱어 모습 / 복도 이상 목록
+function Config.unlocked(kindName, day)
+	local list = {}
+	for _, step in ipairs(Config.Unlocks) do
+		if step.day <= day then
+			for _, kind in ipairs(step[kindName]) do
+				table.insert(list, kind)
+			end
+		end
+	end
+	return list
+end
+
+-- 딱 오늘(day) 처음 나타나는 것들
+function Config.newOn(day)
+	for _, step in ipairs(Config.Unlocks) do
+		if step.day == day then
+			return step
+		end
+	end
+	return nil
+end
 
 return Config

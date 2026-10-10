@@ -28,7 +28,18 @@ Animals.Clothes = {
 }
 
 -- 도플갱어의 이상한 점 종류
-Animals.AnomalyKinds = { "teeth", "mouth", "eyes", "body", "moving" }
+Animals.AnomalyKinds = { "teeth", "mouth", "eyes", "body", "moving", "noface", "upside", "manyeyes" }
+-- 도플갱어 모습의 이름 (아침 보고서의 "새로운 도플갱어" 소식에 써요)
+Animals.AnomalyNames = {
+	teeth = "이빨을 드러낸 손님",
+	mouth = "입이 찢어진 손님",
+	eyes = "눈이 새까만 손님",
+	body = "목과 팔이 길게 늘어난 손님",
+	moving = "사진 속에서 움직이는 손님",
+	noface = "얼굴이 없는 손님",
+	upside = "머리가 거꾸로 달린 손님",
+	manyeyes = "눈이 여러 개인 손님",
+}
 Animals.AnomalyNames = {
 	teeth = "이빨이 드러남",
 	mouth = "입이 쭉 찢어짐",
@@ -723,6 +734,33 @@ function Animals.build(data, anomaly)
 		ball(model, "Tail", 0.7, CFrame.new(0, 2.4, 1.2), data.animal == "pig" and PINK or data.animal == "bear" and fur or light)
 	end
 
+	-- 얼굴 없는 도플갱어: 눈, 코, 입, 수염, 볼터치가 모두 사라진 매끈한 얼굴
+	if anomaly == "noface" then
+		local FACE_PARTS = {
+			EyeWhite = true, Iris = true, Pupil = true, EyeShine = true, EyeVein = true,
+			Nose = true, NoseShine = true, Muzzle = true, Snout = true, Nostril = true,
+			Whisker = true, Mouth = true, BuckTooth = true, Blush = true,
+		}
+		for _, d in ipairs(headGroup:GetChildren()) do
+			if FACE_PARTS[d.Name] then
+				d:Destroy()
+			end
+		end
+	end
+
+	-- 눈이 여러 개인 도플갱어: 이마, 볼, 코 옆까지 사람 같은 눈이 잔뜩 떠 있어요.
+	if anomaly == "manyeyes" then
+		local spots = { V(0, 0.75, -0.95), V(-0.55, 0.55, -0.95), V(0.55, 0.55, -0.95), V(-0.75, -0.3, -0.85), V(0.75, -0.3, -0.85), V(0, 0.32, -1.13), V(-0.32, 0.95, -0.6), V(0.32, 0.95, -0.6) }
+		for i, spot in ipairs(spots) do
+			local surface = spot.Unit * 1.2
+			local cf = headCF * CFrame.lookAt(surface, surface + surface.Unit) * CFrame.Angles(0, 0, (i % 3 - 1) * 0.25)
+			local size = (i == 6) and 0.5 or 0.38
+			ellipsoid(headGroup, "ExtraEye", V(size, size * 0.5, 0.1), cf * CFrame.new(0, 0, -0.01), rgb(245, 242, 235))
+			disc(headGroup, "ExtraIris", size * 0.45, cf * CFrame.new(0, 0, -0.05), irisColor)
+			disc(headGroup, "ExtraPupil", size * 0.2, cf * CFrame.new(0, 0, -0.06), rgb(15, 12, 15))
+		end
+	end
+
 	-- 미니 인형 같은 2등신 비율: 몸은 작게, 머리는 아주 크게 (몸이 이상한 도플갱어는 그대로 길쭉하게)
 	if not weirdBody then
 		headGroup.Parent = nil
@@ -733,6 +771,10 @@ function Animals.build(data, anomaly)
 			headGroup:ScaleTo(1.5)
 		end)
 		headGroup:PivotTo(CFrame.new(0, 5.65, 0))
+		if anomaly == "upside" then
+			-- 머리가 거꾸로 달린 도플갱어: 귀가 아래로, 턱이 위로
+			headGroup:PivotTo(CFrame.new(0, 5.75, 0) * CFrame.Angles(0, 0, math.pi))
+		end
 		headGroup.Parent = model
 	end
 

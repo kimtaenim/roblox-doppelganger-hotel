@@ -241,6 +241,25 @@ local lobbyHint = label(gui, {
 round(lobbyHint, 4)
 maxSize(lobbyHint, 520, 30)
 
+-- 광장에서 보이는 내 최고 기록
+local recordLabel = label(gui, {
+	Text = "🏆 내 최고 기록: 아직 없어요",
+	Font = SERIF,
+	TextColor3 = rgb(255, 235, 170),
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -60),
+	Size = UDim2.new(0.6, 0, 0, 26),
+	BackgroundTransparency = 0.3,
+	BackgroundColor3 = ESPRESSO,
+}, 16)
+round(recordLabel, 4)
+maxSize(recordLabel, 420, 26)
+Remotes.Record.OnClientEvent:Connect(function(record)
+	if (record.bestDay or 0) > 0 then
+		recordLabel.Text = ("🏆 내 최고 기록: %d일차까지 버팀 · 💰 %d"):format(record.bestDay, record.bestMoney or 0)
+	end
+end)
+
 ---------------------------------------------------------------- 위쪽 상태 표시
 local hud = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0),
@@ -1279,7 +1298,19 @@ local function showMorning(report)
 	night.Visible = false
 	reportMeta.Text = ("문서번호  DH-%03d-N\n작성일시  %d일차 06:00   작성  프런트 야간 근무자"):format(report.day - 1, report.day)
 
-	local lines = { "1. 야간 사고" }
+	local lines = {}
+	if report.news then
+		-- 오늘부터 새로 나타나는 것들
+		table.insert(lines, "※ 긴급 공지")
+		for _, name in ipairs(report.news.doppel or {}) do
+			table.insert(lines, "   - 새로운 도플갱어 목격: " .. name)
+		end
+		for _, name in ipairs(report.news.floor or {}) do
+			table.insert(lines, "   - 객실 층 이상 현상 보고: " .. name)
+		end
+		table.insert(lines, "")
+	end
+	table.insert(lines, "1. 야간 사고")
 	if #report.victims > 0 then
 		table.insert(lines, ("   - 투숙객 실종 %d건"):format(#report.victims))
 		for _, name in ipairs(report.victims) do
@@ -2087,6 +2118,7 @@ end)
 Remotes.State.OnClientEvent:Connect(function(state)
 	if state.phase == "Lobby" then
 		lobbyHint.Visible = true
+		recordLabel.Visible = true
 		hud.Visible = false
 		sanityBar.Visible = false
 		night.Visible = false
@@ -2109,6 +2141,7 @@ Remotes.State.OnClientEvent:Connect(function(state)
 
 	lobbyFrame.Visible = false
 	lobbyHint.Visible = false
+	recordLabel.Visible = false
 	hud.Visible = true
 	sanityBar.Visible = true
 	currentDay = state.day
