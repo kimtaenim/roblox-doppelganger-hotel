@@ -53,6 +53,7 @@ Floors.EventNames = {
 	flood = "출렁이는 검은 물에 잠긴 복도",
 	fish = "물고기가 헤엄쳐 날아다니는 복도",
 	forest = "밤의 숲으로 변한 복도",
+	space = "별이 가득한 우주 공간이 된 복도",
 }
 
 local function floorY(floor)
@@ -717,7 +718,8 @@ function Floors.build(hotel)
 	-- giant: 복도 끝에서 거대한 도플갱어 얼굴이 들여다봐요 / balloons: 빨간 풍선이 복도에 가득 떠 있어요 /
 	-- flood: 복도가 검은 물에 잠기고 물건이 떠다녀요
 	-- fish: 물고기 떼가 공중을 헤엄쳐 다녀요 / forest: 복도가 밤의 숲으로 변하고 객실 문만 남아요
-	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "giant", "balloons", "flood", "fish", "forest" }
+	-- space: 복도가 별이 가득한 우주가 되고, 행성이 돌고 물건들이 무중력으로 떠다녀요
+	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "giant", "balloons", "flood", "fish", "forest", "space" }
 
 	-- 움직이는 이상(출렁이는 물, 헤엄치는 물고기, 반딧불): 그 이상이 사라지면 저절로 멈춰요.
 	local function animate(ev, step)
@@ -774,6 +776,55 @@ function Floors.build(hotel)
 			table.insert(list, bulb)
 		end
 		return list
+	end
+
+	-- 숲·우주처럼 복도가 통째로 바뀔 때: 초상화, 꽃병, 탁자와 복도 등을 치우고 객실 문만 남겨요.
+	local function emptyCorridor(ev, floor)
+		local deco = api.levels[floor]:FindFirstChild("Portraits")
+		if deco then
+			ev.hiddenDeco = deco
+			deco.Parent = nil
+		end
+		for _, bulb in ipairs(lampsOn(floor)) do
+			local l = bulb:FindFirstChildWhichIsA("Light")
+			if l then
+				l.Enabled = false
+			end
+			bulb.Transparency = 1
+		end
+	end
+	local function restoreCorridor(ev, floor)
+		if ev.hiddenDeco then
+			ev.hiddenDeco.Parent = api.levels[floor]
+			ev.hiddenDeco = nil
+		end
+		for _, bulb in ipairs(lampsOn(floor)) do
+			local l = bulb:FindFirstChildWhichIsA("Light")
+			if l then
+				l.Enabled = true
+			end
+			bulb.Transparency = 0
+		end
+	end
+	-- 벽 앞을 덮는 판 (문 자리만 비워요)
+	local function coverWalls(ev, y, color, material)
+		for _, side in ipairs({ -1, 1 }) do
+			local from = -28.9
+			local function cover(to)
+				if to - from > 0.1 then
+					P(ev.folder, "WallCover", V(to - from, WALL_H, 0.1), V((from + to) / 2, y + WALL_H / 2, side * (HALF - 0.45)), color, material)
+				end
+			end
+			for _, dx in ipairs(DOOR_XS) do
+				cover(dx - DOOR_W / 2 - 0.4)
+				from = dx + DOOR_W / 2 + 0.4
+				-- 문 위쪽 벽도 덮어요
+				local h = WALL_H - DOOR_H - 0.5
+				P(ev.folder, "WallCover", V(DOOR_W + 0.8, h, 0.1), V(dx, y + DOOR_H + 0.5 + h / 2, side * (HALF - 0.45)), color, material)
+			end
+			cover(LOUNGE_X - 0.5)
+		end
+		P(ev.folder, "WallCover", V(0.1, WALL_H, HALF * 2), V(-28.4, y + WALL_H / 2, 0), color, material)
 	end
 
 	local function applyEvent(ev, kind, on)
@@ -1127,21 +1178,7 @@ function Floors.build(hotel)
 					return false
 				end
 				-- 나무 사이로 보이는 건 벽지 대신 깜깜한 숲속이에요. (문 자리만 비워요)
-				local DARK = rgb(10, 20, 14)
-				for _, side in ipairs({ -1, 1 }) do
-					local from = -28.9
-					local function backdrop(to)
-						if to - from > 0.1 then
-							P(ev.folder, "ForestDark", V(to - from, WALL_H, 0.1), V((from + to) / 2, y + WALL_H / 2, side * (HALF - 0.45)), DARK, Mat.Grass)
-						end
-					end
-					for _, dx in ipairs(DOOR_XS) do
-						backdrop(dx - DOOR_W / 2 - 0.4)
-						from = dx + DOOR_W / 2 + 0.4
-					end
-					backdrop(LOUNGE_X - 0.5)
-				end
-				P(ev.folder, "ForestDark", V(0.1, WALL_H, HALF * 2), V(-28.4, y + WALL_H / 2, 0), DARK, Mat.Grass)
+				coverWalls(ev, y, rgb(16, 34, 20), Mat.Grass)
 				P(ev.folder, "ForestSky", V(length, 0.1, HALF * 2), V(midX, y + WALL_H - 0.7, 0), rgb(8, 12, 24)) -- 천장 대신 밤하늘
 				for _, side in ipairs({ -1, 1 }) do
 					local x = -28.3
@@ -1152,9 +1189,67 @@ function Floors.build(hotel)
 							trunk.Shape = Enum.PartType.Cylinder
 							-- 뿌리
 							P(ev.folder, "TreeRoot", V(0.35, 0.3, 1.2), CFrame.new(x, y + 0.35, side * (HALF - 1.3)) * CFrame.Angles(0.3 * side, random:NextNumber(-0.5, 0.5), 0), rgb(50, 38, 28), Mat.Wood)
+							-- 나무줄기를 감고 올라가는 담쟁이
+							if random:NextNumber() < 0.6 then
+								local trunkPos = V(x, 0, trunk.Position.Z)
+								for k = 0, 13 do
+									local angle = k * 0.9 + random:NextNumber(0, 0.4)
+									local d = V(math.cos(angle), 0, math.sin(angle))
+									local pos = V(trunkPos.X, y + 0.6 + k * 0.75, trunkPos.Z) + d * (width / 2 + 0.03)
+									local l = P(ev.folder, "TrunkIvy", V(0.5, 0.4, 0.08), CFrame.lookAt(pos, pos + d) * CFrame.Angles(0, 0, random:NextNumber(0, 6.28)), random:NextNumber() < 0.5 and rgb(40, 90, 40) or rgb(60, 115, 50), Mat.Grass)
+									Instance.new("SpecialMesh", l).MeshType = Enum.MeshType.Sphere
+								end
+							end
 							x += width + random:NextNumber(0.2, 0.7)
 						else
 							x += 0.5
+						end
+					end
+				end
+				-- 벽을 뒤덮은 잎사귀 (여러 가지 초록색, 이리저리 돌아간 타원 잎)
+				local GREENS = { rgb(30, 70, 35), rgb(45, 95, 45), rgb(25, 55, 30), rgb(60, 110, 50), rgb(35, 80, 55) }
+				local function leaf(pos, size, side, color)
+					local l = P(ev.folder, "WallLeaf", size, CFrame.lookAt(pos, pos - V(0, 0, side)) * CFrame.Angles(0, 0, random:NextNumber(0, math.pi * 2)), color, Mat.Grass)
+					Instance.new("SpecialMesh", l).MeshType = Enum.MeshType.Sphere
+					return l
+				end
+				for _, side in ipairs({ -1, 1 }) do
+					local wallZ = side * (HALF - 0.52)
+					for _ = 1, 420 do
+						local x = random:NextNumber(-28.5, LOUNGE_X - 0.8)
+						local h = random:NextNumber(0.3, WALL_H - 0.5)
+						if not nearDoor(x) or h > DOOR_H + 0.9 then
+							local s = random:NextNumber(0.9, 1.7)
+							leaf(V(x, y + h, wallZ - side * random:NextNumber(0, 0.12)), V(s, s * 0.5, 0.12), side, GREENS[random:NextInteger(1, #GREENS)])
+						end
+					end
+					-- 위에서 늘어진 담쟁이 덩굴: 구불구불한 줄기에 하트 모양 잎이 조롱조롱
+					for _ = 1, 16 do
+						local x = random:NextNumber(-28, LOUNGE_X - 1)
+						if not nearDoor(x) then
+							local z = side * (HALF - 0.75)
+							local top = y + WALL_H - 0.6
+							local length = random:NextNumber(4, 10)
+							local prev = V(x, top, z)
+							local seg = 0.8
+							for k = 1, math.floor(length / seg) do
+								local nextPos = V(x + math.sin(k * 0.9) * 0.35, top - k * seg, z)
+								local mid = (prev + nextPos) / 2
+								P(ev.folder, "IvyVine", V(0.07, 0.07, seg + 0.05), CFrame.lookAt(mid, nextPos), rgb(55, 75, 35), Mat.Wood)
+								for _, dx in ipairs({ -1, 1 }) do
+									leaf(nextPos + V(dx * 0.22, 0.05, -side * 0.05), V(0.42, 0.36, 0.08), side, GREENS[random:NextInteger(1, #GREENS)])
+								end
+								prev = nextPos
+							end
+						end
+					end
+				end
+				-- 문틀 위로 넘어온 덩굴 잎 몇 장 (문만 덩그러니 남은 느낌)
+				for _, dx in ipairs(DOOR_XS) do
+					for _, side in ipairs({ -1, 1 }) do
+						for k = 1, 3 do
+							local pos = V(dx + (k - 2) * 1.1 + random:NextNumber(-0.3, 0.3), y + 8.4 + random:NextNumber(0, 0.5), side * (HALF - 0.6))
+							leaf(pos, V(0.6, 0.45, 0.1), side, GREENS[random:NextInteger(1, #GREENS)])
 						end
 					end
 				end
@@ -1193,34 +1288,136 @@ function Floors.build(hotel)
 						f.part.Transparency = (math.sin(t * 2 + p) > 0.3) and 0 or 0.8 -- 깜빡깜빡
 					end
 				end)
-				-- 초상화, 꽃병, 탁자는 숲에 없어요. 객실 문만 남아요.
-				local deco = api.levels[floor]:FindFirstChild("Portraits")
-				if deco then
-					ev.hiddenDeco = deco
-					deco.Parent = nil
-				end
-				-- 복도 등은 꺼져요 (숲은 달빛만)
-				for _, bulb in ipairs(lampsOn(floor)) do
-					local l = bulb:FindFirstChildWhichIsA("Light")
-					if l then
-						l.Enabled = false
-					end
-					bulb.Transparency = 1
-				end
+				emptyCorridor(ev, floor) -- 초상화·꽃병·복도 등은 사라지고 객실 문만 남아요 (숲은 달빛만)
 			else
 				ev.anim = (ev.anim or 0) + 1
 				ev.folder:ClearAllChildren()
-				if ev.hiddenDeco then
-					ev.hiddenDeco.Parent = api.levels[floor]
-					ev.hiddenDeco = nil
+				restoreCorridor(ev, floor)
+			end
+		elseif kind == "space" then
+			if on then
+				-- 우주 복도: 벽, 바닥, 천장이 모두 별이 빛나는 깜깜한 우주가 되고, 객실 문만 둥실 떠 있어요.
+				-- 행성과 달이 천천히 돌고, 호텔 물건들이 무중력으로 떠다니고, 가끔 별똥별이 지나가요.
+				local random = Random.new(floor * 73)
+				local length = LOUNGE_X + 28.9
+				local midX = (LOUNGE_X - 28.9) / 2
+				local SPACE = rgb(6, 6, 18)
+				coverWalls(ev, y, SPACE, Mat.SmoothPlastic)
+				P(ev.folder, "SpaceFloor", V(length, 0.3, HALF * 2 - 0.1), V(midX, y + 0.2, 0), rgb(3, 3, 10), Mat.Glass, { Reflectance = 0.1 })
+				P(ev.folder, "SpaceSky", V(length, 0.1, HALF * 2), V(midX, y + WALL_H - 0.7, 0), SPACE)
+				-- 발밑의 길: 희미하게 빛나는 두 줄
+				for _, side in ipairs({ -1, 1 }) do
+					P(ev.folder, "SpacePath", V(length, 0.05, 0.08), V(midX, y + 0.37, side * 1.4), rgb(90, 140, 255), Mat.Neon, { Transparency = 0.3 })
 				end
-				for _, bulb in ipairs(lampsOn(floor)) do
-					local l = bulb:FindFirstChildWhichIsA("Light")
-					if l then
-						l.Enabled = true
+				-- 사방에 뿌려진 별 (벽, 천장, 바닥)
+				local STAR_COLORS = { rgb(255, 255, 255), rgb(200, 220, 255), rgb(255, 240, 190), rgb(255, 200, 230) }
+				local stars = {}
+				for i = 1, 260 do
+					local where = random:NextNumber()
+					local x = random:NextNumber(-28.6, LOUNGE_X - 0.6)
+					local pos
+					if where < 0.6 then
+						local side = random:NextNumber() < 0.5 and -1 or 1
+						pos = V(x, y + random:NextNumber(0.5, WALL_H - 0.8), side * (HALF - 0.52))
+					elseif where < 0.85 then
+						pos = V(x, y + WALL_H - 0.77, random:NextNumber(-HALF + 0.5, HALF - 0.5))
+					else
+						pos = V(x, y + 0.36, random:NextNumber(-HALF + 0.5, HALF - 0.5))
 					end
-					bulb.Transparency = 0
+					local size = random:NextNumber() < 0.1 and 0.16 or random:NextNumber(0.05, 0.1)
+					local star = P(ev.folder, "Star", V(size, size, size), CFrame.new(pos), STAR_COLORS[random:NextInteger(1, #STAR_COLORS)], Mat.Neon)
+					star.Shape = Enum.PartType.Ball
+					if i % 4 == 0 then
+						table.insert(stars, { part = star, phase = random:NextNumber(0, 6.28) })
+					end
 				end
+				-- 보랏빛 성운 (흐릿한 큰 덩어리)
+				for i = 1, 6 do
+					local side = i % 2 == 0 and -1 or 1
+					local cloud = P(ev.folder, "Nebula", V(random:NextNumber(4, 6), random:NextNumber(1.6, 2.4), 0.1), CFrame.new(-26 + i * 7.5, y + random:NextNumber(9.8, 10.8), side * (HALF - 0.55)), i % 3 == 0 and rgb(80, 160, 255) or rgb(170, 70, 220), Mat.Neon, { Transparency = 0.88 })
+					Instance.new("SpecialMesh", cloud).MeshType = Enum.MeshType.Sphere
+				end
+				-- 고리가 있는 행성
+				local ringed = V(-14, y + 8.5, 0)
+				local planet = P(ev.folder, "Planet", V(3.6, 3.6, 3.6), CFrame.new(ringed), rgb(230, 160, 80), Mat.SmoothPlastic)
+				planet.Shape = Enum.PartType.Ball
+				local band = P(ev.folder, "PlanetBand", V(3.62, 0.5, 3.62), CFrame.new(ringed + V(0, 0.5, 0)), rgb(200, 120, 60), Mat.SmoothPlastic)
+				Instance.new("SpecialMesh", band).MeshType = Enum.MeshType.Sphere
+				local ring = P(ev.folder, "PlanetRing", V(0.05, 6.4, 6.4), CFrame.new(ringed) * CFrame.Angles(0, 0, math.rad(90)) * CFrame.Angles(math.rad(20), 0, 0), rgb(240, 210, 160), Mat.SmoothPlastic, { Transparency = 0.35 })
+				ring.Shape = Enum.PartType.Cylinder
+				-- 파란 지구 같은 행성과 구름
+				local earthPos = V(8, y + 8, 0.5)
+				local earth = P(ev.folder, "BluePlanet", V(2.6, 2.6, 2.6), CFrame.new(earthPos), rgb(50, 110, 220), Mat.SmoothPlastic)
+				earth.Shape = Enum.PartType.Ball
+				for k = 1, 5 do
+					local d = V(math.cos(k * 1.3), math.sin(k * 2.1) * 0.6, math.sin(k * 1.3)).Unit
+					local land = P(ev.folder, "PlanetLand", V(1, 0.7, 0.3), CFrame.lookAt(earthPos + d * 1.2, earthPos + d * 2), k % 2 == 0 and rgb(70, 160, 80) or rgb(240, 245, 250), Mat.SmoothPlastic)
+					Instance.new("SpecialMesh", land).MeshType = Enum.MeshType.Sphere
+				end
+				-- 울퉁불퉁 달
+				local moonPos = V(-24, y + 4, -2.5)
+				local moon = P(ev.folder, "Moon", V(1.6, 1.6, 1.6), CFrame.new(moonPos), rgb(200, 200, 195), Mat.Slate)
+				moon.Shape = Enum.PartType.Ball
+				for k = 1, 4 do
+					local d = V(math.cos(k * 1.7), math.sin(k * 2.3) * 0.7, math.sin(k * 1.7) + 0.3).Unit
+					local crater = P(ev.folder, "Crater", V(0.45, 0.45, 0.12), CFrame.lookAt(moonPos + d * 0.76, moonPos + d * 2), rgb(150, 150, 148), Mat.Slate)
+					Instance.new("SpecialMesh", crater).MeshType = Enum.MeshType.Sphere
+				end
+				-- 무중력으로 떠다니는 호텔 물건들 (트렁크, 의자, 찻잔, 베개)
+				local floaters = {}
+				local function floater(name, size, color, pos)
+					local part = P(ev.folder, name, size, CFrame.new(pos), color, Mat.SmoothPlastic)
+					table.insert(floaters, { part = part, home = pos, phase = random:NextNumber(0, 6.28), spin = random:NextNumber(0.3, 0.8) })
+					return part
+				end
+				floater("FloatingSuitcase", V(1.6, 1.1, 0.5), rgb(120, 70, 40), V(-20, y + 6, 2))
+				floater("FloatingPillow", V(1.4, 0.4, 0.9), rgb(245, 245, 250), V(-4, y + 5, -2.2))
+				floater("FloatingBook", V(0.8, 0.15, 1.1), rgb(150, 30, 40), V(2, y + 7, 2.4))
+				floater("FloatingTray", V(1.4, 0.1, 1), rgb(200, 200, 205), V(14, y + 5.5, -1.5))
+				local cup = floater("FloatingCup", V(0.5, 0.45, 0.5), rgb(250, 250, 245), V(15, y + 4.5, 1.8))
+				cup.Shape = Enum.PartType.Cylinder
+				-- 은은한 우주 빛
+				for x = -22, 18, 13 do
+					local glow = P(ev.folder, "SpaceGlow", V(0.3, 0.3, 0.3), V(x, y + WALL_H - 2.5, 0), rgb(120, 110, 255), Mat.Neon, { Transparency = 1 })
+					local light = Instance.new("PointLight")
+					light.Color = rgb(130, 120, 255)
+					light.Range = 18
+					light.Brightness = 1.2
+					light.Parent = glow
+				end
+				-- 별똥별
+				local shooting = P(ev.folder, "ShootingStar", V(1.6, 0.06, 0.06), CFrame.new(0, -500, 0), rgb(255, 255, 230), Mat.Neon)
+				local planetCF, ringCF, bandCF = planet.CFrame, ring.CFrame, band.CFrame
+				animate(ev, function(t)
+					for _, s in ipairs(stars) do
+						s.part.Transparency = (math.sin(t * 3 + s.phase) > 0.6) and 0.7 or 0 -- 반짝반짝
+					end
+					local bob = V(0, math.sin(t * 0.5) * 0.3, 0)
+					planet.CFrame = planetCF * CFrame.new(bob) * CFrame.Angles(0, t * 0.2, 0)
+					band.CFrame = CFrame.new(bob) * bandCF * CFrame.Angles(0, t * 0.2, 0)
+					ring.CFrame = CFrame.new(bob) * ringCF
+					earth.CFrame = CFrame.new(earthPos + V(0, math.sin(t * 0.4 + 1) * 0.3, 0)) * CFrame.Angles(0, t * 0.3, 0)
+					for _, f in ipairs(floaters) do
+						f.part.CFrame = CFrame.new(f.home + V(math.sin(t * 0.3 + f.phase) * 0.6, math.sin(t * 0.5 + f.phase) * 0.5, 0))
+							* CFrame.Angles(t * f.spin, t * f.spin * 0.7, t * f.spin * 0.4)
+					end
+					-- 6초마다 천장 쪽을 휙 가로질러요
+					local cycle = t % 6
+					if cycle < 1.2 then
+						local p = cycle / 1.2
+						local from, to = V(-26, y + WALL_H - 1.5, -3), V(18, y + WALL_H - 3.5, 3)
+						local pos = from:Lerp(to, p)
+						shooting.CFrame = CFrame.lookAt(pos, to) * CFrame.Angles(0, math.rad(90), 0)
+						shooting.Transparency = p > 0.8 and (p - 0.8) * 5 or 0
+					else
+						shooting.CFrame = CFrame.new(0, -500, 0)
+					end
+				end)
+				emptyCorridor(ev, floor)
+			else
+				ev.anim = (ev.anim or 0) + 1
+				ev.folder:ClearAllChildren()
+				restoreCorridor(ev, floor)
 			end
 		elseif kind == "flip" then
 			-- 복도 한가운데 높이를 축으로 180도 돌려요. (두 번 돌리면 제자리)

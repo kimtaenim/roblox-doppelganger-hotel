@@ -685,21 +685,7 @@ local function runDay(s)
 			victims = s.yesterdayVictims or {},
 			earned = s.yesterdayEarned or 0,
 			patrol = s.yesterdayPatrol,
-			news = (function()
-				-- 오늘 처음 나타나는 도플갱어 모습과 복도 이상
-				local step = Config.newOn(s.day)
-				if not step then
-					return nil
-				end
-				local news = { doppel = {}, floor = {} }
-				for _, kind in ipairs(step.doppel) do
-					table.insert(news.doppel, Animals.AnomalyNames[kind] or kind)
-				end
-				for _, kind in ipairs(step.floor) do
-					table.insert(news.floor, Floors.EventNames[kind] or kind)
-				end
-				return news
-			end)(),
+			-- 새 도플갱어와 새 복도 이상은 미리 알려주지 않아요. 직접 보고 놀라요!
 			money = s.money,
 			deaths = s.deaths,
 			maxDeaths = Config.MaxDeaths,
@@ -719,19 +705,6 @@ local function runDay(s)
 			text = ("🌙 %d일차 밤 근무... 오늘은 도플갱어가 찾아올 거예요. 사진과 CCTV를 꼼꼼히 보세요!"):format(s.day),
 			kind = "warn",
 		})
-	end
-	-- 오늘 처음 나타나는 것이 있으면 한 번 더 알려줘요.
-	local step = Config.newOn(s.day)
-	if step and s.day > Config.PracticeDays then
-		task.wait(2)
-		local names = {}
-		for _, kind in ipairs(step.doppel) do
-			table.insert(names, Animals.AnomalyNames[kind] or kind)
-		end
-		for _, kind in ipairs(step.floor) do
-			table.insert(names, Floors.EventNames[kind] or kind)
-		end
-		fire(s, Toast, { text = "🆕 오늘부터 나타나요: " .. table.concat(names, ", "), kind = "warn" })
 	end
 	task.wait(1.5)
 

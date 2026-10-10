@@ -28,7 +28,7 @@ Animals.Clothes = {
 }
 
 -- 도플갱어의 이상한 점 종류
-Animals.AnomalyKinds = { "teeth", "mouth", "eyes", "body", "moving", "noface", "upside", "manyeyes" }
+Animals.AnomalyKinds = { "teeth", "mouth", "eyes", "body", "moving", "noface", "upside", "manyeyes", "bigeye" }
 -- 도플갱어 모습의 이름 (아침 보고서의 "새로운 도플갱어" 소식에 써요)
 Animals.AnomalyNames = {
 	teeth = "이빨을 드러낸 손님",
@@ -39,13 +39,7 @@ Animals.AnomalyNames = {
 	noface = "얼굴이 없는 손님",
 	upside = "머리가 거꾸로 달린 손님",
 	manyeyes = "눈이 여러 개인 손님",
-}
-Animals.AnomalyNames = {
-	teeth = "이빨이 드러남",
-	mouth = "입이 쭉 찢어짐",
-	eyes = "눈이 검게 가려짐",
-	body = "몸이 이상함",
-	moving = "사진이 움직임",
+	bigeye = "거대한 눈알 하나뿐인 손님",
 }
 
 local WHITE = rgb(250, 250, 245)
@@ -744,6 +738,51 @@ function Animals.build(data, anomaly)
 		for _, d in ipairs(headGroup:GetChildren()) do
 			if FACE_PARTS[d.Name] then
 				d:Destroy()
+			end
+		end
+	end
+
+	-- 거대한 눈알 도플갱어: 눈코입이 모두 사라지고, 얼굴을 꽉 채운 둥근 눈알 하나가 노려봐요.
+	if anomaly == "bigeye" then
+		local FACE_PARTS = {
+			EyeWhite = true, Iris = true, Pupil = true, EyeShine = true, EyeVein = true,
+			Nose = true, NoseShine = true, Muzzle = true, Snout = true, Nostril = true,
+			Whisker = true, Mouth = true, MouthEdge = true, BuckTooth = true, Blush = true,
+			Gum = true, Tongue = true, TongueGroove = true, Void = true, RedGlint = true,
+			Blood = true, BlackTear = true, FaceVein = true,
+		}
+		for _, d in ipairs(headGroup:GetChildren()) do
+			if FACE_PARTS[d.Name] then
+				d:Destroy()
+			end
+		end
+		local center = V(0, 0.05, -0.5)
+		local radius = 0.98
+		ball(headGroup, "BigEyeball", radius * 2, at(center.X, center.Y, center.Z), rgb(248, 245, 238))
+		-- 커다란 홍채와 눈동자, 반짝이
+		local front = center.Z - radius
+		ellipsoid(headGroup, "BigIris", V(1.1, 1.1, 0.3), at(0, 0.05, front + 0.1), irisColor)
+		ellipsoid(headGroup, "BigIrisRing", V(0.8, 0.8, 0.28), at(0, 0.05, front + 0.05), irisColor:Lerp(rgb(0, 0, 0), 0.35))
+		ellipsoid(headGroup, "BigPupil", V(0.5, 0.5, 0.24), at(0, 0.05, front + 0.02), rgb(10, 8, 10))
+		ball(headGroup, "BigEyeShine", 0.2, at(0.2, 0.3, front + 0.02), WHITE)
+		ball(headGroup, "BigEyeShine", 0.09, at(-0.16, -0.12, front + 0.03), WHITE)
+		-- 흰자위에 퍼진 빨간 실핏줄
+		for i = 1, 10 do
+			local phi = (i / 10) * math.pi * 2 + (i % 3) * 0.2
+			local function onBall(theta)
+				local d = V(math.sin(theta) * math.cos(phi), math.sin(theta) * math.sin(phi), -math.cos(theta))
+				return center + d * (radius + 0.015)
+			end
+			-- 바깥쪽에서 홍채 쪽으로 구불구불 뻗어요 (짧은 마디로 이어서 눈알 표면에 딱 붙게)
+			local prev = onBall(math.rad(80))
+			for k = 1, 4 do
+				local theta = math.rad(80 - k * 9)
+				local nextPos = onBall(theta)
+				local wobble = (k % 2 == 0 and 1 or -1) * 0.015
+				nextPos += V(-math.sin(phi), math.cos(phi), 0) * wobble
+				local mid = (prev + nextPos) / 2
+				newPart(headGroup, "BigEyeVein", "Part", V(0.018, 0.018, (nextPos - prev).Magnitude + 0.02), headCF * CFrame.lookAt(mid, nextPos), rgb(190, 30, 40))
+				prev = nextPos
 			end
 		end
 	end
