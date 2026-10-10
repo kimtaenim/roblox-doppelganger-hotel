@@ -50,7 +50,9 @@ Floors.EventNames = {
 	crowd = "천장에 거꾸로 매달린 검은 형체들",
 	giant = "복도 끝에서 들여다보는 거대한 얼굴",
 	balloons = "복도에 가득 떠 있는 빨간 풍선",
-	flood = "검은 물에 잠긴 복도",
+	flood = "출렁이는 검은 물에 잠긴 복도",
+	fish = "물고기가 헤엄쳐 날아다니는 복도",
+	forest = "밤의 숲으로 변한 복도",
 }
 
 local function floorY(floor)
@@ -603,7 +605,7 @@ function Floors.build(hotel)
 		end
 		-- 초상화 밑 탁자 위 꽃병 (층마다 3개)
 		for _, spotInfo in ipairs({ { -18, 1 }, { -2, -1 }, { 14, 1 } }) do
-			local top = consoleTable(level, spotInfo[1], y, spotInfo[2])
+			local top = consoleTable(portraits, spotInfo[1], y, spotInfo[2])
 			newVase(portraits, floor, top, api)
 		end
 
@@ -714,7 +716,22 @@ function Floors.build(hotel)
 	-- crowd: 새까만 형체들이 빨간 눈을 빛내며 천장에 거꾸로 매달려 있어요 (움직이지 않아요)
 	-- giant: 복도 끝에서 거대한 도플갱어 얼굴이 들여다봐요 / balloons: 빨간 풍선이 복도에 가득 떠 있어요 /
 	-- flood: 복도가 검은 물에 잠기고 물건이 떠다녀요
-	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "giant", "balloons", "flood" }
+	-- fish: 물고기 떼가 공중을 헤엄쳐 다녀요 / forest: 복도가 밤의 숲으로 변하고 객실 문만 남아요
+	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "giant", "balloons", "flood", "fish", "forest" }
+
+	-- 움직이는 이상(출렁이는 물, 헤엄치는 물고기, 반딧불): 그 이상이 사라지면 저절로 멈춰요.
+	local function animate(ev, step)
+		ev.anim = (ev.anim or 0) + 1
+		local token = ev.anim
+		step(0) -- 처음 자리부터 바로 잡아 둬요
+		task.spawn(function()
+			local t = 0
+			while ev.anim == token and ev.folder.Parent do
+				t += task.wait(0.1)
+				step(t)
+			end
+		end)
+	end
 	for _, floor in ipairs(FLOOR_LIST) do
 		local eventFolder = Instance.new("Folder")
 		eventFolder.Name = "Event"
@@ -915,6 +932,7 @@ function Floors.build(hotel)
 				ev.doorPivots = nil
 			end
 		elseif kind == "giant" then
+			ev.anim = (ev.anim or 0) + 1
 			if on then
 				-- 서쪽 끝 벽을 뚫고 거대한 얼굴이 복도를 꽉 채운 채 이쪽을 들여다봐요.
 				local face = Animals.build({ id = 7000 + floor, name = "?", animal = Animals.List[(floor % #Animals.List) + 1], fur = rgb(235, 225, 215), cloth = rgb(40, 30, 30) }, floor % 2 == 0 and "mouth" or "eyes")
@@ -984,6 +1002,33 @@ function Floors.build(hotel)
 						P(ev.folder, "FloatingBook", V(1, 0.15, 0.7), CFrame.new(pos) * CFrame.Angles(0, random:NextNumber(0, 6), 0), rgb(110, 30, 30))
 					end
 				end
+				-- 물결: 물이 천천히 출렁이고, 떠 있는 물건도 같이 둥실거려요.
+				local bobbing = {}
+				for _, part in ipairs(ev.folder:GetChildren()) do
+					if part:IsA("BasePart") then
+						table.insert(bobbing, { part = part, home = part.CFrame, phase = part.Position.X * 0.4, water = part.Name == "BlackWater" })
+					end
+				end
+				-- 물 위 잔물결 (밝은 줄무늬가 오락가락해요)
+				local ripples = {}
+				for i = 1, 10 do
+					local ripple = P(ev.folder, "Ripple", V(0.15, 0.03, HALF * 2 - 0.6), CFrame.new(-27 + i * 4.8, y + 1.62, 0), rgb(70, 80, 100), Mat.Neon, { Transparency = 0.6 })
+					table.insert(ripples, { part = ripple, x = -27 + i * 4.8 })
+				end
+				animate(ev, function(t)
+					for _, b in ipairs(bobbing) do
+						local wave = math.sin(t * 1.6 + b.phase)
+						if b.water then
+							b.part.CFrame = b.home * CFrame.new(0, wave * 0.18, 0) * CFrame.Angles(wave * 0.004, 0, math.cos(t * 1.3) * 0.004)
+						else
+							b.part.CFrame = b.home * CFrame.new(0, wave * 0.2, 0) * CFrame.Angles(wave * 0.15, t * 0.05, math.cos(t + b.phase) * 0.12)
+						end
+					end
+					for _, r in ipairs(ripples) do
+						local x = ((r.x + 27 + t * 2.2) % 48) - 27
+						r.part.CFrame = CFrame.new(x, y + 1.62 + math.sin(t * 1.6 + x * 0.4) * 0.18, 0)
+					end
+				end)
 				-- 물속에서 떠오르는 검은 손 (움직이지 않아요)
 				for i = 1, 4 do
 					local arm = CFrame.new(-22 + i * 10, y + 2, random:NextNumber(-2, 2)) * CFrame.Angles(0, 0, random:NextNumber(-0.3, 0.3))
@@ -993,6 +1038,189 @@ function Floors.build(hotel)
 				end
 			else
 				ev.folder:ClearAllChildren()
+			end
+		elseif kind == "fish" then
+			if on then
+				-- 물고기 떼가 공중을 헤엄쳐 다녀요. 알록달록한 열대어, 커다란 잉어, 해파리까지.
+				local random = Random.new(floor * 41)
+				local COLORS = { rgb(255, 150, 40), rgb(80, 170, 255), rgb(255, 220, 60), rgb(240, 100, 150), rgb(120, 220, 190), rgb(250, 250, 245) }
+				local swimmers = {}
+				for i = 1, 16 do
+					local fish = Instance.new("Model")
+					fish.Name = "FlyingFish"
+					local big = i <= 3
+					local scale = big and 2.2 or random:NextNumber(0.8, 1.3)
+					local color = big and rgb(240, 120, 40) or COLORS[random:NextInteger(1, #COLORS)]
+					local body = P(fish, "FishBody", V(0.7, 0.9, 1.8) * scale, CFrame.new(), color, Mat.SmoothPlastic, { Reflectance = 0.15 })
+					Instance.new("SpecialMesh", body).MeshType = Enum.MeshType.Sphere
+					fish.PrimaryPart = body
+					-- 꼬리는 마름모를 반쯤 몸에 묻어서 부채꼴처럼, 등지느러미도 작은 마름모, 그리고 눈
+					local finColor = color:Lerp(rgb(255, 255, 255), 0.25)
+					P(fish, "FishTail", V(0.08, 0.75, 0.75) * scale, CFrame.new(0, 0, 1.05 * scale) * CFrame.Angles(math.rad(45), 0, 0), finColor)
+					P(fish, "FishFin", V(0.06, 0.4, 0.4) * scale, CFrame.new(0, 0.42 * scale, 0.15 * scale) * CFrame.Angles(math.rad(45), 0, 0), finColor)
+					for _, side in ipairs({ -1, 1 }) do
+						local eye = P(fish, "FishEye", V(0.22, 0.22, 0.22) * scale, CFrame.new(side * 0.32 * scale, 0.12 * scale, -0.55 * scale), rgb(250, 250, 250))
+						eye.Shape = Enum.PartType.Ball
+						local pupil = P(fish, "FishPupil", V(0.12, 0.12, 0.12) * scale, CFrame.new(side * 0.4 * scale, 0.12 * scale, -0.6 * scale), rgb(10, 10, 15))
+						pupil.Shape = Enum.PartType.Ball
+					end
+					fish.Parent = ev.folder
+					table.insert(swimmers, {
+						model = fish,
+						x = random:NextNumber(-27, 26),
+						dir = random:NextNumber() < 0.5 and -1 or 1,
+						speed = random:NextNumber(1.5, 3.5) / (big and 1.6 or 1),
+						height = random:NextNumber(3, 9.5),
+						lane = random:NextNumber(-HALF + 1.5, HALF - 1.5),
+						phase = random:NextNumber(0, 6.28),
+					})
+				end
+				-- 둥실둥실 해파리 (위아래로만 천천히)
+				for i = 1, 4 do
+					local jelly = P(ev.folder, "Jellyfish", V(1.6, 1.1, 1.6), CFrame.new(-20 + i * 9, y + 8, (i % 2 == 0) and 2 or -2), rgb(200, 170, 255), Mat.Neon, { Transparency = 0.45 })
+					Instance.new("SpecialMesh", jelly).MeshType = Enum.MeshType.Sphere
+					table.insert(swimmers, { jelly = jelly, home = jelly.CFrame, phase = i })
+				end
+				animate(ev, function(t)
+					for _, f in ipairs(swimmers) do
+						if f.jelly then
+							f.jelly.CFrame = f.home * CFrame.new(0, math.sin(t * 0.8 + f.phase) * 1.2, 0)
+						else
+							f.x += f.dir * f.speed * 0.1
+							if f.x > 27 or f.x < -27 then
+								f.dir = -f.dir -- 벽 끝에서 휙 돌아서요
+							end
+							local z = f.lane + math.sin(t * 0.9 + f.phase) * 1.2
+							local h = y + f.height + math.sin(t * 1.3 + f.phase) * 0.6
+							local pos = V(f.x, h, z)
+							local wiggle = math.sin(t * 8 + f.phase) * 0.25 -- 꼬리를 살랑살랑
+							f.model:PivotTo(CFrame.lookAt(pos, pos + V(f.dir, 0, math.cos(t * 0.9 + f.phase) * 0.3)) * CFrame.Angles(0, wiggle, 0))
+						end
+					end
+				end)
+			else
+				ev.anim = (ev.anim or 0) + 1
+				ev.folder:ClearAllChildren()
+			end
+		elseif kind == "forest" then
+			if on then
+				-- 밤의 숲: 바닥은 풀밭, 벽 앞은 빽빽한 나무줄기, 천장은 나뭇잎. 객실 문들만 숲속에 덩그러니 서 있어요.
+				local random = Random.new(floor * 59)
+				local length = LOUNGE_X + 28.9
+				local midX = (LOUNGE_X - 28.9) / 2
+				P(ev.folder, "ForestGrass", V(length, 0.3, HALF * 2 - 0.1), V(midX, y + 0.2, 0), rgb(40, 70, 35), Mat.Grass)
+				P(ev.folder, "ForestPath", V(length, 0.31, 2.2), V(midX, y + 0.21, 0), rgb(70, 55, 40), Mat.Ground)
+				-- 천장을 덮은 나뭇잎
+				for x = -28, 20, 2.4 do
+					for _, z in ipairs({ -3.2, 0, 3.2 }) do
+						local leaf = P(ev.folder, "Canopy", V(4, 2.2, 4) * random:NextNumber(0.8, 1.2), CFrame.new(x + random:NextNumber(-0.5, 0.5), y + WALL_H - 0.9, z), random:NextNumber() < 0.5 and rgb(25, 50, 30) or rgb(35, 65, 35), Mat.Grass)
+						leaf.Shape = Enum.PartType.Ball
+					end
+				end
+				-- 벽 앞에 늘어선 나무줄기 (문 자리는 비워 둬요)
+				local function nearDoor(x)
+					for _, dx in ipairs(DOOR_XS) do
+						if math.abs(x - dx) < DOOR_W / 2 + 0.6 then
+							return true
+						end
+					end
+					return false
+				end
+				-- 나무 사이로 보이는 건 벽지 대신 깜깜한 숲속이에요. (문 자리만 비워요)
+				local DARK = rgb(10, 20, 14)
+				for _, side in ipairs({ -1, 1 }) do
+					local from = -28.9
+					local function backdrop(to)
+						if to - from > 0.1 then
+							P(ev.folder, "ForestDark", V(to - from, WALL_H, 0.1), V((from + to) / 2, y + WALL_H / 2, side * (HALF - 0.45)), DARK, Mat.Grass)
+						end
+					end
+					for _, dx in ipairs(DOOR_XS) do
+						backdrop(dx - DOOR_W / 2 - 0.4)
+						from = dx + DOOR_W / 2 + 0.4
+					end
+					backdrop(LOUNGE_X - 0.5)
+				end
+				P(ev.folder, "ForestDark", V(0.1, WALL_H, HALF * 2), V(-28.4, y + WALL_H / 2, 0), DARK, Mat.Grass)
+				P(ev.folder, "ForestSky", V(length, 0.1, HALF * 2), V(midX, y + WALL_H - 0.7, 0), rgb(8, 12, 24)) -- 천장 대신 밤하늘
+				for _, side in ipairs({ -1, 1 }) do
+					local x = -28.3
+					while x < LOUNGE_X - 0.5 do
+						if not nearDoor(x) then
+							local width = random:NextNumber(0.9, 1.5)
+							local trunk = P(ev.folder, "TreeTrunk", V(WALL_H, width, width), CFrame.new(x, y + WALL_H / 2, side * (HALF - 0.7) + random:NextNumber(-0.2, 0.2)) * CFrame.Angles(0, 0, math.rad(90)), random:NextNumber() < 0.5 and rgb(55, 40, 30) or rgb(45, 35, 28), Mat.Wood)
+							trunk.Shape = Enum.PartType.Cylinder
+							-- 뿌리
+							P(ev.folder, "TreeRoot", V(0.35, 0.3, 1.2), CFrame.new(x, y + 0.35, side * (HALF - 1.3)) * CFrame.Angles(0.3 * side, random:NextNumber(-0.5, 0.5), 0), rgb(50, 38, 28), Mat.Wood)
+							x += width + random:NextNumber(0.2, 0.7)
+						else
+							x += 0.5
+						end
+					end
+				end
+				-- 버섯과 덤불
+				for _ = 1, 14 do
+					local pos = V(random:NextNumber(-27, 20), y + 0.35, random:NextNumber(-HALF + 1.4, HALF - 1.4))
+					if random:NextNumber() < 0.5 then
+						P(ev.folder, "MushroomStem", V(0.18, 0.4, 0.18), CFrame.new(pos + V(0, 0.2, 0)), rgb(235, 225, 205))
+						local cap = P(ev.folder, "MushroomCap", V(0.6, 0.3, 0.6), CFrame.new(pos + V(0, 0.45, 0)), rgb(200, 40, 40))
+						Instance.new("SpecialMesh", cap).MeshType = Enum.MeshType.Sphere
+					else
+						local bush = P(ev.folder, "Bush", V(1.4, 1, 1.4), CFrame.new(pos + V(0, 0.3, 0)), rgb(30, 60, 32), Mat.Grass)
+						bush.Shape = Enum.PartType.Ball
+					end
+				end
+				-- 푸른 달빛과 반딧불
+				for x = -24, 18, 10 do
+					local moon = P(ev.folder, "MoonLight", V(0.3, 0.3, 0.3), V(x, y + WALL_H - 2.5, 0), rgb(150, 180, 255), Mat.Neon, { Transparency = 1 })
+					local light = Instance.new("PointLight")
+					light.Color = rgb(140, 170, 255)
+					light.Range = 16
+					light.Brightness = 1
+					light.Parent = moon
+				end
+				local flies = {}
+				for i = 1, 24 do
+					local home = V(random:NextNumber(-27, 20), y + random:NextNumber(1.5, 6), random:NextNumber(-HALF + 1.2, HALF - 1.2))
+					local fly = P(ev.folder, "Firefly", V(0.16, 0.16, 0.16), CFrame.new(home), rgb(220, 255, 120), Mat.Neon)
+					fly.Shape = Enum.PartType.Ball
+					table.insert(flies, { part = fly, home = home, phase = i * 0.7 })
+				end
+				animate(ev, function(t)
+					for _, f in ipairs(flies) do
+						local p = f.phase
+						f.part.CFrame = CFrame.new(f.home + V(math.sin(t * 0.7 + p) * 0.8, math.sin(t * 1.1 + p) * 0.5, math.cos(t * 0.6 + p) * 0.6))
+						f.part.Transparency = (math.sin(t * 2 + p) > 0.3) and 0 or 0.8 -- 깜빡깜빡
+					end
+				end)
+				-- 초상화, 꽃병, 탁자는 숲에 없어요. 객실 문만 남아요.
+				local deco = api.levels[floor]:FindFirstChild("Portraits")
+				if deco then
+					ev.hiddenDeco = deco
+					deco.Parent = nil
+				end
+				-- 복도 등은 꺼져요 (숲은 달빛만)
+				for _, bulb in ipairs(lampsOn(floor)) do
+					local l = bulb:FindFirstChildWhichIsA("Light")
+					if l then
+						l.Enabled = false
+					end
+					bulb.Transparency = 1
+				end
+			else
+				ev.anim = (ev.anim or 0) + 1
+				ev.folder:ClearAllChildren()
+				if ev.hiddenDeco then
+					ev.hiddenDeco.Parent = api.levels[floor]
+					ev.hiddenDeco = nil
+				end
+				for _, bulb in ipairs(lampsOn(floor)) do
+					local l = bulb:FindFirstChildWhichIsA("Light")
+					if l then
+						l.Enabled = true
+					end
+					bulb.Transparency = 0
+				end
 			end
 		elseif kind == "flip" then
 			-- 복도 한가운데 높이를 축으로 180도 돌려요. (두 번 돌리면 제자리)

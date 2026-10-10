@@ -43,8 +43,8 @@ local Config = {
 	-- doppel: 손님 도플갱어의 모습 / floor: 순찰 복도에 생기는 층 전체 이상
 	Unlocks = {
 		{ day = 2, doppel = { "teeth", "mouth", "eyes" }, floor = { "eyes", "red", "blood" } },
-		{ day = 3, doppel = { "moving" }, floor = { "doors" } },
-		{ day = 4, doppel = { "body" }, floor = { "balloons" } },
+		{ day = 3, doppel = { "moving" }, floor = { "doors", "fish" } },
+		{ day = 4, doppel = { "body" }, floor = { "balloons", "forest" } },
 		{ day = 5, doppel = { "noface" }, floor = { "flip" } },
 		{ day = 6, doppel = { "manyeyes" }, floor = { "crowd" } },
 		{ day = 7, doppel = { "upside" }, floor = { "giant" } },
