@@ -812,20 +812,18 @@ function Animals.addBloodTears(model)
 	local down = -head.CFrame.UpVector
 	local eyes = {}
 	for _, d in ipairs(headGroup:GetChildren()) do
-		if d.Name == "Pupil" or d.Name == "BigPupil" then
+		if d.Name == "Pupil" then
 			table.insert(eyes, d)
 		end
 	end
 	for _, eye in ipairs(eyes) do
-		-- 눈알 하나뿐인 도플갱어는 커다란 눈알 표면을 타고 흘러요.
-		local ballPart = eye.Name == "BigPupil" and headGroup:FindFirstChild("BigEyeball") or head
-		local c, r = ballPart.Position, ballPart.Size.X / 2
+		local c, r = head.Position, radius
 		local onHead = function(p)
 			return c + (p - c).Unit * (r + 0.015)
 		end
-		local start = eye.Position + down * (ballPart == head and r * 0.12 or r * 0.5)
+		local start = eye.Position + down * (r * 0.12)
 		local prev = onHead(start)
-		local step = r * (ballPart == head and 0.13 or 0.16)
+		local step = r * 0.13
 		for k = 1, 6 do
 			local nextPos = onHead(start + down * (k * step) + head.CFrame.RightVector * math.sin(k * 1.3) * radius * 0.015)
 			local mid = (prev + nextPos) / 2

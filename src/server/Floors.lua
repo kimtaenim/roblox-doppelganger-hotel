@@ -1,6 +1,6 @@
 -- 2층~4층 객실 복도를 만들어요. (밤 순찰과 룸서비스 배달을 하는 곳)
 -- 1층 로비처럼 꾸몄어요: 청록 줄무늬 벽지, 원목 벽판, 대리석 바닥, 빨간 러너 카펫.
--- 층마다 긴 복도 양쪽에 객실 문이 6개씩 (01~12호), 서쪽 끝에는 커다란 거울이 있어요.
+-- 층마다 긴 복도 양쪽에 객실 문이 6개씩 (01~12호), 복도 끝과 양쪽 벽에 커다란 거울이 있어요.
 -- 복도 동쪽 끝은 작은 층 로비(소파, 화분, 샹들리에)이고, 엘리베이터로 층 사이를 오가요.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Animals = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Animals"))
@@ -118,11 +118,92 @@ local function wallSegment(parent, y, x0, x1, z, side)
 	dressWall(parent, face, x1 - x0, WALL_H)
 end
 
+---------------------------------------------------------------- 거울 (복도 끝 + 양쪽 벽에 하나씩, 층마다 세 개)
+-- 로블록스에는 진짜 거울이 없어서, 거울 뒤쪽 빈 공간에 거울 앞의 복도와 사람을
+-- 뒤집어 똑같이 만들어 보여 줘요. (Mirror.client.lua 가 각 화면에서 그려요)
+local MIRROR_BOTTOM, MIRROR_TOP = 0.6, 9
+local END_MIRROR_W, SIDE_MIRROR_W = 4, 3
+
+-- 금빛 액자와 유리. faceCF: 벽 앞면, 거울 높이 가운데, 복도 쪽을 바라봐요.
+local function makeMirror(parent, faceCF, width, settings)
+	local h = MIRROR_TOP - MIRROR_BOTTOM
+	for _, sx in ipairs({ -1, 1 }) do
+		P(parent, "MirrorFrame", V(0.35, h + 0.7, 0.45), faceCF * CFrame.new(sx * (width / 2 + 0.1), 0, -0.05), BRASS, Mat.Metal)
+		P(parent, "MirrorFrame", V(width + 0.55, 0.35, 0.45), faceCF * CFrame.new(0, sx * (h / 2 + 0.1), -0.05), BRASS, Mat.Metal)
+	end
+	local crest = P(parent, "MirrorFrame", V(0.9, 0.9, 0.9), faceCF * CFrame.new(0, h / 2 + 0.55, -0.05), BRASS, Mat.Metal)
+	crest.Shape = Enum.PartType.Ball
+	-- 유리: 앞면이 거울 면이에요. 부딪혀서 거울 속으로 들어갈 수는 없어요.
+	local glass = Props.solid(parent, "MirrorGlass", V(width, h, 0.1), faceCF * CFrame.new(0, 0, 0.1), rgb(205, 220, 230), Mat.Glass, {
+		Transparency = 0.88,
+		Reflectance = 0.05,
+	})
+	for key, value in pairs(settings) do
+		glass:SetAttribute(key, value)
+	end
+	glass:SetAttribute("MirrorHeight", WALL_H + 1)
+	return glass
+end
+
+-- 복도 끝 벽: 가운데에 거울 구멍을 남기고 벽을 세워요.
+local function buildMirrorWall(level, y, floor, api)
+	local wallX = -29.15
+	local W = END_MIRROR_W
+	for _, side in ipairs({ -1, 1 }) do
+		local width = HALF - W / 2
+		local z = side * (W / 2 + width / 2)
+		Props.solid(level, "WestEnd", V(0.5, WALL_H, width), V(wallX, y + WALL_H / 2, z), TEAL, Mat.Fabric)
+		dressWall(level, CFrame.lookAt(V(-28.9, y, z), V(-27.9, y, z)), width, WALL_H)
+	end
+	local topH = WALL_H - MIRROR_TOP
+	Props.solid(level, "WestEnd", V(0.5, topH, W), V(wallX, y + MIRROR_TOP + topH / 2, 0), TEAL, Mat.Fabric)
+	P(level, "Crown", V(0.5, 0.7, W), V(-29.15, y + WALL_H - 0.35, 0), WOOD_DARK, Mat.Wood)
+	Props.solid(level, "WestEnd", V(0.5, MIRROR_BOTTOM, W), V(wallX, y + MIRROR_BOTTOM / 2, 0), WOOD_DARK, Mat.Wood)
+	local midY = y + (MIRROR_TOP + MIRROR_BOTTOM) / 2
+	table.insert(api.mirrors[floor], makeMirror(level, CFrame.lookAt(V(-28.9, midY, 0), V(-27.9, midY, 0)), W, {
+		MirrorDepth = 26, -- 거울 앞 이만큼까지 비춰요
+		MirrorHalfWidth = HALF + 1,
+		MirrorHide = true, -- 거울 뒤 건물 바깥벽은 안 보이게
+	}))
+end
+
+-- 양쪽 벽 거울: 엘리베이터에서 복도를 바라볼 때 오른쪽 벽 앞쪽, 왼쪽 벽 뒤쪽
+local SIDE_MIRRORS = { [-1] = 14, [1] = -18 }
+
+-- 벽에 거울 구멍 (corridorWall 에서 불러요): 구멍 위아래만 벽을 채워요.
+local function mirrorHole(parent, y, x, z, side)
+	local W = SIDE_MIRROR_W
+	local topH = WALL_H - MIRROR_TOP
+	Props.solid(parent, "CorridorWall", V(W, topH, 0.5), V(x, y + MIRROR_TOP + topH / 2, z + side * 0.25), TEAL, Mat.Fabric)
+	P(parent, "Wallpaper", V(W, topH - 0.7, 0.15), V(x, y + MIRROR_TOP + (topH - 0.7) / 2, z - side * 0.075), TEAL, Mat.Fabric)
+	P(parent, "Crown", V(W, 0.7, 0.5), V(x, y + WALL_H - 0.35, z - side * 0.25), WOOD_DARK, Mat.Wood)
+	Props.solid(parent, "CorridorWall", V(W, MIRROR_BOTTOM, 0.5), V(x, y + MIRROR_BOTTOM / 2, z + side * 0.25), WOOD_DARK, Mat.Wood)
+	P(parent, "Baseboard", V(W, 0.5, 0.4), V(x, y + 0.25, z - side * 0.2), WOOD_DARK, Mat.Wood)
+end
+
+local function buildSideMirrors(level, y, floor, api)
+	local midY = y + (MIRROR_TOP + MIRROR_BOTTOM) / 2
+	for side, x in pairs(SIDE_MIRRORS) do
+		local z = side * HALF
+		table.insert(api.mirrors[floor], makeMirror(level, CFrame.lookAt(V(x, midY, z), V(x, midY, z - side)), SIDE_MIRROR_W, {
+			MirrorDepth = HALF * 2 + 1, -- 맞은편 벽까지
+			MirrorHalfWidth = SIDE_MIRROR_W / 2 + 1.5,
+			MirrorClip = true, -- 거울 뒤는 객실이라, 거울 너비 밖으로는 그리지 않아요
+		}))
+	end
+end
+
 -- 복도 벽 한 줄: 문 자리만 비워 두고 이어 붙여요.
 local function corridorWall(parent, y, side)
 	local z = side * HALF
 	local cursor = -28.9
 	for _, x in ipairs(DOOR_XS) do
+		local mx = SIDE_MIRRORS[side]
+		if mx and mx > cursor and mx < x then
+			wallSegment(parent, y, cursor, mx - SIDE_MIRROR_W / 2, z, side)
+			mirrorHole(parent, y, mx, z, side)
+			cursor = mx + SIDE_MIRROR_W / 2
+		end
 		wallSegment(parent, y, cursor, x - DOOR_W / 2, z, side)
 		-- 문 위쪽 벽
 		Props.solid(parent, "Lintel", V(DOOR_W, WALL_H - DOOR_H, 0.5), V(x, y + DOOR_H + (WALL_H - DOOR_H) / 2, z + side * 0.25), TEAL, Mat.Fabric)
@@ -328,44 +409,6 @@ local function consoleTable(parent, x, y, side)
 	return CFrame.lookAt(V(x, y + 3.03, z), V(x, y + 3.03, z - side))
 end
 
----------------------------------------------------------------- 복도 끝 거울
--- 서쪽 끝 벽 한가운데의 커다란 거울. 로블록스에는 진짜 거울이 없어서,
--- 거울 뒤쪽 빈 공간에 복도와 사람을 좌우로 뒤집어 똑같이 만들어 보여 줘요. (Mirror.client.lua 가 각 화면에서 그려요)
-local MIRROR_W, MIRROR_BOTTOM, MIRROR_TOP = 4, 0.6, 9
-local function buildMirrorWall(level, y, floor, api)
-	local wallX = -29.15
-	-- 거울 양옆 벽
-	for _, side in ipairs({ -1, 1 }) do
-		local width = HALF - MIRROR_W / 2
-		local z = side * (MIRROR_W / 2 + width / 2)
-		Props.solid(level, "WestEnd", V(0.5, WALL_H, width), V(wallX, y + WALL_H / 2, z), TEAL, Mat.Fabric)
-		dressWall(level, CFrame.lookAt(V(-28.9, y, z), V(-27.9, y, z)), width, WALL_H)
-	end
-	-- 거울 위아래 벽
-	local topH = WALL_H - MIRROR_TOP
-	Props.solid(level, "WestEnd", V(0.5, topH, MIRROR_W), V(wallX, y + MIRROR_TOP + topH / 2, 0), TEAL, Mat.Fabric)
-	P(level, "Crown", V(0.5, 0.7, MIRROR_W), V(-29.15, y + WALL_H - 0.35, 0), WOOD_DARK, Mat.Wood)
-	Props.solid(level, "WestEnd", V(0.5, MIRROR_BOTTOM, MIRROR_W), V(wallX, y + MIRROR_BOTTOM / 2, 0), WOOD_DARK, Mat.Wood)
-	-- 금빛 액자
-	local h = MIRROR_TOP - MIRROR_BOTTOM
-	local midY = y + (MIRROR_TOP + MIRROR_BOTTOM) / 2
-	for _, side in ipairs({ -1, 1 }) do
-		P(level, "MirrorFrame", V(0.45, h + 0.7, 0.35), V(-28.85, midY, side * (MIRROR_W / 2 + 0.1)), BRASS, Mat.Metal)
-		P(level, "MirrorFrame", V(0.45, 0.35, MIRROR_W + 0.55), V(-28.85, midY + side * (h / 2 + 0.1), 0), BRASS, Mat.Metal)
-	end
-	local crest = P(level, "MirrorFrame", V(0.5, 0.9, 0.9), V(-28.85, y + MIRROR_TOP + 0.55, 0), BRASS, Mat.Metal)
-	crest.Shape = Enum.PartType.Ball
-	-- 유리: 앞면이 거울 면이에요. 부딪혀서 거울 속으로 들어갈 수는 없어요.
-	local glass = Props.solid(level, "MirrorGlass", V(MIRROR_W, h, 0.1), CFrame.lookAt(V(-29.0, midY, 0), V(-28, midY, 0)), rgb(205, 220, 230), Mat.Glass, {
-		Transparency = 0.88,
-		Reflectance = 0.05,
-	})
-	glass:SetAttribute("MirrorDepth", 26) -- 거울 앞 이만큼까지 비춰요
-	glass:SetAttribute("MirrorHalfWidth", HALF + 1)
-	glass:SetAttribute("MirrorHeight", WALL_H + 1)
-	api.mirrors[floor] = glass
-end
-
 ---------------------------------------------------------------- 층 로비 (엘리베이터 앞)
 local function buildLounge(parent, lights, floor, api)
 	local y = floorY(floor)
@@ -503,7 +546,9 @@ function Floors.build(hotel)
 		-- 벽
 		corridorWall(level, y, -1)
 		corridorWall(level, y, 1)
+		api.mirrors[floor] = {}
 		buildMirrorWall(level, y, floor, api)
+		buildSideMirrors(level, y, floor, api)
 
 		-- 천장 등 (놋쇠 갓 + 따뜻한 빛)
 		for x = -24, 16, 8 do
@@ -526,7 +571,7 @@ function Floors.build(hotel)
 		portraits.Name = "Portraits"
 		portraits.Parent = level
 		-- 벽 앞 탁자 위 꽃병 (층마다 3개)
-		for _, spotInfo in ipairs({ { -18, 1 }, { -2, -1 }, { 14, 1 } }) do
+		for _, spotInfo in ipairs({ { -18, -1 }, { -2, -1 }, { 14, 1 } }) do
 			local top = consoleTable(portraits, spotInfo[1], y, spotInfo[2])
 			newVase(portraits, floor, top, api)
 		end
@@ -640,7 +685,7 @@ function Floors.build(hotel)
 	-- flood: 복도가 검은 물에 잠기고 물건이 떠다녀요
 	-- fish: 물고기 떼가 공중을 헤엄쳐 다녀요 / forest: 복도가 밤의 숲으로 변하고 객실 문만 남아요
 	-- space: 복도가 별이 가득한 우주가 되고, 행성이 돌고 물건들이 무중력으로 떠다녀요
-	-- mirror: 복도 끝 거울 속의 내가 뒤돌아 서 있거나, 아예 비치지 않아요
+	-- mirror: 거울 속의 내가 뒤돌아 서 있거나, 아예 비치지 않아요
 	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "giant", "balloons", "flood", "fish", "forest", "space", "mirror" }
 
 	-- 움직이는 이상(출렁이는 물, 헤엄치는 물고기, 반딧불): 그 이상이 사라지면 저절로 멈춰요.
@@ -1218,9 +1263,9 @@ function Floors.build(hotel)
 			end
 		elseif kind == "mirror" then
 			-- 거울 속 내가 이상해요: 뒤돌아 서 있거나, 아예 비치지 않아요. (복도 끝까지 가서 거울을 봐야 알아요)
-			local glass = api.mirrors[floor]
-			if glass then
-				glass:SetAttribute("Strange", on and (math.random() < 0.5 and "back" or "none") or nil)
+			local strange = on and (math.random() < 0.5 and "back" or "none") or nil
+			for _, glass in ipairs(api.mirrors[floor] or {}) do
+				glass:SetAttribute("Strange", strange)
 			end
 		elseif kind == "space" then
 			if on then
