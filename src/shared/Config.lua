@@ -44,7 +44,7 @@ local Config = {
 	Unlocks = {
 		{ day = 2, doppel = { "teeth", "mouth", "eyes" }, floor = { "eyes", "red", "blood" } },
 		{ day = 3, doppel = { "moving" }, floor = { "doors", "fish" } },
-		{ day = 4, doppel = { "body" }, floor = { "balloons", "forest" } },
+		{ day = 4, doppel = { "body", "spring" }, floor = { "balloons", "forest" } },
 		{ day = 5, doppel = { "noface" }, floor = { "flip" } },
 		{ day = 6, doppel = { "manyeyes", "zipper" }, floor = { "crowd", "space" } },
 		{ day = 7, doppel = { "upside" }, floor = { "giant" } },

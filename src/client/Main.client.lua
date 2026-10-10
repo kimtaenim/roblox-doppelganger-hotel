@@ -594,6 +594,39 @@ local function fillViewport(view, data, anomaly, cameraCFrame, fov, withFloor)
 	end
 	local model = Animals.build(data, anomaly)
 	model.Parent = view
+	if anomaly == "spring" then
+		-- 용수철 목: 머리가 용수철 위에서 통통 흔들려요. (화면이 바뀌어 모델이 사라지면 멈춰요)
+		local base = model:GetAttribute("SpringBase")
+		local headGroup = model:FindFirstChild("HeadGroup")
+		if base and headGroup then
+			local parts = {}
+			for _, d in ipairs(headGroup:GetDescendants()) do
+				if d:IsA("BasePart") then
+					table.insert(parts, { part = d, cf = d.CFrame })
+				end
+			end
+			for _, d in ipairs(model:GetChildren()) do
+				if d.Name == "SpringCoil" then
+					table.insert(parts, { part = d, cf = d.CFrame })
+				end
+			end
+			local pivot = CFrame.new(base)
+			local t = 0
+			local connection
+			connection = RunService.RenderStepped:Connect(function(dt)
+				if not model.Parent then
+					connection:Disconnect()
+					return
+				end
+				t += dt
+				local wobble = math.sin(t * 7) * 0.22 * (0.6 + 0.4 * math.sin(t * 0.9))
+				local turn = pivot * CFrame.Angles(math.sin(t * 5) * 0.08, 0, wobble) * pivot:Inverse()
+				for _, item in ipairs(parts) do
+					item.part.CFrame = turn * item.cf
+				end
+			end)
+		end
+	end
 	return model
 end
 

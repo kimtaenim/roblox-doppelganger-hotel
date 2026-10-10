@@ -28,7 +28,7 @@ Animals.Clothes = {
 }
 
 -- 도플갱어의 이상한 점 종류
-Animals.AnomalyKinds = { "teeth", "mouth", "eyes", "body", "moving", "noface", "upside", "manyeyes", "bigeye", "twohead", "zipper" }
+Animals.AnomalyKinds = { "teeth", "mouth", "eyes", "body", "moving", "noface", "upside", "manyeyes", "bigeye", "twohead", "zipper", "spring" }
 -- 도플갱어 모습의 이름 (아침 보고서의 "새로운 도플갱어" 소식에 써요)
 Animals.AnomalyNames = {
 	teeth = "이빨을 드러낸 손님",
@@ -42,6 +42,7 @@ Animals.AnomalyNames = {
 	bigeye = "거대한 눈알 하나뿐인 손님",
 	twohead = "머리가 두 개인 손님",
 	zipper = "얼굴 지퍼가 열린 손님",
+	spring = "목이 용수철인 손님",
 }
 
 local WHITE = rgb(250, 250, 245)
@@ -862,6 +863,27 @@ function Animals.build(data, anomaly)
 		local pull, pullDir = onFace(-OPEN - math.rad(4), 0)
 		newPart(headGroup, "ZipperPull", "Part", V(0.2, 0.12, 0.08), CFrame.lookAt(pull, pull + pullDir), SILVER)
 		newPart(headGroup, "ZipperTab", "Part", V(0.16, 0.42, 0.04), CFrame.lookAt(pull + Vector3.new(0, -0.25, 0) + pullDir * 0.04, pull + Vector3.new(0, -0.25, 0) + pullDir), SILVER)
+	end
+
+	-- 용수철 목 도플갱어: 머리가 몸 위로 쑥 올라가고, 그 사이를 은색 용수철이 이어요. (사진 속에서 머리가 통통 흔들려요)
+	if anomaly == "spring" and not weirdBody then
+		local lift = 1.25
+		local bottom = head.Position - Vector3.new(0, R - 0.1, 0) -- 원래 머리 아래쪽 (몸통 위)
+		headGroup:PivotTo(headGroup:GetPivot() + Vector3.new(0, lift, 0))
+		local turns, radius = 4, R * 0.24
+		local height = lift + 0.15
+		local steps = turns * 10
+		local prev
+		for i = 0, steps do
+			local a = i / 10 * math.pi * 2
+			local p = bottom + Vector3.new(math.cos(a) * radius, i / steps * height, math.sin(a) * radius)
+			if prev then
+				local seg = newPart(model, "SpringCoil", "Part", V(0.11, 0.11, (p - prev).Magnitude + 0.04), CFrame.lookAt((prev + p) / 2, p), rgb(190, 192, 200))
+				seg.Material = Enum.Material.Metal
+			end
+			prev = p
+		end
+		model:SetAttribute("SpringBase", bottom)
 	end
 
 	return model
