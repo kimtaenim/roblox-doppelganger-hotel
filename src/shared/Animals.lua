@@ -116,6 +116,8 @@ function Animals.build(data, anomaly)
 	local fur = data.fur or def.furs[1]
 	local cloth = data.cloth or Animals.Clothes[1]
 	local isMonster = anomaly ~= nil and anomaly ~= "moving"
+	-- 얼굴 표정: 용수철·머리 둘 도플갱어도 무섭게 찢어진 입이나 이빨 얼굴을 함께 해요.
+	local faceKind = (anomaly == "spring" and "mouth") or (anomaly == "twohead" and "teeth") or anomaly
 	if isMonster then
 		-- 도플갱어의 진짜 모습은 핏기 없이 창백해요.
 		fur = fur:Lerp(rgb(200, 205, 200), 0.35)
@@ -477,7 +479,7 @@ function Animals.build(data, anomaly)
 		return headCF * CFrame.lookAt(surface, surface + surface.Unit) * CFrame.Angles(0, 0, side * (size or 0))
 	end
 
-	if anomaly == "eyes" then
+	if faceKind == "eyes" then
 		-- 눈 자리가 새까맣게 뚫려 있고, 검은 눈물이 흘러내리고, 이마와 볼에 작은 눈이 더 있어요.
 		for _, side in ipairs({ -1, 1 }) do
 			local eye = eyeFrame(side)
@@ -496,7 +498,7 @@ function Animals.build(data, anomaly)
 		end
 	else
 		-- 이빨/입 도플갱어는 핏발 선 눈을 크게 뜨고 빨간 바늘 같은 눈동자로 노려봐요.
-		local stare = anomaly == "teeth" or anomaly == "mouth"
+		local stare = faceKind == "teeth" or faceKind == "mouth" or faceKind == "zipper"
 		for _, side in ipairs({ -1, 1 }) do
 			local eye = eyeFrame(side, 0)
 			local function on(x, y, z)
@@ -603,7 +605,7 @@ function Animals.build(data, anomaly)
 		ellipsoid(headGroup, "Blood", V(0.1, 0.14, 0.08), headCF * CFrame.new(tip + Vector3.new(0.03, -0.17, -0.02)), BLOOD)
 	end
 
-	if anomaly == "teeth" then
+	if faceKind == "teeth" then
 		-- 턱이 빠진 듯 쩍 벌어진 동그란 입: 검붉은 구멍 + 피 묻은 입술 테두리,
 		-- 테두리를 따라 안쪽을 향한 송곳니, 구불구불 늘어진 혀
 		local mouthCenterY = mouthY - 0.28
@@ -641,7 +643,7 @@ function Animals.build(data, anomaly)
 			local lip = mouthLocal * Vector3.new(drip[1], -math.sqrt(1 - (drip[1] / (mw / 2)) ^ 2) * mh / 2, -0.12)
 			bloodDrip(lip.X, drip[2], lip.Y, lip.Z)
 		end
-	elseif anomaly == "mouth" then
+	elseif faceKind == "mouth" then
 		-- 입이 귀밑까지 쭉 찢어져서 웃고 있어요. 가운데에서 양쪽 볼까지 끊김 없이 하나로 이어져요.
 		local function mouthPoint(x)
 			local y = mouthY + 0.42 * x * x
@@ -828,7 +830,7 @@ function Animals.build(data, anomaly)
 		Void = true, RedGlint = true, Blood = true, Fang = true,
 	}
 
-	-- 지퍼 얼굴 도플갱어: 얼굴 한가운데 지퍼가 위아래로 달려 있고, 열린 틈 속 깜깜한 곳에서 노란 눈이 반짝여요.
+	-- 지퍼 얼굴 도플갱어: 얼굴 한가운데 지퍼가 위아래로 달려 있고, 열린 틈 속 깜깜한 곳에서 빨간 눈이 노려보고 이빨이 보여요.
 	if anomaly == "zipper" and not weirdBody then
 		for _, d in ipairs(headGroup:GetChildren()) do
 			if FACE_PARTS[d.Name] then
@@ -842,7 +844,7 @@ function Animals.build(data, anomaly)
 		Instance.new("SpecialMesh", gap).MeshType = Enum.MeshType.Sphere
 		for _, sx in ipairs({ -1, 1 }) do
 			local eyePos, eyeDir = onFace(math.rad(6), sx * R * 0.07)
-			local glow = ball(headGroup, "ZipperEye", R * 0.09, CFrame.new(eyePos + eyeDir * 0.03), rgb(255, 220, 60))
+			local glow = ball(headGroup, "ZipperEye", R * 0.09, CFrame.new(eyePos + eyeDir * 0.03), rgb(255, 30, 30))
 			glow.Material = Enum.Material.Neon
 		end
 		-- 지퍼 이빨: 닫힌 곳은 한 줄, 열린 곳은 양쪽 가장자리를 따라
@@ -859,6 +861,19 @@ function Animals.build(data, anomaly)
 				newPart(headGroup, "ZipperTooth", "Part", V(0.16, 0.06, 0.05), CFrame.lookAt(p, p + dir), SILVER)
 			end
 		end
+		-- 틈 아래쪽에서 위로 솟은 뾰족한 이빨들, 그리고 지퍼 끝에서 흘러내리는 피
+		for k = -2, 2 do
+			local p, dir = onFace(math.rad(-14), k * R * 0.05)
+			newPart(headGroup, "ZipperFang", "WedgePart", V(0.05, R * 0.22, R * 0.07), CFrame.lookAt(p + dir * 0.06, p + dir) * CFrame.Angles(0, math.rad(90), 0), rgb(245, 240, 215))
+		end
+		local prev = onFace(-OPEN, R * 0.03)
+		for k = 1, 4 do
+			local nextPos = onFace(-OPEN - math.rad(k * 7), R * 0.03 + math.sin(k) * 0.03)
+			local mid = (prev + nextPos) / 2
+			newPart(headGroup, "Blood", "Part", V(0.07, 0.03, (nextPos - prev).Magnitude + 0.02), CFrame.lookAt(mid, nextPos, (mid - head.Position).Unit), BLOOD)
+			prev = nextPos
+		end
+		ball(headGroup, "Blood", 0.13, CFrame.new(prev), BLOOD)
 		-- 지퍼 손잡이
 		local pull, pullDir = onFace(-OPEN - math.rad(4), 0)
 		newPart(headGroup, "ZipperPull", "Part", V(0.2, 0.12, 0.08), CFrame.lookAt(pull, pull + pullDir), SILVER)

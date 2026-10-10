@@ -595,22 +595,22 @@ local function fillViewport(view, data, anomaly, cameraCFrame, fov, withFloor)
 	local model = Animals.build(data, anomaly)
 	model.Parent = view
 	if anomaly == "spring" then
-		-- 용수철 목: 머리가 용수철 위에서 통통 흔들려요. (화면이 바뀌어 모델이 사라지면 멈춰요)
+		-- 용수철 목: 머리가 용수철 위에서 띠용띠용 튕겨요. (화면이 바뀌어 모델이 사라지면 멈춰요)
 		local base = model:GetAttribute("SpringBase")
 		local headGroup = model:FindFirstChild("HeadGroup")
 		if base and headGroup then
-			local parts = {}
+			local heads, coils = {}, {}
 			for _, d in ipairs(headGroup:GetDescendants()) do
 				if d:IsA("BasePart") then
-					table.insert(parts, { part = d, cf = d.CFrame })
+					table.insert(heads, { part = d, cf = d.CFrame })
 				end
 			end
 			for _, d in ipairs(model:GetChildren()) do
 				if d.Name == "SpringCoil" then
-					table.insert(parts, { part = d, cf = d.CFrame })
+					table.insert(coils, { part = d, cf = d.CFrame, rel = d.Position.Y - base.Y })
 				end
 			end
-			local pivot = CFrame.new(base)
+			local top = 1.4 -- 용수철 높이 (대략)
 			local t = 0
 			local connection
 			connection = RunService.RenderStepped:Connect(function(dt)
@@ -619,10 +619,20 @@ local function fillViewport(view, data, anomaly, cameraCFrame, fov, withFloor)
 					return
 				end
 				t += dt
-				local wobble = math.sin(t * 7) * 0.22 * (0.6 + 0.4 * math.sin(t * 0.9))
-				local turn = pivot * CFrame.Angles(math.sin(t * 5) * 0.08, 0, wobble) * pivot:Inverse()
-				for _, item in ipairs(parts) do
-					item.part.CFrame = turn * item.cf
+				-- 띠용~ 하고 위아래로 튕겼다가 점점 잦아들고, 2초마다 다시 튕겨요
+				local cycle = t % 2
+				local bounce = math.sin(cycle * 14) * math.exp(-cycle * 2.2) * 0.55
+				local wobble = math.sin(t * 6) * 0.12 * math.exp(-cycle * 1.5)
+				local stretch = 1 + bounce / top
+				local tilt = CFrame.new(base) * CFrame.Angles(0, 0, wobble) * CFrame.new(-base)
+				for _, item in ipairs(coils) do
+					-- 용수철은 늘었다 줄었다
+					local cf = item.cf + Vector3.new(0, item.rel * (stretch - 1), 0)
+					item.part.CFrame = tilt * cf
+				end
+				local lift = CFrame.new(0, bounce, 0)
+				for _, item in ipairs(heads) do
+					item.part.CFrame = tilt * lift * item.cf
 				end
 			end)
 		end
