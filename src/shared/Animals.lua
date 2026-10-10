@@ -28,7 +28,7 @@ Animals.Clothes = {
 }
 
 -- 도플갱어의 이상한 점 종류
-Animals.AnomalyKinds = { "teeth", "mouth", "eyes", "body", "moving", "noface", "upside", "manyeyes", "bigeye", "twohead", "tvhead", "puppet", "zipper" }
+Animals.AnomalyKinds = { "teeth", "mouth", "eyes", "body", "moving", "noface", "upside", "manyeyes", "bigeye", "twohead", "zipper" }
 -- 도플갱어 모습의 이름 (아침 보고서의 "새로운 도플갱어" 소식에 써요)
 Animals.AnomalyNames = {
 	teeth = "이빨을 드러낸 손님",
@@ -41,8 +41,6 @@ Animals.AnomalyNames = {
 	manyeyes = "눈이 여러 개인 손님",
 	bigeye = "거대한 눈알 하나뿐인 손님",
 	twohead = "머리가 두 개인 손님",
-	tvhead = "머리가 낡은 텔레비전인 손님",
-	puppet = "줄에 매달린 꼭두각시 인형 손님",
 	zipper = "얼굴 지퍼가 열린 손님",
 }
 
@@ -815,7 +813,7 @@ function Animals.build(data, anomaly)
 		second.Parent = model
 	end
 
-	-- 아래 셋은 2등신 머리(반지름 R) 기준으로 만들어요.
+	-- 아래는 2등신 머리(반지름 R) 기준으로 만들어요.
 	local R = head.Size.X / 2
 	local function onFace(a, x)
 		-- 얼굴 앞면 위의 점: a 는 위아래 각도(위가 +), x 는 옆으로
@@ -828,93 +826,6 @@ function Animals.build(data, anomaly)
 		Mouth = true, MouthEdge = true, BuckTooth = true, Gum = true, Tongue = true, TongueGroove = true,
 		Void = true, RedGlint = true, Blood = true, Fang = true,
 	}
-
-	-- 텔레비전 머리 도플갱어: 머리가 낡은 나무 TV, 화면 속에서 얼굴이 지직거려요. 안테나 두 개.
-	if anomaly == "tvhead" and not weirdBody then
-		local keep = { Head = true, Ear = true, EarInner = true }
-		for _, d in ipairs(headGroup:GetChildren()) do
-			if not keep[d.Name] then
-				d:Destroy()
-			end
-		end
-		local cf = head.CFrame
-		local mesh = head:FindFirstChildOfClass("SpecialMesh")
-		if mesh then
-			mesh:Destroy()
-		end
-		head.Shape = Enum.PartType.Block
-		head.Size = V(R * 2.1, R * 1.6, R * 1.5)
-		head.Color = rgb(115, 72, 42)
-		head.Material = Enum.Material.Wood
-		head.CFrame = cf
-		local front = -R * 0.75
-		local function at(x, y, z)
-			return cf * CFrame.new(x, y, z)
-		end
-		newPart(headGroup, "TVBezel", "Part", V(R * 1.6, R * 1.25, 0.1), at(-R * 0.18, 0, front - 0.03), rgb(40, 35, 32))
-		local screen = newPart(headGroup, "TVScreen", "Part", V(R * 1.45, R * 1.1, 0.1), at(-R * 0.18, 0, front - 0.07), rgb(150, 195, 175))
-		screen.Material = Enum.Material.Neon
-		for k = -4, 4 do
-			newPart(headGroup, "TVScanline", "Part", V(R * 1.45, 0.025, 0.02), at(-R * 0.18, k * R * 0.12, front - 0.13), rgb(90, 130, 115))
-		end
-		-- 화면 속 얼굴: 동그란 눈 두 개와 활짝 웃는 입 (조금 삐뚤어져 있어요)
-		for _, sx in ipairs({ -1, 1 }) do
-			ball(headGroup, "TVEye", R * 0.22, at(-R * 0.18 + sx * R * 0.35, R * 0.15 + sx * 0.04, front - 0.15), rgb(15, 20, 18))
-		end
-		for k = -3, 3 do
-			local x = k * R * 0.1
-			newPart(headGroup, "TVSmile", "Part", V(R * 0.11, R * 0.06, 0.02), at(-R * 0.18 + x, -R * 0.25 - (9 - k * k) * 0.012 * R + 0.0, front - 0.15), rgb(15, 20, 18))
-		end
-		-- 손잡이 두 개와 안테나
-		for _, dy in ipairs({ 0.3, -0.25 }) do
-			local knob = newPart(headGroup, "TVKnob", "Part", V(0.12, R * 0.22, R * 0.22), at(R * 0.82, dy * R, front - 0.02) * CFrame.Angles(0, math.rad(90), 0), rgb(200, 190, 170))
-			knob.Shape = Enum.PartType.Cylinder
-		end
-		for _, sx in ipairs({ -1, 1 }) do
-			local base = at(0, R * 0.8, 0)
-			local tip = base * CFrame.Angles(0, 0, sx * math.rad(-28)) * CFrame.new(0, R * 0.9, 0)
-			newPart(headGroup, "TVAntenna", "Part", V(0.06, R * 1.8, 0.06), base * CFrame.Angles(0, 0, sx * math.rad(-28)), rgb(170, 170, 175))
-			ball(headGroup, "TVAntennaTip", 0.22, tip, rgb(220, 60, 50))
-		end
-	end
-
-	-- 꼭두각시 도플갱어: 머리 위 나무 십자에서 내려온 줄이 머리와 두 손에 매달려 있고, 입가에 인형 턱 선, 동그란 빨간 볼
-	if anomaly == "puppet" and not weirdBody then
-		headGroup:PivotTo(headGroup:GetPivot() * CFrame.Angles(0, 0, math.rad(12))) -- 힘없이 갸웃
-		for _, sx in ipairs({ -1, 1 }) do
-			-- 인형 턱 선 (입꼬리에서 턱까지)
-			local prev = onFace(math.rad(-14), sx * R * 0.24)
-			for k = 1, 4 do
-				local nextPos = onFace(math.rad(-14 - k * 9), sx * R * 0.24)
-				local mid = (prev + nextPos) / 2
-				newPart(headGroup, "PuppetJaw", "Part", V(0.06, 0.06, (nextPos - prev).Magnitude + 0.02), CFrame.lookAt(mid, nextPos), rgb(60, 35, 25))
-				prev = nextPos
-			end
-			-- 동그란 빨간 볼
-			local cheek, dir = onFace(math.rad(-24), sx * R * 0.55)
-			local blush = newPart(headGroup, "PuppetCheek", "Part", V(R * 0.32, R * 0.32, 0.06), CFrame.lookAt(cheek + dir * 0.04, cheek + dir * 2), rgb(230, 70, 80))
-			Instance.new("SpecialMesh", blush).MeshType = Enum.MeshType.Sphere
-		end
-		local top = head.Position + Vector3.new(0, R, 0)
-		local barY = top.Y + 3.2
-		newPart(model, "PuppetBar", "Part", V(3.2, 0.18, 0.18), CFrame.new(0, barY, 0), rgb(120, 80, 45))
-		newPart(model, "PuppetBar", "Part", V(0.18, 0.18, 1.8), CFrame.new(0, barY, 0), rgb(120, 80, 45))
-		local anchors = { { V(0, barY, 0), top } }
-		local hands = {}
-		for _, d in ipairs(model:GetChildren()) do
-			if d.Name == "Hand" then
-				table.insert(hands, d)
-			end
-		end
-		for _, hand in ipairs(hands) do
-			local sx = hand.Position.X < 0 and -1 or 1
-			table.insert(anchors, { V(sx * 1.5, barY, 0), hand.Position + Vector3.new(0, hand.Size.Y / 2, 0) })
-		end
-		for _, pair in ipairs(anchors) do
-			local a, b = pair[1], pair[2]
-			newPart(model, "PuppetString", "Part", V(0.035, 0.035, (b - a).Magnitude), CFrame.lookAt((a + b) / 2, b, Vector3.zAxis), rgb(235, 235, 225))
-		end
-	end
 
 	-- 지퍼 얼굴 도플갱어: 얼굴 한가운데 지퍼가 위아래로 달려 있고, 열린 틈 속 깜깜한 곳에서 노란 눈이 반짝여요.
 	if anomaly == "zipper" and not weirdBody then

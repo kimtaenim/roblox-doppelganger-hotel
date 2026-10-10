@@ -430,7 +430,7 @@ local function makeCall(s, state)
 		call.visual = guest
 		-- 도플갱어는 문틈으로 보면 얼굴이 바로 이상하고, 말도 이상해요.
 		-- 문틈으로 바로 알아볼 수 있는 얼굴 모습 (오늘까지 나타난 것 중에서)
-		local FACE_KINDS = { eyes = true, teeth = true, mouth = true, noface = true, manyeyes = true, upside = true, bigeye = true, twohead = true, tvhead = true, puppet = true, zipper = true }
+		local FACE_KINDS = { eyes = true, teeth = true, mouth = true, noface = true, manyeyes = true, upside = true, bigeye = true, twohead = true, zipper = true }
 		local kinds = {}
 		for _, kind in ipairs(ctx.Config.unlocked("doppel", math.max(s.day, 2))) do
 			if FACE_KINDS[kind] then
