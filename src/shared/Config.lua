@@ -49,7 +49,7 @@ local Config = {
 		{ day = 6, doppel = { "manyeyes", "zipper" }, floor = { "crowd", "space" } },
 		{ day = 7, doppel = { "upside" }, floor = { "giant" } },
 		{ day = 8, doppel = { "spring" }, floor = { "flood" } },
-		{ day = 9, doppel = { "twohead" }, floor = { "mirror" } }, -- 여기까지 버틴 사람만 보는 거울 이상
+		{ day = 9, doppel = { "twohead" }, floor = {} }
 	},
 	RoomServiceTip = 30, -- 진짜 손님에게 배달하면 받는 팁
 	RoomServiceScareLoss = 15, -- 도플갱어·빈방에 들어갔을 때 줄어드는 정신력
