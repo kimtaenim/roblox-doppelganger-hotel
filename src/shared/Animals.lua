@@ -28,7 +28,7 @@ Animals.Clothes = {
 }
 
 -- 도플갱어의 이상한 점 종류
-Animals.AnomalyKinds = { "teeth", "mouth", "eyes", "body", "moving", "noface", "upside", "manyeyes", "bigeye", "spiral", "mismatch", "twohead" }
+Animals.AnomalyKinds = { "teeth", "mouth", "eyes", "body", "moving", "noface", "upside", "manyeyes", "bigeye", "twohead", "tvhead", "puppet", "zipper" }
 -- 도플갱어 모습의 이름 (아침 보고서의 "새로운 도플갱어" 소식에 써요)
 Animals.AnomalyNames = {
 	teeth = "이빨을 드러낸 손님",
@@ -40,9 +40,10 @@ Animals.AnomalyNames = {
 	upside = "머리가 거꾸로 달린 손님",
 	manyeyes = "눈이 여러 개인 손님",
 	bigeye = "거대한 눈알 하나뿐인 손님",
-	spiral = "눈이 빙글빙글 소용돌이인 손님",
-	mismatch = "다른 동물의 귀가 달린 손님",
 	twohead = "머리가 두 개인 손님",
+	tvhead = "머리가 낡은 텔레비전인 손님",
+	puppet = "줄에 매달린 꼭두각시 인형 손님",
+	zipper = "얼굴 지퍼가 열린 손님",
 }
 
 local WHITE = rgb(250, 250, 245)
@@ -771,24 +772,6 @@ function Animals.build(data, anomaly)
 		ball(headGroup, "BigEyeShine", 0.09, at(-0.16, -0.12, front + 0.03), WHITE)
 	end
 
-	-- 소용돌이 눈 도플갱어: 눈동자 자리에 까만·하얀 동그라미가 겹겹이, 최면을 거는 것처럼
-	if anomaly == "spiral" then
-		for _, iris in ipairs(headGroup:GetChildren()) do
-			if iris.Name == "Iris" then
-				local d = iris.Size.Y * 1.15
-				for k = 0, 4 do
-					local ring = newPart(headGroup, "SpiralRing", "Part", V(0.03, d * (1 - k * 0.2), d * (1 - k * 0.2)), iris.CFrame * CFrame.new(0.004 * k, 0, 0) * CFrame.Angles(k * 0.3, 0, 0), k % 2 == 0 and rgb(20, 15, 25) or rgb(250, 250, 245))
-					ring.Shape = Enum.PartType.Cylinder
-				end
-			end
-		end
-		for _, d in ipairs(headGroup:GetChildren()) do
-			if d.Name == "Iris" or d.Name == "Pupil" or d.Name == "EyeShine" then
-				d:Destroy()
-			end
-		end
-	end
-
 	-- 눈이 여러 개인 도플갱어: 이마, 볼, 코 옆까지 사람 같은 눈이 잔뜩 떠 있어요.
 	if anomaly == "manyeyes" then
 		local spots = { V(0, 0.75, -0.95), V(-0.55, 0.55, -0.95), V(0.55, 0.55, -0.95), V(-0.75, -0.3, -0.85), V(0.75, -0.3, -0.85), V(0, 0.32, -1.13), V(-0.32, 0.95, -0.6), V(0.32, 0.95, -0.6) }
@@ -819,29 +802,6 @@ function Animals.build(data, anomaly)
 		headGroup.Parent = model
 	end
 
-	-- 다른 동물의 귀가 달린 도플갱어: 긴 토끼 귀가 쫑긋 (토끼는 동글동글 곰 귀)
-	if anomaly == "mismatch" then
-		local swap = table.clone(data)
-		swap.animal = data.animal == "rabbit" and "bear" or "rabbit"
-		local donor = Animals.build(swap, nil)
-		local donorHead = donor:FindFirstChild("HeadGroup")
-		local EAR = { Ear = true, EarInner = true, EarFluff = true }
-		for _, d in ipairs(headGroup:GetChildren()) do
-			if EAR[d.Name] then
-				d:Destroy()
-			end
-		end
-		if donorHead then
-			donorHead:PivotTo(headGroup:GetPivot())
-			for _, d in ipairs(donorHead:GetChildren()) do
-				if EAR[d.Name] then
-					d.Parent = headGroup
-				end
-			end
-		end
-		donor:Destroy()
-	end
-
 	-- 머리가 두 개인 도플갱어: 똑같은 머리 두 개가 양쪽으로 갸웃
 	if anomaly == "twohead" and not weirdBody then
 		local second = headGroup:Clone()
@@ -853,6 +813,144 @@ function Animals.build(data, anomaly)
 		headGroup:PivotTo(CFrame.new(-0.95, 5.5, 0) * CFrame.Angles(0, math.rad(12), math.rad(16)))
 		second:PivotTo(CFrame.new(0.95, 5.5, 0) * CFrame.Angles(0, math.rad(-12), math.rad(-16)))
 		second.Parent = model
+	end
+
+	-- 아래 셋은 2등신 머리(반지름 R) 기준으로 만들어요.
+	local R = head.Size.X / 2
+	local function onFace(a, x)
+		-- 얼굴 앞면 위의 점: a 는 위아래 각도(위가 +), x 는 옆으로
+		local c = head.Position
+		local dir = (head.CFrame:VectorToWorldSpace(Vector3.new(0, math.sin(a), -math.cos(a))) + head.CFrame.RightVector * x / R).Unit
+		return c + dir * (R + 0.02), dir
+	end
+	local FACE_PARTS = {
+		Nose = true, NoseShine = true, Muzzle = true, Snout = true, Nostril = true, Whisker = true,
+		Mouth = true, MouthEdge = true, BuckTooth = true, Gum = true, Tongue = true, TongueGroove = true,
+		Void = true, RedGlint = true, Blood = true, Fang = true,
+	}
+
+	-- 텔레비전 머리 도플갱어: 머리가 낡은 나무 TV, 화면 속에서 얼굴이 지직거려요. 안테나 두 개.
+	if anomaly == "tvhead" and not weirdBody then
+		local keep = { Head = true, Ear = true, EarInner = true }
+		for _, d in ipairs(headGroup:GetChildren()) do
+			if not keep[d.Name] then
+				d:Destroy()
+			end
+		end
+		local cf = head.CFrame
+		local mesh = head:FindFirstChildOfClass("SpecialMesh")
+		if mesh then
+			mesh:Destroy()
+		end
+		head.Shape = Enum.PartType.Block
+		head.Size = V(R * 2.1, R * 1.6, R * 1.5)
+		head.Color = rgb(115, 72, 42)
+		head.Material = Enum.Material.Wood
+		head.CFrame = cf
+		local front = -R * 0.75
+		local function at(x, y, z)
+			return cf * CFrame.new(x, y, z)
+		end
+		newPart(headGroup, "TVBezel", "Part", V(R * 1.6, R * 1.25, 0.1), at(-R * 0.18, 0, front - 0.03), rgb(40, 35, 32))
+		local screen = newPart(headGroup, "TVScreen", "Part", V(R * 1.45, R * 1.1, 0.1), at(-R * 0.18, 0, front - 0.07), rgb(150, 195, 175))
+		screen.Material = Enum.Material.Neon
+		for k = -4, 4 do
+			newPart(headGroup, "TVScanline", "Part", V(R * 1.45, 0.025, 0.02), at(-R * 0.18, k * R * 0.12, front - 0.13), rgb(90, 130, 115))
+		end
+		-- 화면 속 얼굴: 동그란 눈 두 개와 활짝 웃는 입 (조금 삐뚤어져 있어요)
+		for _, sx in ipairs({ -1, 1 }) do
+			ball(headGroup, "TVEye", R * 0.22, at(-R * 0.18 + sx * R * 0.35, R * 0.15 + sx * 0.04, front - 0.15), rgb(15, 20, 18))
+		end
+		for k = -3, 3 do
+			local x = k * R * 0.1
+			newPart(headGroup, "TVSmile", "Part", V(R * 0.11, R * 0.06, 0.02), at(-R * 0.18 + x, -R * 0.25 - (9 - k * k) * 0.012 * R + 0.0, front - 0.15), rgb(15, 20, 18))
+		end
+		-- 손잡이 두 개와 안테나
+		for _, dy in ipairs({ 0.3, -0.25 }) do
+			local knob = newPart(headGroup, "TVKnob", "Part", V(0.12, R * 0.22, R * 0.22), at(R * 0.82, dy * R, front - 0.02) * CFrame.Angles(0, math.rad(90), 0), rgb(200, 190, 170))
+			knob.Shape = Enum.PartType.Cylinder
+		end
+		for _, sx in ipairs({ -1, 1 }) do
+			local base = at(0, R * 0.8, 0)
+			local tip = base * CFrame.Angles(0, 0, sx * math.rad(-28)) * CFrame.new(0, R * 0.9, 0)
+			newPart(headGroup, "TVAntenna", "Part", V(0.06, R * 1.8, 0.06), base * CFrame.Angles(0, 0, sx * math.rad(-28)), rgb(170, 170, 175))
+			ball(headGroup, "TVAntennaTip", 0.22, tip, rgb(220, 60, 50))
+		end
+	end
+
+	-- 꼭두각시 도플갱어: 머리 위 나무 십자에서 내려온 줄이 머리와 두 손에 매달려 있고, 입가에 인형 턱 선, 동그란 빨간 볼
+	if anomaly == "puppet" and not weirdBody then
+		headGroup:PivotTo(headGroup:GetPivot() * CFrame.Angles(0, 0, math.rad(12))) -- 힘없이 갸웃
+		for _, sx in ipairs({ -1, 1 }) do
+			-- 인형 턱 선 (입꼬리에서 턱까지)
+			local prev = onFace(math.rad(-14), sx * R * 0.24)
+			for k = 1, 4 do
+				local nextPos = onFace(math.rad(-14 - k * 9), sx * R * 0.24)
+				local mid = (prev + nextPos) / 2
+				newPart(headGroup, "PuppetJaw", "Part", V(0.06, 0.06, (nextPos - prev).Magnitude + 0.02), CFrame.lookAt(mid, nextPos), rgb(60, 35, 25))
+				prev = nextPos
+			end
+			-- 동그란 빨간 볼
+			local cheek, dir = onFace(math.rad(-24), sx * R * 0.55)
+			local blush = newPart(headGroup, "PuppetCheek", "Part", V(R * 0.32, R * 0.32, 0.06), CFrame.lookAt(cheek + dir * 0.04, cheek + dir * 2), rgb(230, 70, 80))
+			Instance.new("SpecialMesh", blush).MeshType = Enum.MeshType.Sphere
+		end
+		local top = head.Position + Vector3.new(0, R, 0)
+		local barY = top.Y + 3.2
+		newPart(model, "PuppetBar", "Part", V(3.2, 0.18, 0.18), CFrame.new(0, barY, 0), rgb(120, 80, 45))
+		newPart(model, "PuppetBar", "Part", V(0.18, 0.18, 1.8), CFrame.new(0, barY, 0), rgb(120, 80, 45))
+		local anchors = { { V(0, barY, 0), top } }
+		local hands = {}
+		for _, d in ipairs(model:GetChildren()) do
+			if d.Name == "Hand" then
+				table.insert(hands, d)
+			end
+		end
+		for _, hand in ipairs(hands) do
+			local sx = hand.Position.X < 0 and -1 or 1
+			table.insert(anchors, { V(sx * 1.5, barY, 0), hand.Position + Vector3.new(0, hand.Size.Y / 2, 0) })
+		end
+		for _, pair in ipairs(anchors) do
+			local a, b = pair[1], pair[2]
+			newPart(model, "PuppetString", "Part", V(0.035, 0.035, (b - a).Magnitude), CFrame.lookAt((a + b) / 2, b, Vector3.zAxis), rgb(235, 235, 225))
+		end
+	end
+
+	-- 지퍼 얼굴 도플갱어: 얼굴 한가운데 지퍼가 위아래로 달려 있고, 열린 틈 속 깜깜한 곳에서 노란 눈이 반짝여요.
+	if anomaly == "zipper" and not weirdBody then
+		for _, d in ipairs(headGroup:GetChildren()) do
+			if FACE_PARTS[d.Name] then
+				d:Destroy()
+			end
+		end
+		local OPEN = math.rad(26)
+		local SILVER = rgb(200, 200, 210)
+		local gapCenter, gapDir = onFace(0, 0)
+		local gap = newPart(headGroup, "ZipperGap", "Part", V(R * 0.34, R * 2 * math.sin(OPEN) + 0.1, R * 0.2), CFrame.lookAt(gapCenter - gapDir * (R * 0.08), gapCenter), rgb(8, 5, 10))
+		Instance.new("SpecialMesh", gap).MeshType = Enum.MeshType.Sphere
+		for _, sx in ipairs({ -1, 1 }) do
+			local eyePos, eyeDir = onFace(math.rad(6), sx * R * 0.07)
+			local glow = ball(headGroup, "ZipperEye", R * 0.09, CFrame.new(eyePos + eyeDir * 0.03), rgb(255, 220, 60))
+			glow.Material = Enum.Material.Neon
+		end
+		-- 지퍼 이빨: 닫힌 곳은 한 줄, 열린 곳은 양쪽 가장자리를 따라
+		for deg = -60, 62, 4 do
+			local a = math.rad(deg)
+			if math.abs(a) <= OPEN then
+				local spread = R * 0.17 * math.cos(a / OPEN * math.pi / 2)
+				for _, sx in ipairs({ -1, 1 }) do
+					local p, dir = onFace(a, sx * (spread + 0.04))
+					newPart(headGroup, "ZipperTooth", "Part", V(0.12, 0.06, 0.05), CFrame.lookAt(p, p + dir), SILVER)
+				end
+			else
+				local p, dir = onFace(a, ((deg / 4) % 2 == 0 and 0.04 or -0.04))
+				newPart(headGroup, "ZipperTooth", "Part", V(0.16, 0.06, 0.05), CFrame.lookAt(p, p + dir), SILVER)
+			end
+		end
+		-- 지퍼 손잡이
+		local pull, pullDir = onFace(-OPEN - math.rad(4), 0)
+		newPart(headGroup, "ZipperPull", "Part", V(0.2, 0.12, 0.08), CFrame.lookAt(pull, pull + pullDir), SILVER)
+		newPart(headGroup, "ZipperTab", "Part", V(0.16, 0.42, 0.04), CFrame.lookAt(pull + Vector3.new(0, -0.25, 0) + pullDir * 0.04, pull + Vector3.new(0, -0.25, 0) + pullDir), SILVER)
 	end
 
 	return model
