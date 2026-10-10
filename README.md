@@ -61,7 +61,7 @@ Roblox 게임 **도플갱어 호텔** (계정: Marthadaram)
    | 2일차 | 이빨 · 찢어진 입 · 검은 눈 | 눈알 꽃 · 빨간 조명 · 피의 강 |
    | 3일차 | 사진 속에서 움직임 | 활짝 열린 문들, 공중을 헤엄치는 물고기 |
    | 4일차 | 길게 늘어난 목과 팔 | 빨간 풍선, 잎사귀와 담쟁이로 뒤덮인 밤의 숲 (객실 문만 남아요) |
-   | 5일차 | 얼굴 없음 | 뒤집힌 복도 |
+   | 5일차 | 얼굴 없음 | 뒤집힌 복도, 거울 속 내가 이상한 복도 (뒤돌아 있거나 안 비쳐요) |
    | 6일차 | 눈이 여러 개 | 천장에 매달린 검은 형체들, 별이 가득한 우주 공간 |
    | 7일차 | 머리가 거꾸로 | 복도 끝 거대한 얼굴 |
    | 8일차 | 얼굴을 꽉 채운 거대한 눈알 하나 | 출렁이는 검은 물에 잠긴 복도 |
@@ -105,12 +105,12 @@ Studio에서 Rojo가 연결된 상태로 **플레이(▶ Play)** 를 누르세�
 | `src/server/StaffRoom.lua` | 프런트 뒤 직원 공간 (음료 기계, 사물함, 열쇠 걸이, 책상, 화분 등) |
 | `src/server/Props.lua` | 꽃, 화분, 책가방 같은 소품 만들기 도우미 |
 | `src/server/Npc.lua` | 손님 걷기, 밤에 실종된 손님의 소지품 놓기 |
-| `src/server/Floors.lua` | 2~4층 객실 복도(1층 로비 스타일), 객실 문, 초상화, 층 로비, 엘리베이터 버튼 |
+| `src/server/Floors.lua` | 2~4층 객실 복도(1층 로비 스타일), 객실 문, 꽃병, 복도 끝 거울, 층 로비, 엘리베이터 버튼 |
 | `src/server/Records.lua` | 최고 기록 저장, 명예의 전당 |
 | `src/server/Patrol.lua` | 야간 순찰(층마다 이상 판단), 룸서비스 배달 |
 | `src/shared/Animals.lua` | 동물 손님 모양과 도플갱어의 이상한 점 |
 | `src/shared/Config.lua` | 난이도 설정 |
 | `src/shared/Sounds.lua` | 배경 소리 번호 목록 (바꾸고 싶으면 여기) |
-| `src/client/Portraits.client.lua` | 복도 초상화 속 그림 그리기 |
+| `src/client/Mirror.client.lua` | 복도 끝 거울에 비친 모습 그리기 |
 | `src/client/Ambience.client.lua` | 시계·부엉이·박쥐·엘리베이터·먼 경찰차 소리 |
 | `src/client/Main.client.lua` | 화면(로비, 체크인, CCTV, 밤 결과) |

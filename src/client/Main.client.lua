@@ -1047,6 +1047,9 @@ local function showGuest(data)
 		40,
 		false
 	)
+	if data.bloodTears then
+		Animals.addBloodTears(photoModel)
+	end
 	if data.photoAnomaly == "moving" then
 		-- 사진 속 머리가 천천히 돌아가다가 가끔 뚝! 하고 꺾여요.
 		local headGroup = photoModel:FindFirstChild("HeadGroup")

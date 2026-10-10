@@ -1,6 +1,6 @@
 -- 2층~4층 객실 복도를 만들어요. (밤 순찰과 룸서비스 배달을 하는 곳)
 -- 1층 로비처럼 꾸몄어요: 청록 줄무늬 벽지, 원목 벽판, 대리석 바닥, 빨간 러너 카펫.
--- 층마다 긴 복도 양쪽에 객실 문이 6개씩 (01~12호), 문 사이마다 오래된 초상화가 걸려 있어요.
+-- 층마다 긴 복도 양쪽에 객실 문이 6개씩 (01~12호), 서쪽 끝에는 커다란 거울이 있어요.
 -- 복도 동쪽 끝은 작은 층 로비(소파, 화분, 샹들리에)이고, 엘리베이터로 층 사이를 오가요.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Animals = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Animals"))
@@ -17,7 +17,6 @@ local C = Props.Colors
 local FH = 14 -- 층 높이 (HotelBuilder 와 같아요)
 local FLOOR_LIST = { 2, 3, 4 }
 local DOOR_XS = { -22, -14, -6, 2, 10, 18 }
-local PORTRAIT_XS = { -26.3, -18, -10, -2, 6, 14 } -- 문과 문 사이
 local HALF = 5 -- 복도 폭의 절반 (넉넉하게 10칸)
 local LOUNGE_X = 21 -- 여기서부터 동쪽은 층 로비
 local LOUNGE_HALF = 7
@@ -37,7 +36,6 @@ local CHARCOAL = rgb(62, 58, 55)
 local MUSTARD = rgb(190, 145, 40)
 local DOOR = rgb(70, 42, 28)
 local WARM = rgb(255, 214, 160)
-local GOLD = rgb(170, 128, 55)
 
 Floors.List = FLOOR_LIST
 -- 복도 이상의 이름 (아침 보고서의 "새로운 이상" 소식에 써요)
@@ -54,6 +52,7 @@ Floors.EventNames = {
 	fish = "물고기가 헤엄쳐 날아다니는 복도",
 	forest = "밤의 숲으로 변한 복도",
 	space = "별이 가득한 우주 공간이 된 복도",
+	mirror = "거울 속 내가 이상한 복도",
 }
 
 local function floorY(floor)
@@ -201,114 +200,7 @@ local function buildRoom(parent, floor, index, side, x)
 	}
 end
 
----------------------------------------------------------------- 초상화
--- 어두운 배경에 동물 손님의 상반신. 밤에 몰래 뒤집히거나, 얼굴이 이상해지거나, 사라지거나...
-local PORTRAIT_BG = { rgb(30, 40, 34), rgb(48, 26, 26), rgb(28, 30, 44), rgb(44, 38, 26) }
-local PORTRAIT_CLOTH = { rgb(40, 30, 30), rgb(30, 35, 50), rgb(55, 25, 30), rgb(35, 45, 38), rgb(60, 50, 40) }
-local DOPPEL_FACES = { "teeth", "mouth", "eyes" }
--- 눈에 확 띄는 것(뒤집힘, 피)부터 자세히 봐야 아는 것(옆을 봄, 다른 동물, 가까워짐)까지
-Floors.PortraitKinds = { "flip", "doppel", "away", "gone", "blood", "tilt", "red", "twins" }
-
-local portraitRandom = Random.new(2024)
-
-local function drawPortrait(p, kind)
-	local model = p.model
-	model:ClearAllChildren()
-	local cf = p.cf -- 캔버스 가운데, -Z 가 복도 쪽
-	P(model, "PortraitFrame", V(3, 3.7, 0.25), cf * CFrame.new(0, 0, 0.05), GOLD, Mat.Metal)
-	P(model, "PortraitBevel", V(2.7, 3.4, 0.3), cf, rgb(120, 88, 38), Mat.Metal)
-	for _, corner in ipairs({ V(-1.4, 1.75, 0), V(1.4, 1.75, 0), V(-1.4, -1.75, 0), V(1.4, -1.75, 0) }) do
-		-- 납작한 모서리 장식 (액자 밖으로 튀어나오지 않아요)
-		P(model, "FrameKnot", V(0.4, 0.4, 0.06), cf * CFrame.new(corner + V(0, 0, -0.15)) * CFrame.Angles(0, 0, math.rad(45)), GOLD, Mat.Metal)
-	end
-	local canvas = P(model, "Canvas", V(2.4, 3.1, 0.3), cf * CFrame.new(0, 0, -0.02), p.bg, Mat.Fabric)
-	local plaque = P(model, "Plaque", V(1.2, 0.3, 0.05), cf * CFrame.new(0, -2.15, -0.05), BRASS, Mat.Metal)
-	Props.text(plaque, Enum.NormalId.Front, p.title, rgb(40, 25, 15), Enum.Font.Garamond)
-
-	-- 캔버스 위의 그림은 각 플레이어 화면에서 그려요. (Portraits.client.lua)
-	-- 어떤 그림인지만 캔버스에 적어 둬요.
-	local data = kind == "swap" and p.swapData or p.data
-	canvas:SetAttribute("Portrait", true)
-	canvas:SetAttribute("Animal", data.animal)
-	canvas:SetAttribute("Fur", data.fur)
-	canvas:SetAttribute("Cloth", data.cloth)
-	canvas:SetAttribute("DataId", data.id)
-	canvas:SetAttribute("Background", p.bg)
-	canvas:SetAttribute("Kind", kind)
-	canvas:SetAttribute("Doppel", kind == "doppel" and p.doppelFace or "")
-	canvas:SetAttribute("Side", p.tiltSide)
-
-	if kind == "blood" then
-		-- 액자 위에서 피가 흘러내려 벽까지 번져요.
-		for i = 1, 6 do
-			local x = -1.1 + i * 0.32 + portraitRandom:NextNumber(-0.08, 0.08)
-			local length = portraitRandom:NextNumber(1.2, 4.2)
-			P(model, "Blood", V(0.09, length, 0.03), cf * CFrame.new(x, 1.6 - length / 2, -0.3), rgb(110, 0, 0))
-			local drop = P(model, "BloodDrop", V(0.16, 0.2, 0.04), cf * CFrame.new(x, 1.6 - length - 0.05, -0.3), rgb(110, 0, 0))
-			Instance.new("SpecialMesh", drop).MeshType = Enum.MeshType.Sphere
-		end
-	end
-
-	-- 기울이기 / 뒤집기는 그림 전체를 돌려요.
-	local turn = kind == "flip" and math.pi or (kind == "tilt" and math.rad(22) * p.tiltSide or 0)
-	if turn ~= 0 then
-		local pivot = cf
-		for _, d in ipairs(model:GetDescendants()) do
-			if d:IsA("BasePart") then
-				d.CFrame = pivot * CFrame.Angles(0, 0, turn) * pivot:ToObjectSpace(d.CFrame)
-			end
-		end
-	end
-	p.kind = kind
-end
-
-local NAMES = { "초대 지배인", "백작 부인", "이름 없는 손님", "1923년 투숙객", "사라진 벨보이", "주인의 딸", "옛 요리사", "마지막 손님" }
-
-local function newPortrait(parent, floor, cf, api)
-	local animal = Animals.List[portraitRandom:NextInteger(1, #Animals.List)]
-	local def = Animals.Types[animal]
-	local p = {
-		id = #api.portraits + 1,
-		floor = floor,
-		cf = cf,
-		bg = PORTRAIT_BG[portraitRandom:NextInteger(1, #PORTRAIT_BG)],
-		title = NAMES[portraitRandom:NextInteger(1, #NAMES)],
-		doppelFace = DOPPEL_FACES[portraitRandom:NextInteger(1, #DOPPEL_FACES)],
-		tiltSide = portraitRandom:NextNumber() < 0.5 and -1 or 1,
-		data = {
-			id = portraitRandom:NextInteger(1, 9999),
-			name = "Portrait",
-			animal = animal,
-			fur = def.furs[portraitRandom:NextInteger(1, #def.furs)],
-			cloth = PORTRAIT_CLOTH[portraitRandom:NextInteger(1, #PORTRAIT_CLOTH)],
-		},
-		kind = "normal",
-		kinds = Floors.PortraitKinds,
-		draw = drawPortrait,
-		what = "초상화",
-		whatObj = "초상화를",
-		whatIs = "초상화예요",
-	}
-	-- "swap" 때 나타날 다른 동물 (같은 옷, 같은 소품)
-	local others = {}
-	for _, other in ipairs(Animals.List) do
-		if other ~= animal then
-			table.insert(others, other)
-		end
-	end
-	local swapAnimal = others[portraitRandom:NextInteger(1, #others)]
-	local swapDef = Animals.Types[swapAnimal]
-	p.swapData = table.clone(p.data)
-	p.swapData.animal = swapAnimal
-	p.swapData.fur = swapDef.furs[portraitRandom:NextInteger(1, #swapDef.furs)]
-	local model = Instance.new("Model")
-	model.Name = "Portrait" .. p.id
-	model.Parent = parent
-	p.model = model
-	drawPortrait(p, "normal")
-	table.insert(api.portraits, p)
-	return p
-end
+local decoRandom = Random.new(2024)
 
 ---------------------------------------------------------------- 꽃병
 -- 탁자 위의 꽃병. 밤에 몰래 시들거나, 피를 흘리거나, 쓰러지거나, 꽃이 눈알로 바뀌거나, 사라지거나, 떠올라요.
@@ -402,8 +294,8 @@ local function newVase(parent, floor, base, api)
 		id = #api.vases + 1,
 		floor = floor,
 		base = base,
-		color = FLOWER_COLORS[portraitRandom:NextInteger(1, #FLOWER_COLORS)],
-		vaseColor = ({ rgb(40, 60, 55), rgb(60, 40, 50), rgb(200, 205, 210) })[portraitRandom:NextInteger(1, 3)],
+		color = FLOWER_COLORS[decoRandom:NextInteger(1, #FLOWER_COLORS)],
+		vaseColor = ({ rgb(40, 60, 55), rgb(60, 40, 50), rgb(200, 205, 210) })[decoRandom:NextInteger(1, 3)],
 		kind = "normal",
 		kinds = Floors.VaseKinds,
 		draw = drawVase,
@@ -412,7 +304,7 @@ local function newVase(parent, floor, base, api)
 		whatIs = "꽃병이에요",
 	}
 	repeat
-		v.altColor = FLOWER_COLORS[portraitRandom:NextInteger(1, #FLOWER_COLORS)]
+		v.altColor = FLOWER_COLORS[decoRandom:NextInteger(1, #FLOWER_COLORS)]
 	until v.altColor ~= v.color
 	local model = Instance.new("Model")
 	model.Name = "Vase" .. v.id
@@ -434,6 +326,44 @@ local function consoleTable(parent, x, y, side)
 		end
 	end
 	return CFrame.lookAt(V(x, y + 3.03, z), V(x, y + 3.03, z - side))
+end
+
+---------------------------------------------------------------- 복도 끝 거울
+-- 서쪽 끝 벽 한가운데의 커다란 거울. 로블록스에는 진짜 거울이 없어서,
+-- 거울 뒤쪽 빈 공간에 복도와 사람을 좌우로 뒤집어 똑같이 만들어 보여 줘요. (Mirror.client.lua 가 각 화면에서 그려요)
+local MIRROR_W, MIRROR_BOTTOM, MIRROR_TOP = 4, 0.6, 9
+local function buildMirrorWall(level, y, floor, api)
+	local wallX = -29.15
+	-- 거울 양옆 벽
+	for _, side in ipairs({ -1, 1 }) do
+		local width = HALF - MIRROR_W / 2
+		local z = side * (MIRROR_W / 2 + width / 2)
+		Props.solid(level, "WestEnd", V(0.5, WALL_H, width), V(wallX, y + WALL_H / 2, z), TEAL, Mat.Fabric)
+		dressWall(level, CFrame.lookAt(V(-28.9, y, z), V(-27.9, y, z)), width, WALL_H)
+	end
+	-- 거울 위아래 벽
+	local topH = WALL_H - MIRROR_TOP
+	Props.solid(level, "WestEnd", V(0.5, topH, MIRROR_W), V(wallX, y + MIRROR_TOP + topH / 2, 0), TEAL, Mat.Fabric)
+	P(level, "Crown", V(0.5, 0.7, MIRROR_W), V(-29.15, y + WALL_H - 0.35, 0), WOOD_DARK, Mat.Wood)
+	Props.solid(level, "WestEnd", V(0.5, MIRROR_BOTTOM, MIRROR_W), V(wallX, y + MIRROR_BOTTOM / 2, 0), WOOD_DARK, Mat.Wood)
+	-- 금빛 액자
+	local h = MIRROR_TOP - MIRROR_BOTTOM
+	local midY = y + (MIRROR_TOP + MIRROR_BOTTOM) / 2
+	for _, side in ipairs({ -1, 1 }) do
+		P(level, "MirrorFrame", V(0.45, h + 0.7, 0.35), V(-28.85, midY, side * (MIRROR_W / 2 + 0.1)), BRASS, Mat.Metal)
+		P(level, "MirrorFrame", V(0.45, 0.35, MIRROR_W + 0.55), V(-28.85, midY + side * (h / 2 + 0.1), 0), BRASS, Mat.Metal)
+	end
+	local crest = P(level, "MirrorFrame", V(0.5, 0.9, 0.9), V(-28.85, y + MIRROR_TOP + 0.55, 0), BRASS, Mat.Metal)
+	crest.Shape = Enum.PartType.Ball
+	-- 유리: 앞면이 거울 면이에요. 부딪혀서 거울 속으로 들어갈 수는 없어요.
+	local glass = Props.solid(level, "MirrorGlass", V(MIRROR_W, h, 0.1), CFrame.lookAt(V(-29.0, midY, 0), V(-28, midY, 0)), rgb(205, 220, 230), Mat.Glass, {
+		Transparency = 0.88,
+		Reflectance = 0.05,
+	})
+	glass:SetAttribute("MirrorDepth", 26) -- 거울 앞 이만큼까지 비춰요
+	glass:SetAttribute("MirrorHalfWidth", HALF + 1)
+	glass:SetAttribute("MirrorHeight", WALL_H + 1)
+	api.mirrors[floor] = glass
 end
 
 ---------------------------------------------------------------- 층 로비 (엘리베이터 앞)
@@ -539,7 +469,7 @@ function Floors.build(hotel)
 	folder.Parent = hotel
 	local lights = hotel:FindFirstChild("Lights") or folder
 
-	local api = { elevatorLamps = {}, List = FLOOR_LIST, rooms = {}, exits = {}, elevatorPrompts = {}, figures = {}, portraits = {}, vases = {}, events = {}, levels = {}, lamps = {}, signs = {}, chairs = {}, chandeliers = {} }
+	local api = { elevatorLamps = {}, List = FLOOR_LIST, rooms = {}, exits = {}, elevatorPrompts = {}, figures = {}, portraits = {}, vases = {}, events = {}, levels = {}, lamps = {}, signs = {}, chairs = {}, chandeliers = {}, mirrors = {} }
 	api.exits[1] = CFrame.lookAt(V(24.5, 3.5, -2), V(18, 3.5, -2))
 
 	for _, floor in ipairs(FLOOR_LIST) do
@@ -573,10 +503,7 @@ function Floors.build(hotel)
 		-- 벽
 		corridorWall(level, y, -1)
 		corridorWall(level, y, 1)
-		Props.solid(level, "WestEnd", V(0.5, WALL_H, HALF * 2), V(-29.15, y + WALL_H / 2, 0), TEAL, Mat.Fabric)
-		dressWall(level, CFrame.lookAt(V(-28.9, y, 0), V(-27.9, y, 0)), HALF * 2, WALL_H)
-		-- 서쪽 끝 작은 창문 (달빛)
-		P(level, "EndWindow", V(0.2, 3, 2.4), V(-28.55, y + 8, 0), rgb(60, 70, 110), Mat.Neon, { Transparency = 0.6 })
+		buildMirrorWall(level, y, floor, api)
 
 		-- 천장 등 (놋쇠 갓 + 따뜻한 빛)
 		for x = -24, 16, 8 do
@@ -594,17 +521,11 @@ function Floors.build(hotel)
 			end
 		end
 
-		-- 문 사이마다 초상화
+		-- 꽃병과 탁자 (숲·우주 복도에서는 통째로 숨겨요)
 		local portraits = Instance.new("Folder")
 		portraits.Name = "Portraits"
 		portraits.Parent = level
-		for _, x in ipairs(PORTRAIT_XS) do
-			for _, side in ipairs({ -1, 1 }) do
-				local z = side * (HALF - 0.35)
-				newPortrait(portraits, floor, CFrame.lookAt(V(x, y + 8, z), V(x, y + 8, z - side)), api)
-			end
-		end
-		-- 초상화 밑 탁자 위 꽃병 (층마다 3개)
+		-- 벽 앞 탁자 위 꽃병 (층마다 3개)
 		for _, spotInfo in ipairs({ { -18, 1 }, { -2, -1 }, { 14, 1 } }) do
 			local top = consoleTable(portraits, spotInfo[1], y, spotInfo[2])
 			newVase(portraits, floor, top, api)
@@ -719,7 +640,8 @@ function Floors.build(hotel)
 	-- flood: 복도가 검은 물에 잠기고 물건이 떠다녀요
 	-- fish: 물고기 떼가 공중을 헤엄쳐 다녀요 / forest: 복도가 밤의 숲으로 변하고 객실 문만 남아요
 	-- space: 복도가 별이 가득한 우주가 되고, 행성이 돌고 물건들이 무중력으로 떠다녀요
-	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "giant", "balloons", "flood", "fish", "forest", "space" }
+	-- mirror: 복도 끝 거울 속의 내가 뒤돌아 서 있거나, 아예 비치지 않아요
+	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "giant", "balloons", "flood", "fish", "forest", "space", "mirror" }
 
 	-- 움직이는 이상(출렁이는 물, 헤엄치는 물고기, 반딧불): 그 이상이 사라지면 저절로 멈춰요.
 	local function animate(ev, step)
@@ -778,7 +700,7 @@ function Floors.build(hotel)
 		return list
 	end
 
-	-- 숲·우주처럼 복도가 통째로 바뀔 때: 초상화, 꽃병, 탁자와 복도 등을 치우고 객실 문만 남겨요.
+	-- 숲·우주처럼 복도가 통째로 바뀔 때: 꽃병, 탁자와 복도 등을 치우고 객실 문만 남겨요.
 	local function emptyCorridor(ev, floor)
 		local deco = api.levels[floor]:FindFirstChild("Portraits")
 		if deco then
@@ -1288,11 +1210,17 @@ function Floors.build(hotel)
 						f.part.Transparency = (math.sin(t * 2 + p) > 0.3) and 0 or 0.8 -- 깜빡깜빡
 					end
 				end)
-				emptyCorridor(ev, floor) -- 초상화·꽃병·복도 등은 사라지고 객실 문만 남아요 (숲은 달빛만)
+				emptyCorridor(ev, floor) -- 꽃병·복도 등은 사라지고 객실 문만 남아요 (숲은 달빛만)
 			else
 				ev.anim = (ev.anim or 0) + 1
 				ev.folder:ClearAllChildren()
 				restoreCorridor(ev, floor)
+			end
+		elseif kind == "mirror" then
+			-- 거울 속 내가 이상해요: 뒤돌아 서 있거나, 아예 비치지 않아요. (복도 끝까지 가서 거울을 봐야 알아요)
+			local glass = api.mirrors[floor]
+			if glass then
+				glass:SetAttribute("Strange", on and (math.random() < 0.5 and "back" or "none") or nil)
 			end
 		elseif kind == "space" then
 			if on then

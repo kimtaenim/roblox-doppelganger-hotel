@@ -766,25 +766,6 @@ function Animals.build(data, anomaly)
 		ellipsoid(headGroup, "BigPupil", V(0.5, 0.5, 0.24), at(0, 0.05, front + 0.02), rgb(10, 8, 10))
 		ball(headGroup, "BigEyeShine", 0.2, at(0.2, 0.3, front + 0.02), WHITE)
 		ball(headGroup, "BigEyeShine", 0.09, at(-0.16, -0.12, front + 0.03), WHITE)
-		-- 흰자위에 퍼진 빨간 실핏줄
-		for i = 1, 10 do
-			local phi = (i / 10) * math.pi * 2 + (i % 3) * 0.2
-			local function onBall(theta)
-				local d = V(math.sin(theta) * math.cos(phi), math.sin(theta) * math.sin(phi), -math.cos(theta))
-				return center + d * (radius + 0.015)
-			end
-			-- 바깥쪽에서 홍채 쪽으로 구불구불 뻗어요 (짧은 마디로 이어서 눈알 표면에 딱 붙게)
-			local prev = onBall(math.rad(80))
-			for k = 1, 4 do
-				local theta = math.rad(80 - k * 9)
-				local nextPos = onBall(theta)
-				local wobble = (k % 2 == 0 and 1 or -1) * 0.015
-				nextPos += V(-math.sin(phi), math.cos(phi), 0) * wobble
-				local mid = (prev + nextPos) / 2
-				newPart(headGroup, "BigEyeVein", "Part", V(0.018, 0.018, (nextPos - prev).Magnitude + 0.02), headCF * CFrame.lookAt(mid, nextPos), rgb(190, 30, 40))
-				prev = nextPos
-			end
-		end
 	end
 
 	-- 눈이 여러 개인 도플갱어: 이마, 볼, 코 옆까지 사람 같은 눈이 잔뜩 떠 있어요.
@@ -818,6 +799,42 @@ function Animals.build(data, anomaly)
 	end
 
 	return model
+end
+
+-- 피눈물: 눈동자 바로 밑에서 볼을 타고 주르륵 흘러내려요. (예약 사진의 도플갱어에게 가끔)
+function Animals.addBloodTears(model)
+	local headGroup = model:FindFirstChild("HeadGroup")
+	local head = headGroup and headGroup:FindFirstChild("Head")
+	if not head then
+		return
+	end
+	local radius = head.Size.X / 2
+	local down = -head.CFrame.UpVector
+	local eyes = {}
+	for _, d in ipairs(headGroup:GetChildren()) do
+		if d.Name == "Pupil" or d.Name == "BigPupil" then
+			table.insert(eyes, d)
+		end
+	end
+	for _, eye in ipairs(eyes) do
+		-- 눈알 하나뿐인 도플갱어는 커다란 눈알 표면을 타고 흘러요.
+		local ballPart = eye.Name == "BigPupil" and headGroup:FindFirstChild("BigEyeball") or head
+		local c, r = ballPart.Position, ballPart.Size.X / 2
+		local onHead = function(p)
+			return c + (p - c).Unit * (r + 0.015)
+		end
+		local start = eye.Position + down * (ballPart == head and r * 0.12 or r * 0.5)
+		local prev = onHead(start)
+		local step = r * (ballPart == head and 0.13 or 0.16)
+		for k = 1, 6 do
+			local nextPos = onHead(start + down * (k * step) + head.CFrame.RightVector * math.sin(k * 1.3) * radius * 0.015)
+			local mid = (prev + nextPos) / 2
+			local width = radius * (0.07 - k * 0.004)
+			newPart(headGroup, "BloodTear", "Part", V(width, width * 0.4, (nextPos - prev).Magnitude + 0.02), CFrame.lookAt(mid, nextPos, (mid - c).Unit), BLOOD)
+			prev = nextPos
+		end
+		ball(headGroup, "BloodTearDrop", radius * 0.09, CFrame.new(prev + down * radius * 0.03), BLOOD)
+	end
 end
 
 return Animals

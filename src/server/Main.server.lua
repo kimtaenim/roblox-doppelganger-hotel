@@ -442,6 +442,8 @@ local function runGuest(s, data)
 		fur = data.fur,
 		cloth = data.cloth,
 		photoAnomaly = anomaly and anomaly.where == "photo" and anomaly.kind or nil,
+		-- 가끔 예약 사진 속 도플갱어가 피눈물을 흘려요. (눈이 없는 얼굴, 이미 검은 눈물이 있는 얼굴은 빼고)
+		bloodTears = anomaly ~= nil and anomaly.where == "photo" and anomaly.kind ~= "eyes" and anomaly.kind ~= "noface" and math.random() < 0.4,
 		cctvAnomaly = anomaly and anomaly.where == "cctv" and anomaly.kind or nil,
 		index = s.guestIndex,
 		total = s.guestsTotal,
