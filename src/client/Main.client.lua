@@ -594,7 +594,50 @@ local function fillViewport(view, data, anomaly, cameraCFrame, fov, withFloor)
 	end
 	local model = Animals.build(data, anomaly)
 	model.Parent = view
-	if anomaly == "spring" then
+	if anomaly == "bigeye" then
+		-- 거대한 눈알: 눈동자가 이리저리 굴러다니다가, 갑자기 화면을 딱 쳐다보고 멈춰요.
+		local headGroup = model:FindFirstChild("HeadGroup")
+		local eyeball = headGroup and headGroup:FindFirstChild("BigEyeball")
+		if eyeball then
+			local center = eyeball.Position
+			local forward = headGroup.PrimaryPart.CFrame.LookVector
+			local parts = {}
+			for _, d in ipairs(headGroup:GetChildren()) do
+				if d.Name == "BigIris" or d.Name == "BigIrisRing" or d.Name == "BigPupil" or d.Name == "BigEyeShine" then
+					table.insert(parts, { part = d, cf = d.CFrame })
+				end
+			end
+			-- 화면(카메라) 쪽으로 돌리는 회전 (너무 많이 돌지 않게)
+			local toCamera = (camera.CFrame.Position - center).Unit
+			local axis = forward:Cross(toCamera)
+			local angle = math.min(math.acos(math.clamp(forward:Dot(toCamera), -1, 1)), 0.7)
+			local stare = axis.Magnitude > 1e-3 and CFrame.fromAxisAngle(axis.Unit, angle) or CFrame.new()
+			local t = 0
+			local connection
+			connection = RunService.RenderStepped:Connect(function(dt)
+				if not model.Parent then
+					connection:Disconnect()
+					return
+				end
+				t += dt
+				local cycle = t % 4.5
+				local turn
+				if cycle < 2.8 then
+					-- 두리번두리번: 부드럽게 움직이다가 가끔 휙 튀어요
+					local yaw = math.sin(t * 1.6) * 0.45 + (math.sin(t * 5.3) > 0.85 and 0.25 or 0)
+					local pitch = math.sin(t * 2.2 + 1) * 0.28
+					turn = CFrame.Angles(pitch, yaw, 0)
+				else
+					-- 딱! 화면을 쳐다보고 바르르 떨어요
+					turn = stare * CFrame.Angles(math.sin(t * 40) * 0.01, math.sin(t * 37) * 0.01, 0)
+				end
+				local rot = CFrame.new(center) * turn * CFrame.new(-center)
+				for _, item in ipairs(parts) do
+					item.part.CFrame = rot * item.cf
+				end
+			end)
+		end
+	elseif anomaly == "spring" then
 		-- 용수철 목: 머리가 용수철 위에서 띠용띠용 튕겨요. (화면이 바뀌어 모델이 사라지면 멈춰요)
 		local base = model:GetAttribute("SpringBase")
 		local headGroup = model:FindFirstChild("HeadGroup")
