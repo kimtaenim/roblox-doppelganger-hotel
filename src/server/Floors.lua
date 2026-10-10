@@ -283,6 +283,104 @@ end
 
 local decoRandom = Random.new(2024)
 
+---------------------------------------------------------------- 물고기 (물고기 복도)
+-- 다섯 종류: 흰 띠 흰동가리, 파란 블루탱, 꼬리가 하늘하늘한 금붕어, 줄무늬 엔젤피시, 커다란 비단잉어.
+-- 모두 몸 앞쪽이 -Z 방향이에요. scale 로 크기를 바꿔요.
+Floors.FishKinds = { "clown", "tang", "gold", "angel", "koi" }
+local FISH = {
+	clown = { body = V(0.6, 0.8, 1.6), color = rgb(255, 120, 30), fin = rgb(255, 140, 50), belly = rgb(255, 170, 90) },
+	tang = { body = V(0.45, 1.05, 1.5), color = rgb(40, 95, 225), fin = rgb(30, 70, 190), belly = rgb(90, 150, 240), tail = rgb(255, 215, 40) },
+	gold = { body = V(0.75, 0.85, 1.3), color = rgb(255, 165, 30), fin = rgb(255, 200, 110), belly = rgb(255, 215, 120) },
+	angel = { body = V(0.32, 1.25, 1.1), color = rgb(235, 235, 225), fin = rgb(225, 225, 215), belly = rgb(250, 250, 245) },
+	koi = { body = V(0.7, 0.75, 2.0), color = rgb(250, 248, 240), fin = rgb(245, 240, 235), belly = rgb(255, 255, 250) },
+}
+
+local function buildFish(kind, scale)
+	local spec = FISH[kind]
+	local w, h, l = spec.body.X, spec.body.Y, spec.body.Z
+	local fish = Instance.new("Model")
+	fish.Name = "FlyingFish"
+	local function el(name, size, cf, color, props)
+		local part = P(fish, name, size * scale, CFrame.new(cf.Position * scale) * cf.Rotation, color, Mat.SmoothPlastic, props)
+		Instance.new("SpecialMesh", part).MeshType = Enum.MeshType.Sphere
+		return part
+	end
+	local function ballAt(name, d, pos, color)
+		local part = P(fish, name, V(d, d, d) * scale, pos * scale, color, Mat.SmoothPlastic)
+		part.Shape = Enum.PartType.Ball
+		return part
+	end
+	local shiny = { Reflectance = 0.12 }
+	local body = el("FishBody", spec.body, CFrame.new(), spec.color, shiny)
+	fish.PrimaryPart = body
+	-- 밝은 배
+	el("FishBelly", V(w * 0.96, h * 0.6, l * 0.78), CFrame.new(0, -h * 0.2, -l * 0.04), spec.belly)
+	-- 등지느러미, 배지느러미, 가슴지느러미 (얇은 타원)
+	local finProps = { Transparency = kind == "gold" and 0.2 or 0 }
+	if kind == "angel" then
+		-- 엔젤피시: 위아래로 길게 뻗어 뒤로 휘는 지느러미와 실 같은 배지느러미
+		el("FishFin", V(0.04, h * 0.9, l * 0.55), CFrame.new(0, h * 0.62, l * 0.22) * CFrame.Angles(math.rad(-30), 0, 0), spec.fin)
+		el("FishFin", V(0.04, h * 0.9, l * 0.55), CFrame.new(0, -h * 0.62, l * 0.22) * CFrame.Angles(math.rad(30), 0, 0), spec.fin)
+		for _, sx in ipairs({ -1, 1 }) do
+			el("FishThread", V(0.03, 0.03, 0.9), CFrame.new(sx * 0.05, -h * 0.45, 0.05) * CFrame.Angles(math.rad(-55), 0, 0), spec.fin)
+		end
+	else
+		el("FishFin", V(0.05, h * 0.55, l * 0.5), CFrame.new(0, h * 0.42, l * 0.06) * CFrame.Angles(math.rad(-18), 0, 0), spec.fin, finProps)
+		el("FishFin", V(0.04, h * 0.3, l * 0.28), CFrame.new(0, -h * 0.42, l * 0.2) * CFrame.Angles(math.rad(20), 0, 0), spec.fin, finProps)
+	end
+	for _, sx in ipairs({ -1, 1 }) do
+		el("FishPectoral", V(0.04, h * 0.28, l * 0.3), CFrame.new(sx * w * 0.5, -h * 0.12, -l * 0.08) * CFrame.Angles(0, sx * math.rad(35), sx * math.rad(-20)), spec.fin, finProps)
+	end
+	-- 꼬리: 위아래 두 갈래 (금붕어는 길고 하늘하늘, 잉어도 길게)
+	local tailColor = spec.tail or spec.fin
+	local tailLen = (kind == "gold" and 1.25 or kind == "koi" and 0.9 or 0.62)
+	local tailH = (kind == "gold" and 0.75 or 0.42) * math.max(h, 0.8)
+	for _, sy in ipairs({ -1, 1 }) do
+		el("FishTail", V(0.05, tailH, tailLen), CFrame.new(0, sy * tailH * 0.32, l * 0.5 + tailLen * 0.35) * CFrame.Angles(sy * math.rad(32), 0, 0), tailColor, finProps)
+	end
+	-- 무늬
+	if kind == "clown" then
+		-- 흰 띠 세 줄, 띠 가장자리는 까만 테두리
+		for _, z in ipairs({ -0.45, 0.12, 0.62 }) do
+			local k = math.sqrt(math.max(0.05, 1 - (z / (l / 2)) ^ 2))
+			el("FishStripeEdge", V(w * k + 0.02, h * k + 0.02, 0.27), CFrame.new(0, 0, z), rgb(25, 20, 20))
+			el("FishStripe", V(w * k + 0.04, h * k + 0.04, 0.2), CFrame.new(0, 0, z), rgb(255, 255, 250))
+		end
+	elseif kind == "tang" then
+		-- 몸통 옆의 까만 물결 무늬
+		for _, sx in ipairs({ -1, 1 }) do
+			el("FishMark", V(0.06, h * 0.32, l * 0.62), CFrame.new(sx * w * 0.42, h * 0.12, 0.05) * CFrame.Angles(math.rad(-8), sx * math.rad(8), 0), rgb(15, 20, 45))
+		end
+	elseif kind == "angel" then
+		-- 세로 까만 줄무늬
+		for _, z in ipairs({ -0.25, 0.05, 0.32 }) do
+			local k = math.sqrt(math.max(0.05, 1 - (z / (l / 2)) ^ 2))
+			el("FishStripe", V(w * k + 0.03, h * k + 0.03, 0.09), CFrame.new(0, 0, z), rgb(30, 30, 30))
+		end
+	elseif kind == "koi" then
+		-- 하얀 몸에 주황·빨간 얼룩, 입가의 수염
+		for _, spot in ipairs({ { 0.15, -0.5, 0.55 }, { 0.2, 0.25, 0.6 }, { -0.05, 0.75, 0.4 } }) do
+			el("FishPatch", V(w * 1.03, h * spot[3], l * 0.28), CFrame.new(0, h * spot[1], spot[2]), spot[2] < 0 and rgb(230, 60, 30) or rgb(255, 140, 40))
+		end
+		for _, sx in ipairs({ -1, 1 }) do
+			el("FishWhisker", V(0.03, 0.03, 0.35), CFrame.new(sx * 0.12, -h * 0.18, -l * 0.5 - 0.05) * CFrame.Angles(math.rad(30), sx * math.rad(30), 0), rgb(240, 200, 170))
+		end
+	elseif kind == "gold" then
+		-- 반짝이는 등
+		el("FishShine", V(w * 0.5, h * 0.2, l * 0.4), CFrame.new(0, h * 0.42, -l * 0.08), rgb(255, 230, 160))
+	end
+	-- 크고 동그란 눈 (흰자, 눈동자, 반짝이)과 작은 입
+	for _, sx in ipairs({ -1, 1 }) do
+		local eyePos = V(sx * w * 0.4, h * 0.12, -l * 0.3)
+		ballAt("FishEye", 0.26, eyePos, rgb(250, 250, 250))
+		ballAt("FishPupil", 0.16, eyePos + V(sx * 0.07, 0, -0.02), rgb(10, 10, 15))
+		ballAt("FishEyeShine", 0.06, eyePos + V(sx * 0.12, 0.04, -0.06), rgb(255, 255, 255))
+	end
+	el("FishMouth", V(w * 0.35, h * 0.14, 0.12), CFrame.new(0, -h * 0.05, -l * 0.49), kind == "koi" and rgb(240, 180, 160) or rgb(240, 120, 130))
+	return fish
+end
+Floors.buildFish = buildFish
+
 ---------------------------------------------------------------- 꽃병
 -- 탁자 위의 꽃병. 밤에 몰래 시들거나, 피를 흘리거나, 쓰러지거나, 꽃이 눈알로 바뀌거나, 사라지거나, 떠올라요.
 Floors.VaseKinds = { "wilt", "blood", "tipped", "eyes", "gone", "float" }
@@ -1061,27 +1159,13 @@ function Floors.build(hotel)
 			if on then
 				-- 물고기 떼가 공중을 헤엄쳐 다녀요. 알록달록한 열대어, 커다란 잉어, 해파리까지.
 				local random = Random.new(floor * 41)
-				local COLORS = { rgb(255, 150, 40), rgb(80, 170, 255), rgb(255, 220, 60), rgb(240, 100, 150), rgb(120, 220, 190), rgb(250, 250, 245) }
 				local swimmers = {}
 				for i = 1, 16 do
-					local fish = Instance.new("Model")
-					fish.Name = "FlyingFish"
+					-- 커다란 비단잉어 셋, 나머지는 여러 가지 열대어
 					local big = i <= 3
-					local scale = big and 2.2 or random:NextNumber(0.8, 1.3)
-					local color = big and rgb(240, 120, 40) or COLORS[random:NextInteger(1, #COLORS)]
-					local body = P(fish, "FishBody", V(0.7, 0.9, 1.8) * scale, CFrame.new(), color, Mat.SmoothPlastic, { Reflectance = 0.15 })
-					Instance.new("SpecialMesh", body).MeshType = Enum.MeshType.Sphere
-					fish.PrimaryPart = body
-					-- 꼬리는 마름모를 반쯤 몸에 묻어서 부채꼴처럼, 등지느러미도 작은 마름모, 그리고 눈
-					local finColor = color:Lerp(rgb(255, 255, 255), 0.25)
-					P(fish, "FishTail", V(0.08, 0.75, 0.75) * scale, CFrame.new(0, 0, 1.05 * scale) * CFrame.Angles(math.rad(45), 0, 0), finColor)
-					P(fish, "FishFin", V(0.06, 0.4, 0.4) * scale, CFrame.new(0, 0.42 * scale, 0.15 * scale) * CFrame.Angles(math.rad(45), 0, 0), finColor)
-					for _, side in ipairs({ -1, 1 }) do
-						local eye = P(fish, "FishEye", V(0.22, 0.22, 0.22) * scale, CFrame.new(side * 0.32 * scale, 0.12 * scale, -0.55 * scale), rgb(250, 250, 250))
-						eye.Shape = Enum.PartType.Ball
-						local pupil = P(fish, "FishPupil", V(0.12, 0.12, 0.12) * scale, CFrame.new(side * 0.4 * scale, 0.12 * scale, -0.6 * scale), rgb(10, 10, 15))
-						pupil.Shape = Enum.PartType.Ball
-					end
+					local kind = big and "koi" or Floors.FishKinds[random:NextInteger(1, 4)]
+					local scale = big and 1.9 or random:NextNumber(0.9, 1.4)
+					local fish = buildFish(kind, scale)
 					fish.Parent = ev.folder
 					table.insert(swimmers, {
 						model = fish,
