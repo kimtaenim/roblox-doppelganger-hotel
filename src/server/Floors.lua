@@ -52,7 +52,7 @@ Floors.EventNames = {
 	fish = "물고기가 헤엄쳐 날아다니는 복도",
 	forest = "밤의 숲으로 변한 복도",
 	space = "별이 가득한 우주 공간이 된 복도",
-	mirror = "거울 속 내가 이상한 복도",
+	mirror = "거울 속 내가 다르게 움직이는 복도",
 }
 
 local function floorY(floor)
@@ -685,7 +685,7 @@ function Floors.build(hotel)
 	-- flood: 복도가 검은 물에 잠기고 물건이 떠다녀요
 	-- fish: 물고기 떼가 공중을 헤엄쳐 다녀요 / forest: 복도가 밤의 숲으로 변하고 객실 문만 남아요
 	-- space: 복도가 별이 가득한 우주가 되고, 행성이 돌고 물건들이 무중력으로 떠다녀요
-	-- mirror: 거울 속의 내가 뒤돌아 서 있거나, 아예 비치지 않아요
+	-- mirror: 거울 속의 내가 나와 다르게 움직여요 (늦게 따라 하거나, 혼자 왔다 갔다)
 	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "giant", "balloons", "flood", "fish", "forest", "space", "mirror" }
 
 	-- 움직이는 이상(출렁이는 물, 헤엄치는 물고기, 반딧불): 그 이상이 사라지면 저절로 멈춰요.
@@ -1262,8 +1262,8 @@ function Floors.build(hotel)
 				restoreCorridor(ev, floor)
 			end
 		elseif kind == "mirror" then
-			-- 거울 속 내가 이상해요: 뒤돌아 서 있거나, 아예 비치지 않아요. (복도 끝까지 가서 거울을 봐야 알아요)
-			local strange = on and (math.random() < 0.5 and "back" or "none") or nil
+			-- 거울 속 내가 나와 다르게 움직여요: 1초 늦게 따라 하거나, 혼자 옆으로 왔다 갔다 해요.
+			local strange = on and (math.random() < 0.5 and "late" or "wander") or nil
 			for _, glass in ipairs(api.mirrors[floor] or {}) do
 				glass:SetAttribute("Strange", strange)
 			end

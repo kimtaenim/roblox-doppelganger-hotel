@@ -7,7 +7,9 @@
 --   MirrorDepth: 거울 앞 얼마나 멀리까지 비출지 / MirrorHalfWidth: 거울 앞 좌우로 얼마나 비출지
 --   MirrorHide: 거울 뒤에 원래 있던 것(건물 바깥벽 등)을 이 화면에서 숨겨요
 --   MirrorClip: 거울 너비 밖으로는 그리지 않고 양옆을 검은 칸막이로 막아요 (거울 뒤가 객실일 때)
---   Strange: "back" 이면 거울 속 내가 뒤돌아 서 있고, "none" 이면 사람이 비치지 않아요
+--   Strange: 거울 속 내가 나와 다르게 움직여요.
+--     "late"   이면 거울 속 내가 1초 늦게 따라 움직여요
+--     "wander" 이면 내가 가만히 있어도 거울 속 나는 혼자 옆으로 왔다 갔다 해요
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
@@ -153,6 +155,7 @@ local function refresh(glass, state)
 				copy:Destroy()
 			end
 			state.clones[src] = nil
+			state.history[src] = nil
 		end
 	end
 	-- 거울 속 저 멀리(와 양옆)는 깜깜해요. 이 화면에만 있는 검은 벽이에요.
@@ -180,7 +183,8 @@ local function refresh(glass, state)
 	for src, copy in pairs(state.clones) do
 		if copy then
 			copy.Color = src.Color
-			copy.Transparency = math.max(src.Transparency, src.LocalTransparencyModifier)
+			-- 1인칭으로 보면 내 몸이 내 화면에서 투명해지지만, 거울 속 나는 그대로 보여야 해요.
+			copy.Transparency = characterOf(src) and src.Transparency or math.max(src.Transparency, src.LocalTransparencyModifier)
 			for _, light in ipairs(copy:GetChildren()) do
 				if light:IsA("Light") then
 					local orig = src:FindFirstChild(light.Name)
@@ -227,15 +231,32 @@ local function update(glass, state)
 			local size = src.Size
 			local charModel = characterOf(src)
 			if charModel then
-				if strange == "none" then
-					cf = CFrame.new(0, -1000, 0) -- 사람은 비치지 않아요
-				elseif strange == "back" then
-					-- 거울 속 내가 뒤돌아 서 있어요 (몸 중심을 축으로 반 바퀴)
-					local hrp = charModel:FindFirstChild("HumanoidRootPart")
-					if hrp then
-						local center = reflectCFrame(hrp.CFrame, origin, n).Position
-						cf = CFrame.new(center) * CFrame.Angles(0, math.pi, 0) * CFrame.new(-center) * cf
+				-- 사람의 지난 1.5초 움직임을 기억해 둬요 ("late" 에 써요)
+				local now = os.clock()
+				local history = state.history[src]
+				if not history then
+					history = {}
+					state.history[src] = history
+				end
+				table.insert(history, { t = now, cf = src.CFrame })
+				while #history > 2 and history[2].t < now - 1.5 do
+					table.remove(history, 1)
+				end
+				if strange == "late" then
+					-- 거울 속 내가 1초 늦게 따라 해요
+					local past = history[1].cf
+					for _, h in ipairs(history) do
+						if h.t <= now - 1 then
+							past = h.cf
+						else
+							break
+						end
 					end
+					cf = reflectCFrame(past, origin, n)
+				elseif strange == "wander" then
+					-- 내가 가만히 있어도 거울 속 나는 혼자 옆으로 왔다 갔다 해요
+					local swing = math.sin(now * 0.8) * (clipping and 1.2 or 2.5)
+					cf = cf + right * swing
 				end
 			elseif clipping then
 				cf, size = clip(cf, size, src, origin, right, halfWidth)
@@ -277,7 +298,7 @@ RunService.RenderStepped:Connect(function()
 				local folder = Instance.new("Folder")
 				folder.Name = "Mirror"
 				folder.Parent = root
-				state = { folder = folder, clones = {}, hidden = {}, lastRefresh = 0 }
+				state = { folder = folder, clones = {}, hidden = {}, history = {}, lastRefresh = 0 }
 				actives[glass] = state
 			end
 			local now = os.clock()
