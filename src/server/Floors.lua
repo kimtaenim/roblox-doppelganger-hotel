@@ -1,8 +1,9 @@
 -- 2층~4층 객실 복도를 만들어요. (밤 순찰과 룸서비스 배달을 하는 곳)
 -- 1층 로비처럼 꾸몄어요: 청록 줄무늬 벽지, 원목 벽판, 대리석 바닥, 빨간 러너 카펫.
--- 층마다 긴 복도 양쪽에 객실 문이 6개씩 (01~12호), 복도 끝에는 화분이 놓여 있어요.
+-- 층마다 긴 복도 양쪽에 객실 문이 6개씩 (01~12호), 복도 끝 창문 밖에는 키 큰 침엽수가 있어요.
 -- 복도 동쪽 끝은 작은 층 로비(소파, 화분, 샹들리에)이고, 엘리베이터로 층 사이를 오가요.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 local Animals = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Animals"))
 local Props = require(script.Parent:WaitForChild("Props"))
 
@@ -52,6 +53,7 @@ Floors.EventNames = {
 	fish = "물고기가 헤엄쳐 날아다니는 복도",
 	forest = "밤의 숲으로 변한 복도",
 	space = "별이 가득한 우주 공간이 된 복도",
+	tree = "창밖 나무가 이상한 복도 (붉은 눈 열매, 숨은 얼굴)",
 }
 
 local function floorY(floor)
@@ -115,6 +117,115 @@ local function wallSegment(parent, y, x0, x1, z, side)
 	Props.solid(parent, "CorridorWall", V(x1 - x0, WALL_H, 0.5), V(mid, y + WALL_H / 2, z + side * 0.25), TEAL, Mat.Fabric)
 	local face = CFrame.lookAt(V(mid, y, z), V(mid, y, z - side))
 	dressWall(parent, face, x1 - x0, WALL_H)
+end
+
+---------------------------------------------------------------- 복도 끝 창문과 창밖 침엽수
+-- 복도 끝 벽 가운데 창문. 창밖에는 키 큰 침엽수 한 그루가 있어서 층마다 보이는 부분이 달라요.
+-- (2층은 넓은 아랫가지, 3층은 가운데, 4층은 뾰족한 꼭대기와 달)
+local WIN_HALF_W = 1.8
+local WIN_BOTTOM, WIN_TOP = 3.25, 9.25 -- 복도 높이 가운데를 기준으로 위아래가 같아요 (뒤집힌 복도에서도 창문 자리가 그대로)
+local TREE_X, TREE_BASE, TREE_TOP = -41, 6, 62
+
+local function buildWindowWall(level, y)
+	local wallX = -29.15
+	local W = WIN_HALF_W * 2
+	for _, side in ipairs({ -1, 1 }) do
+		local width = HALF - WIN_HALF_W
+		local z = side * (WIN_HALF_W + width / 2)
+		Props.solid(level, "WestEnd", V(0.5, WALL_H, width), V(wallX, y + WALL_H / 2, z), TEAL, Mat.Fabric)
+		dressWall(level, CFrame.lookAt(V(-28.9, y, z), V(-27.9, y, z)), width, WALL_H)
+	end
+	-- 창문 아래: 원목 벽판과 창턱
+	Props.solid(level, "WestEnd", V(0.5, WIN_BOTTOM, W), V(wallX, y + WIN_BOTTOM / 2, 0), WOOD, Mat.Wood)
+	P(level, "Baseboard", V(0.4, 0.5, W), V(-29.1, y + 0.25, 0), WOOD_DARK, Mat.Wood)
+	P(level, "WindowSill", V(0.7, 0.22, W + 0.7), V(-28.85, y + WIN_BOTTOM - 0.05, 0), WOOD_DARK, Mat.Wood)
+	-- 창문 위: 벽지와 천장 몰딩
+	local topH = WALL_H - WIN_TOP
+	Props.solid(level, "WestEnd", V(0.5, topH, W), V(wallX, y + WIN_TOP + topH / 2, 0), TEAL, Mat.Fabric)
+	P(level, "Crown", V(0.5, 0.7, W), V(-29.15, y + WALL_H - 0.35, 0), WOOD_DARK, Mat.Wood)
+	-- 창틀, 십자 창살, 유리
+	local midY = y + (WIN_BOTTOM + WIN_TOP) / 2
+	local h = WIN_TOP - WIN_BOTTOM
+	for _, sz in ipairs({ -1, 1 }) do
+		P(level, "WindowFrame", V(0.4, h + 0.4, 0.25), V(-28.95, midY, sz * (WIN_HALF_W + 0.05)), WOOD_DARK, Mat.Wood)
+		P(level, "WindowFrame", V(0.4, 0.25, W + 0.35), V(-28.95, midY + sz * (h / 2 + 0.05), 0), WOOD_DARK, Mat.Wood)
+	end
+	P(level, "WindowBar", V(0.2, h, 0.12), V(-29.1, midY, 0), WOOD_DARK, Mat.Wood)
+	P(level, "WindowBar", V(0.2, 0.12, W), V(-29.1, midY + 0.6, 0), WOOD_DARK, Mat.Wood)
+	Props.solid(level, "WindowGlass", V(0.08, h, W), V(-29.2, midY, 0), rgb(170, 190, 215), Mat.Glass, { Transparency = 0.82 })
+end
+
+-- 호텔 바깥벽(서쪽)에도 같은 자리에 창문 구멍을 뚫어요.
+local function cutOutsideWall(hotel)
+	local structure = hotel:FindFirstChild("Structure")
+	if not structure then
+		return
+	end
+	for _, floor in ipairs(FLOOR_LIST) do
+		local y = floorY(floor)
+		local y0, y1 = y + WIN_BOTTOM, y + WIN_TOP
+		for _, wall in ipairs(structure:GetChildren()) do
+			if wall.Name == "LeftWall" and wall:IsA("BasePart") and wall.Size.Z > 30 then
+				local bottom, top = wall.Position.Y - wall.Size.Y / 2, wall.Position.Y + wall.Size.Y / 2
+				if bottom <= y0 and top >= y1 then
+					local x, d = wall.Position.X, wall.Size.Z
+					local function piece(zMin, zMax, yMin, yMax)
+						local p = wall:Clone()
+						p.Size = V(wall.Size.X, yMax - yMin, zMax - zMin)
+						p.CFrame = CFrame.new(x, (yMin + yMax) / 2, (zMin + zMax) / 2)
+						p.Parent = structure
+					end
+					piece(-d / 2, -WIN_HALF_W, bottom, top)
+					piece(WIN_HALF_W, d / 2, bottom, top)
+					piece(-WIN_HALF_W, WIN_HALF_W, bottom, y0)
+					piece(-WIN_HALF_W, WIN_HALF_W, y1, top)
+					wall:Destroy()
+				end
+			end
+		end
+	end
+end
+
+-- 침엽수의 높이 h 에서 가지 반지름
+local function treeRadius(h)
+	local k = math.clamp((h - TREE_BASE) / (TREE_TOP - TREE_BASE), 0, 1)
+	return 8 * (1 - k) ^ 0.9 + 0.6
+end
+
+local function buildTree(parent)
+	local tree = Instance.new("Model")
+	tree.Name = "WindowTree"
+	tree.Parent = parent
+	Props.vcyl(tree, "TreeTrunk", TREE_TOP - 6, 2.2, V(TREE_X, (TREE_TOP - 6) / 2, 0), rgb(60, 42, 30), Mat.Wood)
+	-- 층층이 아래로 처진 바늘잎 가지: 가운데 덩어리 + 사방으로 뻗어 끝이 처진 가지
+	local i = 0
+	for h = TREE_BASE, TREE_TOP - 1, 2.8 do
+		i += 1
+		local r = treeRadius(h)
+		local green = i % 2 == 0 and rgb(32, 72, 46) or rgb(26, 62, 40)
+		local core = P(tree, "TreeTier", V(r * 1.1, 2.6, r * 1.1), CFrame.new(TREE_X, h, 0), green:Lerp(rgb(0, 0, 0), 0.2), Mat.Grass)
+		Instance.new("SpecialMesh", core).MeshType = Enum.MeshType.Sphere
+		local count = r > 4 and 9 or (r > 2 and 7 or 5)
+		for k = 1, count do
+			local a = (k / count) * math.pi * 2 + i * 0.5
+			local branch = P(tree, "TreeBranch", V(r * 1.05, 0.9, math.max(1, r * 0.55)), CFrame.new(TREE_X, h, 0) * CFrame.Angles(0, a, 0) * CFrame.new(r * 0.5, -0.5, 0) * CFrame.Angles(0, 0, -0.38), k % 2 == 0 and green or green:Lerp(rgb(60, 110, 70), 0.15), Mat.Grass)
+			Instance.new("SpecialMesh", branch).MeshType = Enum.MeshType.Sphere
+		end
+	end
+	local tip = P(tree, "TreeTip", V(1.2, 3.2, 1.2), CFrame.new(TREE_X, TREE_TOP + 0.6, 0), rgb(32, 72, 46), Mat.Grass)
+	Instance.new("SpecialMesh", tip).MeshType = Enum.MeshType.Sphere
+	-- 층마다 창밖을 비추는 푸른 달빛, 그리고 하늘의 달
+	for _, floor in ipairs(FLOOR_LIST) do
+		local glow = P(tree, "TreeMoonlight", V(0.3, 0.3, 0.3), V(-34.5, floorY(floor) + 8, 0), rgb(255, 255, 255), Mat.Neon, { Transparency = 1 })
+		local light = Instance.new("PointLight")
+		light.Color = rgb(170, 190, 255)
+		light.Range = 14
+		light.Brightness = 1.4
+		light.Shadows = true
+		light.Parent = glow
+	end
+	local moon = P(tree, "Moon", V(9, 9, 9), V(-150, 85, 25), rgb(240, 240, 220), Mat.Neon)
+	moon.Shape = Enum.PartType.Ball
 end
 
 -- 복도 벽 한 줄: 문 자리만 비워 두고 이어 붙여요.
@@ -527,6 +638,8 @@ function Floors.build(hotel)
 	folder.Name = "Floors"
 	folder.Parent = hotel
 	local lights = hotel:FindFirstChild("Lights") or folder
+	cutOutsideWall(hotel)
+	buildTree(folder)
 
 	local api = { elevatorLamps = {}, List = FLOOR_LIST, rooms = {}, exits = {}, elevatorPrompts = {}, figures = {}, portraits = {}, vases = {}, events = {}, levels = {}, lamps = {}, signs = {}, chairs = {}, chandeliers = {} }
 	api.exits[1] = CFrame.lookAt(V(24.5, 3.5, -2), V(18, 3.5, -2))
@@ -562,10 +675,8 @@ function Floors.build(hotel)
 		-- 벽
 		corridorWall(level, y, -1)
 		corridorWall(level, y, 1)
-		Props.solid(level, "WestEnd", V(0.5, WALL_H, HALF * 2), V(-29.15, y + WALL_H / 2, 0), TEAL, Mat.Fabric)
-		dressWall(level, CFrame.lookAt(V(-28.9, y, 0), V(-27.9, y, 0)), HALF * 2, WALL_H)
-		-- 복도 끝: 커다란 화분 하나와 작은 화분 둘
-		Props.plant(level, V(-27.7, y, 0), 4.4)
+		-- 복도 끝: 창문 (창밖에 침엽수), 창문 양옆에 화분
+		buildWindowWall(level, y)
 		for _, side in ipairs({ -1, 1 }) do
 			Props.plant(level, V(-27.9, y, side * 3.4), 3)
 		end
@@ -705,7 +816,8 @@ function Floors.build(hotel)
 	-- flood: 복도가 검은 물에 잠기고 물건이 떠다녀요
 	-- fish: 물고기 떼가 공중을 헤엄쳐 다녀요 / forest: 복도가 밤의 숲으로 변하고 객실 문만 남아요
 	-- space: 복도가 별이 가득한 우주가 되고, 행성이 돌고 물건들이 무중력으로 떠다녀요
-	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "giant", "balloons", "flood", "fish", "forest", "space" }
+	-- tree: 창밖 침엽수에 붉은 눈알이 열매처럼 열려 깜빡이며 노려보거나, 가지 사이에 커다란 얼굴이 숨어 있어요
+	api.EventKinds = { "blood", "eyes", "flip", "red", "doors", "crowd", "giant", "balloons", "flood", "fish", "forest", "space", "tree" }
 
 	-- 움직이는 이상(출렁이는 물, 헤엄치는 물고기, 반딧불): 그 이상이 사라지면 저절로 멈춰요.
 	local function animate(ev, step)
@@ -1265,6 +1377,85 @@ function Floors.build(hotel)
 				ev.anim = (ev.anim or 0) + 1
 				ev.folder:ClearAllChildren()
 				restoreCorridor(ev, floor)
+			end
+		elseif kind == "tree" then
+			if on then
+				-- 창밖 나무가 이상해요. 이 층 창문 높이의 가지에만 생겨요.
+				--   eyes: 붉은 눈알이 열매처럼 주렁주렁, 깜빡깜빡하며 나를 노려봐요
+				--   face: 가지 사이에 커다란 얼굴이 숨어서 히죽 웃으며 들여다봐요
+				local random = Random.new(floor * 97 + math.random(1, 1000))
+				local variant = random:NextNumber() < 0.6 and "eyes" or "face"
+				local eyes = {}
+				local function makeEye(center, size, iris)
+					local white = P(ev.folder, "TreeEyeWhite", V(size, size, size), CFrame.new(center), rgb(245, 235, 225))
+					white.Shape = Enum.PartType.Ball
+					local red = P(ev.folder, "TreeEyeIris", V(size * 0.6, size * 0.6, size * 0.6), CFrame.new(center), iris, Mat.Neon)
+					red.Shape = Enum.PartType.Ball
+					local pupil = P(ev.folder, "TreeEyePupil", V(size * 0.3, size * 0.3, size * 0.3), CFrame.new(center), rgb(10, 5, 5))
+					pupil.Shape = Enum.PartType.Ball
+					table.insert(eyes, { center = center, size = size, parts = { white, red, pupil }, red = red, pupil = pupil, blinkAt = random:NextNumber(0.5, 4) })
+				end
+				local function onTree(h, angle, out)
+					local r = treeRadius(h) + (out or 0)
+					return V(TREE_X + math.cos(angle) * r, h, math.sin(angle) * r)
+				end
+				if variant == "eyes" then
+					for _ = 1, 16 do
+						local h = y + random:NextNumber(WIN_BOTTOM - 1.5, WIN_TOP + 2)
+						makeEye(onTree(h, random:NextNumber(-1.1, 1.1), 0.1), random:NextNumber(0.7, 1.2), rgb(230, 20, 25))
+					end
+				else
+					local h = y + (WIN_BOTTOM + WIN_TOP) / 2
+					local face = onTree(h, 0, 0.2)
+					for _, sz in ipairs({ -1, 1 }) do
+						makeEye(face + V(0, 0.9, sz * 1.3), 1.5, rgb(255, 200, 40))
+					end
+					-- 히죽 웃는 입: 까만 입과 뾰족한 이빨
+					local mouth = P(ev.folder, "TreeMouth", V(0.4, 1.1, 3.6), CFrame.new(face + V(0.1, -1, 0)), rgb(10, 5, 8))
+					Instance.new("SpecialMesh", mouth).MeshType = Enum.MeshType.Sphere
+					for k = -3, 3 do
+						for _, up in ipairs({ 1, -1 }) do
+							local tooth = Instance.new("WedgePart")
+							tooth.Name = "TreeTooth"
+							tooth.Size = V(0.1, 0.4, 0.35)
+							tooth.CFrame = CFrame.new(face + V(0.3, -1 + up * 0.35, k * 0.42)) * CFrame.Angles(up > 0 and math.pi or 0, math.rad(90), 0)
+							tooth.Color = rgb(240, 235, 210)
+							tooth.Anchored = true
+							tooth.CanCollide = false
+							tooth.Parent = ev.folder
+						end
+					end
+				end
+				animate(ev, function(t)
+					-- 이 층에 있는 가장 가까운 사람을 노려봐요
+					local target = nil
+					local best = math.huge
+					for _, player in ipairs(Players:GetPlayers()) do
+						local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+						if root and math.abs(root.Position.Y - (y + 3)) < 7 then
+							local d = (root.Position - V(TREE_X, y, 0)).Magnitude
+							if d < best then
+								target, best = root.Position + V(0, 1.5, 0), d
+							end
+						end
+					end
+					for _, e in ipairs(eyes) do
+						local dir = target and (target - e.center).Unit or V(1, 0, 0)
+						e.red.CFrame = CFrame.new(e.center + dir * e.size * 0.25)
+						e.pupil.CFrame = CFrame.new(e.center + dir * e.size * 0.4)
+						-- 깜빡! (잠깐 감았다 떠요)
+						local closed = t >= e.blinkAt and t < e.blinkAt + 0.2
+						if t >= e.blinkAt + 0.2 then
+							e.blinkAt = t + random:NextNumber(1.5, 5)
+						end
+						for _, part in ipairs(e.parts) do
+							part.Transparency = closed and 1 or 0
+						end
+					end
+				end)
+			else
+				ev.anim = (ev.anim or 0) + 1
+				ev.folder:ClearAllChildren()
 			end
 		elseif kind == "space" then
 			if on then

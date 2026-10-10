@@ -45,7 +45,7 @@ local Config = {
 		{ day = 2, doppel = { "teeth", "mouth", "eyes" }, floor = { "eyes", "red", "blood" } },
 		{ day = 3, doppel = { "moving" }, floor = { "doors", "fish" } },
 		{ day = 4, doppel = { "body", "bigeye" }, floor = { "balloons", "forest" } },
-		{ day = 5, doppel = { "noface" }, floor = { "flip" } },
+		{ day = 5, doppel = { "noface" }, floor = { "flip", "tree" } },
 		{ day = 6, doppel = { "manyeyes", "zipper" }, floor = { "crowd", "space" } },
 		{ day = 7, doppel = { "upside" }, floor = { "giant" } },
 		{ day = 8, doppel = { "spring" }, floor = { "flood" } },
