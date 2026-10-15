@@ -21,36 +21,105 @@ local MACHINE_SLOTS = {
 local BAG_SPOT = CFrame.new(-11, 4.05, 17.2)
 
 ---------------------------------------------------------------- 음료 기계
--- base 의 -Z 쪽이 앞면이에요.
+-- 고급 호텔 뷔페의 음료 스테이션: 원목 장식장 위 대리석 카운터에 유리 음료 디스펜서 두 개와 크리스털 잔,
+-- 뒤쪽에는 불이 켜진 유리 진열장 속 병들, 맨 위에는 금빛 간판. base 의 -Z 쪽이 앞면이에요.
+local MARBLE = rgb(235, 230, 222)
+local GOLD = rgb(205, 165, 80)
 local function buildMachine(parent, index, base)
 	local machine = Instance.new("Model")
 	machine.Name = "DrinkMachine" .. index
 	local function at(x, y, z)
 		return base * CFrame.new(x, y, z)
 	end
-	S(machine, "Body", V(3.4, 7, 2.4), at(0, 3.5, 0), rgb(95, 22, 28), Mat.Metal)
-	local panel = P(machine, "DisplayLight", V(2.1, 4.1, 0.05), at(-0.4, 4.4, -0.95), rgb(255, 220, 170), Mat.Neon)
+	local function vc(name, height, diameter, x, y, z, color, material, props)
+		local part = vcyl(machine, name, height, diameter, at(x, y, z).Position, color, material)
+		if props then
+			for key, value in pairs(props) do
+				part[key] = value
+			end
+		end
+		return part
+	end
+
+	-- 받침과 아래 장식장 (문 두 짝, 놋쇠 손잡이)
+	S(machine, "Plinth", V(3.6, 0.45, 2.6), at(0, 0.22, 0), WOOD_DARK, Mat.Wood)
+	P(machine, "KickStrip", V(3.62, 0.08, 2.62), at(0, 0.47, 0), GOLD, Mat.Metal)
+	S(machine, "Body", V(3.4, 3, 2.4), at(0, 2, 0), WOOD, Mat.Wood)
+	for _, sx in ipairs({ -1, 1 }) do
+		P(machine, "CabinetDoor", V(1.45, 2.5, 0.08), at(sx * 0.78, 2, -1.23), WOOD_DARK, Mat.Wood)
+		P(machine, "DoorInset", V(1.1, 2.1, 0.06), at(sx * 0.78, 2, -1.28), WOOD, Mat.Wood)
+		P(machine, "DoorHandle", V(0.08, 0.6, 0.08), at(sx * 0.15, 2.2, -1.33), GOLD, Mat.Metal)
+	end
+	-- 대리석 카운터와 금빛 테두리
+	S(machine, "Counter", V(3.7, 0.22, 2.7), at(0, 3.61, -0.05), MARBLE, Mat.Marble)
+	P(machine, "CounterEdge", V(3.72, 0.06, 2.72), at(0, 3.48, -0.05), GOLD, Mat.Metal)
+
+	-- 뒤쪽 유리 진열장: 따뜻하게 빛나는 뒷판, 유리 선반 두 칸, 그 위의 병들
+	S(machine, "Hutch", V(3.4, 3.3, 0.2), at(0, 5.37, 1.1), WOOD_DARK, Mat.Wood)
+	local back = P(machine, "DisplayLight", V(3.0, 2.9, 0.05), at(0, 5.35, 0.98), rgb(255, 214, 160), Mat.Neon, { Transparency = 0.35 })
 	local glow = Instance.new("PointLight")
-	glow.Range = 10
-	glow.Brightness = 0.9
-	glow.Color = rgb(255, 170, 130)
-	glow.Parent = panel
-	local colors = { rgb(200, 40, 40), rgb(60, 140, 70), rgb(230, 190, 60), rgb(80, 100, 190) }
-	for row = 0, 3 do
-		for col = 0, 2 do
-			vcyl(machine, "Bottle", 0.8, 0.35, (at(-1.1 + col * 0.7, 2.9 + row * 1.0, -1.05)).Position, colors[row + 1], Mat.Glass)
+	glow.Range = 11
+	glow.Brightness = 1.1
+	glow.Color = rgb(255, 200, 140)
+	glow.Parent = back
+	for _, sx in ipairs({ -1, 1 }) do
+		S(machine, "HutchSide", V(0.2, 3.3, 1.2), at(sx * 1.6, 5.37, 0.5), WOOD_DARK, Mat.Wood)
+		P(machine, "HutchTrim", V(0.06, 3.3, 0.06), at(sx * 1.48, 5.37, -0.1), GOLD, Mat.Metal)
+	end
+	local BOTTLE_COLORS = { rgb(40, 120, 70), rgb(190, 120, 40), rgb(150, 20, 40), rgb(230, 235, 240), rgb(60, 90, 160) }
+	for shelf = 0, 1 do
+		local y = 4.0 + shelf * 1.45
+		P(machine, "GlassShelf", V(3.0, 0.06, 1.0), at(0, y, 0.5), rgb(220, 235, 240), Mat.Glass, { Transparency = 0.4 })
+		P(machine, "ShelfTrim", V(3.0, 0.05, 0.05), at(0, y, 0.0), GOLD, Mat.Metal)
+		for k = 0, 4 do
+			local x = -1.15 + k * 0.58
+			local color = BOTTLE_COLORS[(k + shelf * 2) % #BOTTLE_COLORS + 1]
+			vc("Bottle", 0.75, 0.32, x, y + 0.42, 0.55, color, Mat.Glass, { Transparency = 0.15 })
+			vc("BottleShoulder", 0.12, 0.24, x, y + 0.84, 0.55, color, Mat.Glass, { Transparency = 0.15 })
+			vc("BottleNeck", 0.3, 0.11, x, y + 1.0, 0.55, color, Mat.Glass, { Transparency = 0.1 })
+			vc("BottleCap", 0.08, 0.13, x, y + 1.17, 0.55, GOLD, Mat.Metal)
+			P(machine, "BottleLabel", V(0.26, 0.26, 0.02), at(x, y + 0.42, 0.38), rgb(245, 238, 220))
 		end
 	end
-	P(machine, "Glass", V(2.2, 4.2, 0.1), at(-0.4, 4.4, -1.22), rgb(220, 230, 235), Mat.Glass, { Transparency = 0.55 })
-	P(machine, "SidePanel", V(0.9, 4.2, 0.1), at(1.2, 4.4, -1.22), rgb(30, 25, 25), Mat.Metal)
-	ball(machine, "ButtonRed", 0.2, (at(1.2, 5.2, -1.3)).Position, rgb(220, 40, 40), Mat.Neon)
-	ball(machine, "ButtonGreen", 0.2, (at(1.2, 4.7, -1.3)).Position, rgb(60, 220, 90), Mat.Neon)
-	P(machine, "CoinSlot", V(0.1, 0.4, 0.05), at(1.2, 4.0, -1.29), rgb(10, 10, 10))
-	local logo = P(machine, "Logo", V(3.2, 0.9, 0.1), at(0, 6.5, -1.22), rgb(160, 20, 30), Mat.Neon)
-	text(logo, Enum.NormalId.Front, "SPIRIT TONIC · 정신 회복 음료", rgb(255, 235, 200), Enum.Font.GothamBlack)
-	local tray = P(machine, "Tray", V(2, 0.8, 0.1), at(-0.4, 1.0, -1.22), rgb(15, 12, 12), Mat.Metal)
-	local stock = P(machine, "StockLabel", V(0.9, 0.5, 0.06), at(1.2, 2.4, -1.25), rgb(10, 10, 10))
-	text(stock, Enum.NormalId.Front, "", rgb(120, 255, 140), Enum.Font.Code)
+	P(machine, "DisplayGlass", V(3.0, 2.9, 0.06), at(0, 5.35, -0.1), rgb(225, 235, 240), Mat.Glass, { Transparency = 0.75 })
+	-- 맨 위 장식 몰딩과 금빛 간판
+	S(machine, "Crown", V(3.8, 0.35, 1.5), at(0, 7.17, 0.45), WOOD_DARK, Mat.Wood)
+	P(machine, "CrownTrim", V(3.82, 0.06, 1.52), at(0, 7.0, 0.45), GOLD, Mat.Metal)
+	local logo = P(machine, "Logo", V(2.6, 0.55, 0.06), at(0, 7.65, 0.2), rgb(25, 18, 14), Mat.SmoothPlastic)
+	P(machine, "LogoFrame", V(2.75, 0.7, 0.04), at(0, 7.65, 0.24), GOLD, Mat.Metal)
+	P(machine, "LogoStand", V(0.5, 0.15, 0.3), at(0, 7.35, 0.3), GOLD, Mat.Metal)
+	text(logo, Enum.NormalId.Front, "Spirit Tonic · 정신 회복 음료", GOLD, Enum.Font.Garamond)
+
+	-- 카운터 위: 크리스털 음료 디스펜서 두 개 (레몬 홍차, 베리 에이드)
+	local DRINKS = { { x = -1.1, liquid = rgb(205, 130, 40), fruit = rgb(250, 225, 80) }, { x = -0.05, liquid = rgb(225, 90, 130), fruit = rgb(150, 20, 60) } }
+	for _, drink in ipairs(DRINKS) do
+		local x, z = drink.x, -0.45
+		vc("DispenserStand", 0.35, 0.95, x, 3.9, z, GOLD, Mat.Metal)
+		vc("DispenserGlass", 1.15, 0.8, x, 4.65, z, rgb(230, 240, 245), Mat.Glass, { Transparency = 0.7 })
+		vc("DispenserDrink", 0.9, 0.7, x, 4.52, z, drink.liquid, Mat.Glass, { Transparency = 0.25 })
+		for k = 0, 2 do
+			local fruit = cyl(machine, "FruitSlice", 0.05, 0.3, at(x + (k - 1) * 0.16, 4.32 + k * 0.24, z - 0.1) * CFrame.Angles(0, math.rad(90), math.rad(20 * k)), drink.fruit, Mat.SmoothPlastic)
+			fruit.CanCollide = false
+		end
+		vc("DispenserLid", 0.14, 0.85, x, 5.28, z, GOLD, Mat.Metal)
+		ball(machine, "DispenserKnob", 0.18, at(x, 5.42, z).Position, GOLD, Mat.Metal)
+		P(machine, "Tap", V(0.12, 0.12, 0.3), at(x, 4.2, z - 0.5), GOLD, Mat.Metal)
+		P(machine, "TapHandle", V(0.06, 0.25, 0.06), at(x, 4.35, z - 0.62), GOLD, Mat.Metal)
+	end
+	-- 크리스털 잔 탑
+	for k, pos in ipairs({ { 0.95, 0 }, { 1.3, 0 }, { 1.12, 0.2 } }) do
+		local y = 3.92 + (k == 3 and 0.42 or 0)
+		vc("CrystalGlass", 0.4, 0.28, pos[1], y, -0.55 + pos[2] * 0.0, rgb(235, 245, 250), Mat.Glass, { Transparency = 0.55 })
+	end
+	-- 앞쪽 은쟁반 (음료를 챙기는 곳) 위의 음료 한 잔과 냅킨
+	local tray = P(machine, "Tray", V(1.1, 0.06, 0.6), at(0.9, 3.75, -1.0), rgb(210, 210, 215), Mat.Metal)
+	vc("ServedGlass", 0.4, 0.26, 0.75, 3.98, -1.0, rgb(235, 245, 250), Mat.Glass, { Transparency = 0.5 })
+	vc("ServedDrink", 0.28, 0.22, 0.75, 3.92, -1.0, rgb(225, 90, 130), Mat.Glass, { Transparency = 0.2 })
+	P(machine, "Napkin", V(0.35, 0.03, 0.35), at(1.15, 3.8, -1.0) * CFrame.Angles(0, math.rad(20), 0), rgb(250, 248, 240), Mat.Fabric)
+	-- 남은 잔 수 표시: 장식장 문 위 금테 두른 작은 명패
+	P(machine, "StockFrame", V(1.1, 0.5, 0.04), at(0, 3.15, -1.24), GOLD, Mat.Metal)
+	local stock = P(machine, "StockLabel", V(1.0, 0.4, 0.06), at(0, 3.15, -1.27), rgb(20, 16, 14))
+	text(stock, Enum.NormalId.Front, "", rgb(120, 255, 140), Enum.Font.Garamond)
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "DrinkPrompt"
